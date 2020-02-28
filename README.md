@@ -17,7 +17,7 @@ White, yellow, orange and red regions represent nodamage, minor damage, major da
 ### Install
 Install PyTorch=1.4 following the [official instructions](https://pytorch.org/).
 
-Please refer to 'submission/Dockerfile'
+Please refer to [submission/Dockerfile](submission/Dockerfile)
 
 ### Train and test
 Please batch size in configuration file(dual-hrnet.yaml) for your environment.
@@ -28,13 +28,14 @@ python train_net.py --config_file configs/dual-hrnet.yaml \
                     --ckpt_save_dir=PATH_TO_SAVE_CHECKPOINTS
 ````
 
-Test to submit xView2 evaluation server
+Test
 ````bash
 python test_net.py --config_file configs/dual-hrnet.yaml \
                    --ckpt_path=PATH_TO_LOAD_CHECKPOINTS
 ````
 
-
+##License
+Dual-HRNet is released under the MIT license(LICENSE).
 
 ## Acknowledgement
 We modified code based on HRNet Semantic Segmentation(https://github.com/HRNet/HRNet-Semantic-Segmentation)
