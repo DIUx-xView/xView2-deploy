@@ -35,7 +35,7 @@ python test_net.py --config_file configs/dual-hrnet.yaml \
 ````
 
 ## License
-Dual-HRNet is released under the MIT license(LICENSE).
+Dual-HRNet is released under the [MIT license](LICENSE).
 
 ## Acknowledgement
 We modified code based on HRNet Semantic Segmentation(https://github.com/HRNet/HRNet-Semantic-Segmentation)
