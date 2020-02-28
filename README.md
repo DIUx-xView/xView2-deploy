@@ -34,7 +34,7 @@ python test_net.py --config_file configs/dual-hrnet.yaml \
                    --ckpt_path=PATH_TO_LOAD_CHECKPOINTS
 ````
 
-##License
+## License
 Dual-HRNet is released under the MIT license(LICENSE).
 
 ## Acknowledgement
