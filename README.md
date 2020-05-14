@@ -34,8 +34,8 @@ python test_net.py --config_file configs/dual-hrnet.yaml \
                    --ckpt_path=PATH_TO_LOAD_CHECKPOINTS
 ````
 
-##License
-Dual-HRNet is released under the MIT license(LICENSE).
+## License
+Dual-HRNet is released under the [MIT license](LICENSE).
 
 ## Acknowledgement
 We modified code based on HRNet Semantic Segmentation(https://github.com/HRNet/HRNet-Semantic-Segmentation)
