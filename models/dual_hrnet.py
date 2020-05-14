@@ -593,21 +593,14 @@ class DualHRNet(nn.Module):
             self.fpn_loc = None
             self.fpn_cls = None
 
-        last_inp_channel = None
-        if self.is_use_aspp:
-            if self.is_use_fpn:
-                last_inp_channel = self.loc_net.stage4_cfg['NUM_CHANNELS'][0] // 2 * 5
-            else:
-                last_inp_channel = self.loc_net.sum_stage4_channels // 4 * 5
-
         if self.is_split_loss:
-            self.loc_net.mask_last_layer(last_inp_channel)
-            self.cls_net.mask_last_layer(last_inp_channel)
+            self.loc_net.mask_last_layer()
+            self.cls_net.mask_last_layer()
         else:
             self.fuse_last = self._make_fuse_layer([n_ch * 2 for n_ch in self.loc_net.stage4_cfg['NUM_CHANNELS']],
                                                    self.loc_net.stage4_cfg['NUM_CHANNELS'],
                                                    config)
-            self.loc_net.mask_last_layer(last_inp_channel)
+            self.loc_net.mask_last_layer()
 
         self.is_disaster_prediction = config.MODEL.IS_DISASTER_PRED
         if self.is_disaster_prediction:
@@ -763,10 +756,6 @@ class DualHRNet(nn.Module):
             # Upsampling
             x_pre = self._upsampling(x_pre_list, self.fpn_loc)
             x_post = self._upsampling(x_post_list, self.fpn_cls)
-
-            if self.is_use_aspp:
-                x_pre = self.aspp_loc(x_pre)
-                x_post = self.aspp_cls(x_post)
         else:
             x_cat_list = self._concat_features(x_pre_list, x_post_list)
             x_pre_list = self._forward_fuse_layer(x_cat_list, self.fuse_last)
