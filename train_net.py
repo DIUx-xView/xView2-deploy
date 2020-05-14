@@ -127,7 +127,6 @@ def main():
     model = get_model(config)
     model_loss = ModelLossWraper(model,
                                  config.TRAIN.CLASS_WEIGHTS,
-                                 config.MODEL.IS_ONLY_CLS,
                                  config.MODEL.IS_DISASTER_PRED,
                                  config.MODEL.IS_SPLIT_LOSS,
                                  )
