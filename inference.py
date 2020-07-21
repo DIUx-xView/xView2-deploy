@@ -28,7 +28,7 @@ parser.add_argument('--model_weight_path', type=str, default='weights/weight.pth
 parser.add_argument('--is_use_gpu', action='store_true', dest='is_use_gpu')
 parser.add_argument('--is_vis', action='store_true', dest='is_vis')
 
-args = parser.parse_args()
+arguments = parser.parse_args()
 
 
 class ModelWraper(nn.Module):
@@ -77,7 +77,7 @@ def build_image_transforms():
     ])
 
 
-def main():
+def main(args):
     config = CfgNode.load_cfg(open(args.model_config_path, 'rb'))
     ckpt_path = args.model_weight_path
 
@@ -128,4 +128,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(arguments)
