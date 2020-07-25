@@ -14,6 +14,7 @@ def main():
     file_valid_check(pre_files, post_files)
 
 
+
 def get_files(where, which='*.png'):
 
     rule = re.compile(fnmatch.translate(which), re.IGNORECASE)

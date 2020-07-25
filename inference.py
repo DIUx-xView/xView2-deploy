@@ -18,17 +18,35 @@ from models.dual_hrnet import get_model
 multiprocessing.set_start_method('spawn', True)
 warnings.filterwarnings("ignore")
 
-parser = argparse.ArgumentParser()
-parser.add_argument('in_pre_path', type=str, default='test_images/test_pre_00000.png')
-parser.add_argument('in_post_path', type=str, default='test_images/test_post_00000.png')
-parser.add_argument('out_loc_path', type=str, default='test_images/test_loc_00000.png')
-parser.add_argument('out_cls_path', type=str, default='test_images/test_cls_00000.png')
-parser.add_argument('--model_config_path', type=str, default='configs/model.yaml')
-parser.add_argument('--model_weight_path', type=str, default='weights/weight.pth')
-parser.add_argument('--is_use_gpu', action='store_true', dest='is_use_gpu')
-parser.add_argument('--is_vis', action='store_true', dest='is_vis')
 
-arguments = parser.parse_args()
+class Options(object):
+
+    def __init__(self, pre_path='input/pre', post_path='input/post',
+                 out_loc_path='output/loc', out_dmg_path='output/dmg',
+                 model_config='configs/model.yaml', model_weights='weights/weight.pth',
+                 use_gpu=False, vis=False):
+        self.in_pre_path = pre_path
+        self.in_post_path = post_path
+        self.out_loc_path = out_loc_path
+        self.out_cls_path = out_dmg_path
+        self.model_config_path = model_config
+        self.model_weight_path = model_weights
+        self.is_use_gpu = use_gpu
+        self.is_vis = vis
+
+def parse_cli_args():
+    # TODO: Unsure if this works. Moved to a function to allow direct passing of args.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('in_pre_path', type=str, default='test_images/test_pre_00000.png')
+    parser.add_argument('in_post_path', type=str, default='test_images/test_post_00000.png')
+    parser.add_argument('out_loc_path', type=str, default='test_images/test_loc_00000.png')
+    parser.add_argument('out_cls_path', type=str, default='test_images/test_cls_00000.png')
+    parser.add_argument('--model_config_path', type=str, default='configs/model.yaml')
+    parser.add_argument('--model_weight_path', type=str, default='weights/weight.pth')
+    parser.add_argument('--is_use_gpu', action='store_true', dest='is_use_gpu')
+    parser.add_argument('--is_vis', action='store_true', dest='is_vis')
+
+    return parser.parse_args()
 
 
 class ModelWraper(nn.Module):
@@ -128,4 +146,5 @@ def main(args):
 
 
 if __name__ == '__main__':
+    arguments = Options
     main(arguments)
