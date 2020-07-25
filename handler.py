@@ -21,8 +21,11 @@ def get_files(where, which='*.png'):
 
 
 def file_valid_check(pre, post):
+
     if len(pre) != len(post):
         return False
+    else:
+        return True
 
 
 
