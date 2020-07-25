@@ -2,15 +2,17 @@ import fnmatch
 import os
 import re
 
-pre_in_folder = 'sample_data/input/pre'
-post_in_folder = 'sample_data/input/post'
-output_folder = 'sample_data/output'
+PRE_DIR = 'sample_data/input/pre'
+POST_DIR = 'sample_data/input/post'
+OUTPUT_DIR = 'sample_data/output'
 
 
 def main():
-    pre_files = get_files(pre_in_folder)
-    post_files = get_files(post_in_folder)
+
+    pre_files = get_files(PRE_DIR)
+    post_files = get_files(POST_DIR)
     file_valid_check(pre_files, post_files)
+
 
 def get_files(where, which='*.png'):
 
