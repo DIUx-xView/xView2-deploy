@@ -53,7 +53,7 @@ class TestFilesClass(unittest.TestCase):
         self.assertTrue(self.test_object)
 
     def test_base_num_match(self):
-        self.assertTrue(self.test_object.check_base_num())
+        self.assertTrue(self.test_object.check_extent())
 
 
 class TestInference(unittest.TestCase):

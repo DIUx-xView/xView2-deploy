@@ -14,14 +14,15 @@ class Files(object):
     def __init__(self, pre, post):
         self.pre = os.path.abspath(os.path.join(PRE_DIR, pre))
         self.post = os.path.abspath(os.path.join(POST_DIR, post))
-        self.base_num = self.check_base_num()
+        self.base_num = self.check_extent()
         self.output_loc = os.path.abspath(os.path.join(OUTPUT_DIR, 'loc', f'{self.base_num}_loc.png'))
         self.output_dmg = os.path.abspath(os.path.join(OUTPUT_DIR, 'dmg', f'{self.base_num}_dmg.png'))
 
-    def check_base_num(self):
+    def check_extent(self):
         """
-        Checks that the number sequence matches for both the pre and post images. This should ensure the pre and post
-        images cover the same extent.
+        Check that our pre and post are the same extent
+        Note:
+        Currently only checks that the number sequence matches for both the pre and post images.
         :return: True if numbers match
         """
         pre_base = ''.join([digit for digit in self.pre if digit.isdigit()])
