@@ -17,6 +17,7 @@ class Files(object):
         self.base_num = self.check_extent()
         self.output_loc = os.path.abspath(os.path.join(OUTPUT_DIR, 'loc', f'{self.base_num}_loc.png'))
         self.output_dmg = os.path.abspath(os.path.join(OUTPUT_DIR, 'dmg', f'{self.base_num}_dmg.png'))
+        self.opts = inference.Options(self.pre, self.post, self.output_loc, self.output_dmg)
 
     def check_extent(self):
         """
@@ -35,8 +36,6 @@ class Files(object):
         Passes object to inference.
         :return: True if successful
         """
-
-        self.opts = inference.Options(self.pre, self.post, self.output_loc, self.output_dmg),
 
         try:
             # TODO: Not sure why opts seems to be a list.
