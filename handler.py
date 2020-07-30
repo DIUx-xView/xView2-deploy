@@ -3,6 +3,8 @@ import os
 import re
 
 import inference
+# TODO: Clean up directory structure
+# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> convert to PNG/JPG --> hand off to inference --> georef outputs
 
 PRE_DIR = 'test_dir/input/pre'
 POST_DIR = 'test_dir/input/post'
@@ -77,7 +79,13 @@ def get_files(where, which='*.png'):
     rule = re.compile(fnmatch.translate(which), re.IGNORECASE)
     return [name for name in os.listdir(where) if rule.match(name)]
 
+    # TODO: Try this:
+    #  search_criteria = "L*.tif"
+    #  q = os.path.join(dirpath, search_criteria)
 
+    # TODO: Check for zero files return
+
+# TODO: Rename me!
 def string_len_check(pre, post):
 
     if len(pre) != len(post):

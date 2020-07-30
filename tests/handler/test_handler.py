@@ -1,20 +1,18 @@
 import unittest
-import os
 
-import inference
 import handler
 
 
 class TestGetFiles(unittest.TestCase):
 
     def test_get_files(self):
-        self.path = 'input/post'
+        self.path = '../data/input/post'
         self.result = handler.get_files(self.path)
         self.list_pre = ['hurricane-matthew_00000351_post_disaster.png']
         self.assertEqual(self.list_pre, self.result)
 
     def test_get_files_mixed_case(self):
-        self.path = 'input/pre'
+        self.path = '../data/input/pre'
         self.result = handler.get_files(self.path)
         self.list_pre = ['hurricane-matthew_00000351_pre_disaster.PNG']
         self.assertEqual(self.list_pre, self.result)
@@ -54,16 +52,3 @@ class TestFilesClass(unittest.TestCase):
 
     def test_base_num_match(self):
         self.assertTrue(self.test_object.check_extent())
-
-
-class TestInference(unittest.TestCase):
-
-    def setUp(self):
-        self.opts = inference.Options('sample_data/input/pre')
-
-    def test_passed_path(self):
-        self.assertEqual('sample_data/input/pre', self.opts.in_pre_path)
-        self.assertFalse(self.opts.is_vis)
-
-    def test_default_path(self):
-        self.assertEqual('input/post', self.opts.in_post_path)
