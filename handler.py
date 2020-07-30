@@ -1,4 +1,5 @@
 import fnmatch
+import glob
 import os
 import re
 
@@ -64,28 +65,17 @@ def main():
     for obj in file_objs:
         obj.infer()
 
+
 def make_output_structure(path):
     pass
 
 
-def get_files(where, which='*.png'):
-    """
-    Gathers list of files from path
-    :param where: Path to search
-    :param which: string to match (default: *.png)
-    :return: List of files in path matching rule
-    """
+def get_files(dirname, extensions=['.png', '.tif'], recursive=True):
+    files = glob.glob(f'{dirname}/**', recursive=recursive)
+    match = [file for file in files if os.path.splitext(file)[1].lower() in extensions]
+    return match
 
-    rule = re.compile(fnmatch.translate(which), re.IGNORECASE)
-    return [name for name in os.listdir(where) if rule.match(name)]
 
-    # TODO: Try this:
-    #  search_criteria = "L*.tif"
-    #  q = os.path.join(dirpath, search_criteria)
-
-    # TODO: Check for zero files return
-
-# TODO: Rename me!
 def string_len_check(pre, post):
 
     if len(pre) != len(post):
