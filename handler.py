@@ -72,7 +72,7 @@ def make_output_structure(path):
 
 def get_files(dirname, extensions=['.png', '.tif'], recursive=True):
     files = glob.glob(f'{dirname}/**', recursive=recursive)
-    match = [file for file in files if os.path.splitext(file)[1].lower() in extensions]
+    match = [os.path.abspath(file) for file in files if os.path.splitext(file)[1].lower() in extensions]
     return match
 
 
