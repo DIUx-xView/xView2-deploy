@@ -5,6 +5,7 @@ import warnings
 import copy
 
 import numpy as np
+import tifffile
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -111,8 +112,12 @@ def main(args):
 
     image_transforms = build_image_transforms()
 
-    pre_image = imread(args.in_pre_path)
-    post_image = imread(args.in_post_path)
+    if config.DATASET.IS_TIFF:
+        pre_image = tifffile.imread(args.in_pre_path)
+        post_image = tifffile.imread(args.in_post_path)
+    else:
+        pre_image = imread(args.in_pre_path)
+        post_image = imread(args.in_post_path)
 
     inputs_pre = image_transforms(pre_image)
     inputs_post = image_transforms(post_image)
