@@ -29,3 +29,12 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
         dest.write(mosaic)
 
     return os.path.abspath(out_file)
+
+
+def get_intersect(*args):
+
+    rasterio.open(args[0])
+
+
+def create_chips(in_raster, out_dir):
+    pass

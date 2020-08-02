@@ -28,3 +28,21 @@ class TestCreateMosaic(unittest.TestCase):
     def test_correct_extent(self):
         self.src = rasterio.open(self.result)
         self.assertEqual((355207.8, 4110082.2), self.src.transform * (0, 0))
+
+
+class TestGetIntersect(unittest.TestCase):
+
+    def test_intersect_extent(self):
+        self.intersect = raster_processing.get_intersect()
+        self.assertEqual((0, 0), self.intersect('../data/output/test_mosaic.tif'))
+
+
+# class TestCreateChips(unittest.TestCase):
+#
+#     def setUp(self):
+#         self.out_dir = '../data/output/chips/test_chips'
+#         self.mosaic = TestCreateMosaic()
+#         self.in_mosaic = self.mosaic.result
+#
+#     def test_chip_exist(self):
+#         self.assertEqual(0, len())
