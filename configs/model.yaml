@@ -75,6 +75,7 @@ LOSS:
 DATASET:
   ROOT: ''
   DATASET: 'cityscapes'
+  IS_TIFF: False
   NUM_CLASSES: 4
   TRAIN_SET: 'list/cityscapes/train.lst'
   EXTRA_TRAIN_SET: ''
