@@ -6,6 +6,15 @@ import raster_processing
 import handler
 
 
+class TestReproject(unittest.TestCase):
+
+    def test_reproject(self):
+        self.in_file = '../data/input/pre/MO-2/2008/200804_missouri_west_mo_0x6000m_utm_clr/vol056/3709460ne.tif'
+        self.dest_file = '../data/output/resample.tif'
+        self.result = raster_processing.reproject(self.in_file, self.dest_file)
+        self.test = rasterio.open(self.dest_file).crs
+        self.assertEqual('EPSG:4326', self.test)
+
 class TestCreateMosaic(unittest.TestCase):
 
     def setUp(self):
