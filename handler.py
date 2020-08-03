@@ -2,12 +2,54 @@ import glob
 import os
 
 import inference
+from raster_processing import *
 # TODO: Clean up directory structure
 # TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
-PRE_DIR = 'test_dir/input/pre'
-POST_DIR = 'test_dir/input/post'
-OUTPUT_DIR = 'test_dir/output'
+PRE_DIR = 'tests/data/input/pre'
+POST_DIR = 'tests/data/input/post'
+# TODO: Should we clear this directory first?
+STAGING_DIR = 'tests/data/input/staging'
+OUTPUT_DIR = 'tests/data/output'
+
+
+def main():
+
+    pre_files = get_files(PRE_DIR)
+    post_files = get_files(POST_DIR)
+
+    # TODO: Can be removed after chip creation is implemented
+    #string_len_check(pre_files, post_files)
+
+    pre_reproj = []
+    post_reproj = []
+
+    for file in pre_files:
+        basename = os.path.splitext(os.path.split(file)[1])
+        dest_file = os.path.join(STAGING_DIR, 'pre', f'{basename[0]}.tif')
+
+        # Use try to discard images that are not geo images
+        try:
+            pre_reproj.append(reproject(file, dest_file))
+        except:
+            pass
+
+    for file in post_files:
+        basename = os.path.splitext(os.path.split(file)[1])
+        dest_file = os.path.join(STAGING_DIR, 'post', f'{basename[0]}.tif')
+        post_reproj.append(reproject(file, dest_file))
+
+        # Use try to discard images that are not geo images
+        try:
+            pre_reproj.append(reproject(file, dest_file))
+        except:
+            pass
+
+    pre_mosaic = create_mosaic(pre_reproj, os.path.join(STAGING_DIR, 'mosaics', 'pre.tif'))
+    post_mosaic = create_mosaic(post_reproj, os.path.join(STAGING_DIR, 'mosaics', 'post.tif'))
+
+    extent = get_intersect(pre_mosaic, post_mosaic)
+    print(extent)
 
 
 class Files(object):
@@ -51,24 +93,11 @@ class Files(object):
         pass
 
 
-def main():
-
-    pre_files = sorted(get_files(PRE_DIR))
-    post_files = sorted(get_files(POST_DIR))
-    string_len_check(pre_files, post_files)
-    file_objs = []
-    for pre, post in zip(pre_files, post_files):
-        file_objs.append(Files(pre, post))
-
-    for obj in file_objs:
-        obj.infer()
-
-
 def make_output_structure(path):
     pass
 
 
-def get_files(dirname, extensions=['.png', '.tif'], recursive=True):
+def get_files(dirname, extensions=['.png', '.tif', '.jpg'], recursive=True):
     files = glob.glob(f'{dirname}/**', recursive=recursive)
     match = [os.path.abspath(file) for file in files if os.path.splitext(file)[1].lower() in extensions]
     return match

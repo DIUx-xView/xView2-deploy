@@ -2,7 +2,6 @@ import rasterio
 import rasterio.merge
 import rasterio.plot
 import rasterio.warp
-import subprocess
 import os
 
 
@@ -12,7 +11,7 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
         transform, width, height = rasterio.warp.calculate_default_transform(src.crs, dest_crs, src.width, src.height, *src.bounds)
         kwargs = src.meta.copy()
         kwargs.update({
-            'driver': src.driver,
+            'driver': 'GTiff',
             'crs': dest_crs,
             'transform': transform,
             'width': width,
@@ -29,7 +28,7 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
                     dst_crs=dest_crs,
                     resampling=rasterio.warp.Resampling.nearest)
 
-    return True
+    return os.path.abspath(dest_file)
 
 
 def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
@@ -38,7 +37,8 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
     mosaic, out_trans = rasterio.merge.merge(src_files)
 
-    # rasterio.plot.show(mosaic, cmap='terrain')
+    # TODO: make this an option
+    rasterio.plot.show(mosaic, cmap='terrain')
 
     out_meta = src_files[0].meta.copy()
 
