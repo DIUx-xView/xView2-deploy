@@ -38,9 +38,8 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
     mosaic, out_trans = rasterio.merge.merge(src_files)
 
-    rasterio.plot.show(mosaic, cmap='terrain')
+    # rasterio.plot.show(mosaic, cmap='terrain')
 
-    # TODO: Add in metadata: https://automating-gis-processes.github.io/CSC18/lessons/L6/raster-mosaic.html
     out_meta = src_files[0].meta.copy()
 
     out_meta.update({"driver": "GTiff",
@@ -57,12 +56,19 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
 
 def get_intersect(*args):
+    """
+
+    :param args:
+    :return: Tuple of intersect extent in (left, bottom, right, top, (resx, resy))
+    """
     # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
 
     left = []
     bottom = []
     right = []
     top = []
+    resx = []
+    resy = []
 
     for arg in args:
         raster = rasterio.open(arg)
@@ -70,8 +76,10 @@ def get_intersect(*args):
         bottom.append(raster.bounds[1])
         right.append(raster.bounds[2])
         top.append(raster.bounds[3])
+        resx.append(raster.res[0])
+        resy.append(raster.res[1])
 
-    intersect = (max(left), max(bottom), min(right), min(top))
+    intersect = (max(left), max(bottom), min(right), min(top), (max(resx), max(resy)))
 
     return intersect
 

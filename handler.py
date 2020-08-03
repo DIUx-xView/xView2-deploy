@@ -1,7 +1,5 @@
-import fnmatch
 import glob
 import os
-import re
 
 import inference
 # TODO: Clean up directory structure
