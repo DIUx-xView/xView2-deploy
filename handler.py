@@ -5,7 +5,7 @@ import re
 
 import inference
 # TODO: Clean up directory structure
-# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> convert to PNG/JPG --> hand off to inference --> georef outputs
+# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
 PRE_DIR = 'test_dir/input/pre'
 POST_DIR = 'test_dir/input/post'

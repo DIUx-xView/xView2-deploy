@@ -47,8 +47,6 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
                      "height": mosaic.shape[1],
                      "width": mosaic.shape[2],
                      "transform": out_trans,
-                     # TODO: Should be in ESPG 4326 due to reprojecting input files.
-                     #"crs": "+proj=latlong"
                      }
                     )
 
@@ -59,9 +57,25 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
 
 def get_intersect(*args):
+    # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
 
-    rasterio.open(args[0])
+    left = []
+    bottom = []
+    right = []
+    top = []
+
+    for arg in args:
+        raster = rasterio.open(arg)
+        left.append(raster.bounds[0])
+        bottom.append(raster.bounds[1])
+        right.append(raster.bounds[2])
+        top.append(raster.bounds[3])
+
+    intersect = (max(left), max(bottom), min(right), min(top))
+
+    return intersect
 
 
 def create_chips(in_raster, out_dir):
+    # https://gis.stackexchange.com/questions/367832/using-rasterio-to-crop-image-using-pixel-coordinates-instead-of-geographic-coord
     pass
