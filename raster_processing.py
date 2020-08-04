@@ -1,8 +1,8 @@
-import rasterasterio
-import rasterasterio.merge
-import rasterasterio.plot
-import rasterasterio.warp
-from rasterasterio import windows
+import rasterio
+import rasterio.merge
+import rasterio.plot
+import rasterio.warp
+from rasterio import windows
 from itertools import product
 
 import os
@@ -10,8 +10,8 @@ import os
 
 def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
 
-    with rasterasterio.open(in_file) as src:
-        transform, width, height = rasterasterio.warp.calculate_default_transform(src.crs, dest_crs, src.width, src.height, *src.bounds)
+    with rasterio.open(in_file) as src:
+        transform, width, height = rasterio.warp.calculate_default_transform(src.crs, dest_crs, src.width, src.height, *src.bounds)
         kwargs = src.meta.copy()
         kwargs.update({
             'driver': 'GTiff',
@@ -20,28 +20,28 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
             'width': width,
             'height': height
         })
-        with rasterasterio.open(dest_file, 'w', **kwargs) as dst:
+        with rasterio.open(dest_file, 'w', **kwargs) as dst:
             for i in range(1, src.count + 1):
-                rasterasterio.warp.reproject(
-                    source=rasterasterio.band(src, i),
-                    destination=rasterasterio.band(dst, i),
+                rasterio.warp.reproject(
+                    source=rasterio.band(src, i),
+                    destination=rasterio.band(dst, i),
                     src_transform=src.transform,
                     src_crs=src.crs,
                     dst_transform=transform,
                     dst_crs=dest_crs,
-                    resampling=rasterasterio.warp.Resampling.nearest)
+                    resampling=rasterio.warp.Resampling.nearest)
 
     return os.path.abspath(dest_file)
 
 
 def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
-    src_files = [rasterasterio.open(file) for file in in_files]
+    src_files = [rasterio.open(file) for file in in_files]
 
-    mosaic, out_trans = rasterasterio.merge.merge(src_files)
+    mosaic, out_trans = rasterio.merge.merge(src_files)
 
     # TODO: make this an option
-    rasterasterio.plot.show(mosaic, cmap='terrain')
+    rasterio.plot.show(mosaic, cmap='terrain')
 
     out_meta = src_files[0].meta.copy()
 
@@ -52,7 +52,7 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
                      }
                     )
 
-    with rasterasterio.open(out_file, "w", **out_meta) as dest:
+    with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
 
     return os.path.abspath(out_file)
@@ -74,7 +74,7 @@ def get_intersect(*args):
     resy = []
 
     for arg in args:
-        raster = rasterasterio.open(arg)
+        raster = rasterio.open(arg)
         left.append(raster.bounds[0])
         bottom.append(raster.bounds[1])
         right.append(raster.bounds[2])
