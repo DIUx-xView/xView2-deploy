@@ -62,7 +62,7 @@ def get_intersect(*args):
     """
 
     :param args:
-    :return: Tuple of intersect extent in (left, bottom, right, top, (resx, resy))
+    :return: Tuple of intersect extent in (left, bottom, right, top)
     """
     # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
 
@@ -70,8 +70,6 @@ def get_intersect(*args):
     bottom = []
     right = []
     top = []
-    resx = []
-    resy = []
 
     for arg in args:
         raster = rasterio.open(arg)
@@ -79,15 +77,13 @@ def get_intersect(*args):
         bottom.append(raster.bounds[1])
         right.append(raster.bounds[2])
         top.append(raster.bounds[3])
-        resx.append(raster.res[0])
-        resy.append(raster.res[1])
 
-    intersect = (max(left), max(bottom), min(right), min(top), (max(resx), max(resy)))
+    intersect = (max(left), max(bottom), min(right), min(top))
 
     return intersect
 
 
-def create_chips(in_raster, out_dir):
+def create_chips(in_raster, out_dir, intersect):
 
     output_filename = 'tile_{}-{}.tif'
 
