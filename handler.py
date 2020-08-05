@@ -1,6 +1,4 @@
 import glob
-import os
-
 import inference
 from raster_processing import *
 # TODO: Clean up directory structure
@@ -47,9 +45,12 @@ def main():
 
     pre_mosaic = create_mosaic(pre_reproj, os.path.join(STAGING_DIR, 'mosaics', 'pre.tif'))
     post_mosaic = create_mosaic(post_reproj, os.path.join(STAGING_DIR, 'mosaics', 'post.tif'))
-
     extent = get_intersect(pre_mosaic, post_mosaic)
     print(extent)
+    create_chips(pre_mosaic, '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/chips/pre')
+    create_chips(post_mosaic, '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/chips/post')
+
+    # TODO: Create our package object
 
 
 class Files(object):

@@ -1,6 +1,7 @@
 import rasterio
 import rasterio.merge
 import rasterio.warp
+import rasterio.plot
 from rasterio import windows
 from itertools import product
 
@@ -40,7 +41,6 @@ def create_mosaic(in_files, out_file='output/staging/mosaic.tif', plot=False):
     mosaic, out_trans = rasterio.merge.merge(src_files)
 
     if plot:
-        import rasterio.plot
         rasterio.plot.show(mosaic, cmap='terrain')
 
     out_meta = src_files[0].meta.copy()
@@ -100,7 +100,6 @@ def create_chips(in_raster, out_dir, intersect):
     output_filename = 'tile_{}-{}.tif'
 
     def get_tiles(ds, width=1024, height=1024):
-        #nols, nrows = ds.meta['width'], ds.meta['height']
         intersect_window = get_intersect_win(ds, intersect)
         offsets = product(range(intersect_window.col_off, intersect_window.width, width),
                           range(intersect_window.row_off, intersect_window.height, height))
