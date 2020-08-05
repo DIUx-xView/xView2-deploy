@@ -83,19 +83,31 @@ def get_intersect(*args):
     return intersect
 
 
+def get_intersect_win(rio_obj, intersect):
+
+    xy_ul = rasterio.transform.rowcol(rio_obj.transform, intersect[0], intersect[3])
+    xy_lr = rasterio.transform.rowcol(rio_obj.transform, intersect[2], intersect[1])
+
+    int_window = rasterio.windows.Window(xy_ul[1], xy_ul[0],
+                                         abs(xy_ul[0] - xy_lr[0]),
+                                         abs(xy_ul[1] - xy_lr[1]))
+
+    return int_window
+
+
 def create_chips(in_raster, out_dir, intersect):
 
     output_filename = 'tile_{}-{}.tif'
 
     def get_tiles(ds, width=1024, height=1024):
-        nols, nrows = ds.meta['width'], ds.meta['height']
-        offsets = product(range(0, nols, width), range(0, nrows, height))
-        big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
+        #nols, nrows = ds.meta['width'], ds.meta['height']
+        intersect_window = get_intersect_win(ds, intersect)
+        offsets = product(range(intersect_window.col_off, intersect_window.width, width),
+                          range(intersect_window.row_off, intersect_window.height, height))
         for col_off, row_off in offsets:
-            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(big_window)
+            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height)
             transform = windows.transform(window, ds.transform)
             yield window, transform
-
 
     with rasterio.open(in_raster) as inds:
         tile_width, tile_height = 1024, 1024

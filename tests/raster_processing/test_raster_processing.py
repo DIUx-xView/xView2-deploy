@@ -15,6 +15,7 @@ class TestReproject(unittest.TestCase):
         self.test = rasterio.open(self.result).crs
         self.assertEqual('EPSG:4326', self.test)
 
+
 class TestCreateMosaic(unittest.TestCase):
 
     def setUp(self):
@@ -46,6 +47,16 @@ class TestGetIntersect(unittest.TestCase):
             '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/input/pre/MO-2/2008/200804_missouri_west_mo_0x6000m_utm_clr/vol056/3709460ne.tif',
             '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/input/post/jpg/may24C365000e4105000n.jpg'
         ))
+
+
+class TestGetIntersectWin(unittest.TestCase):
+
+    def test_get_intersect_win(self):
+        self.intersect = (-94.62862733666518, 36.997318285256874, -94.55892307170559, 37.06518001454033)
+        self.mosaic = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/test_mosaic.tif'
+        self.test = 'Window(col_off=211, row_off=10114, width=10853, height=11148)'
+        self.result = raster_processing.get_intersect_win(self.mosaic, self.intersect)
+        self.assertEqual(self.test, self.result)
 
 
 # class TestCreateChips(unittest.TestCase):
