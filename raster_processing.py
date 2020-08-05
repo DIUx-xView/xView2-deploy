@@ -1,6 +1,5 @@
 import rasterio
 import rasterio.merge
-import rasterio.plot
 import rasterio.warp
 from rasterio import windows
 from itertools import product
@@ -34,14 +33,15 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
     return os.path.abspath(dest_file)
 
 
-def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
+def create_mosaic(in_files, out_file='output/staging/mosaic.tif', plot=False):
 
     src_files = [rasterio.open(file) for file in in_files]
 
     mosaic, out_trans = rasterio.merge.merge(src_files)
 
-    # TODO: make this an option
-    rasterio.plot.show(mosaic, cmap='terrain')
+    if plot:
+        import rasterio.plot
+        rasterio.plot.show(mosaic, cmap='terrain')
 
     out_meta = src_files[0].meta.copy()
 
