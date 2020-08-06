@@ -4,6 +4,9 @@ import rasterio.warp
 import rasterio.plot
 from rasterio import windows
 from itertools import product
+from tqdm import tqdm
+
+import gdal_merge
 
 import os
 
@@ -36,25 +39,7 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
 
 def create_mosaic(in_files, out_file='output/staging/mosaic.tif', plot=False):
 
-    src_files = [rasterio.open(file) for file in in_files]
-
-    mosaic, out_trans = rasterio.merge.merge(src_files)
-
-    if plot:
-        rasterio.plot.show(mosaic, cmap='terrain')
-
-    out_meta = src_files[0].meta.copy()
-
-    out_meta.update({"driver": "GTiff",
-                     "height": mosaic.shape[1],
-                     "width": mosaic.shape[2],
-                     "transform": out_trans,
-                     }
-                    )
-
-    with rasterio.open(out_file, "w", **out_meta) as dest:
-        dest.write(mosaic)
-
+    gdal_merge.run(out_file, in_files, pre_init=[255])
     return os.path.abspath(out_file)
 
 
@@ -95,30 +80,27 @@ def get_intersect_win(rio_obj, intersect):
     return int_window
 
 
-def create_chips(in_raster, out_dir, intersect):
-
+def create_chips(in_raster, out_dir):
     output_filename = 'tile_{}-{}.tif'
 
-    def get_tiles(ds, width=1024, height=1024):
-        intersect_window = get_intersect_win(ds, intersect)
-        offsets = product(range(intersect_window.col_off, intersect_window.width, width),
-                          range(intersect_window.row_off, intersect_window.height, height))
-        for col_off, row_off in offsets:
-            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height)
+    def get_tiles(ds, width=256, height=256):
+        nols, nrows = ds.meta['width'], ds.meta['height']
+        offsets = product(range(0, nols, width), range(0, nrows, height))
+        big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
+        for col_off, row_off in  offsets:
+            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(big_window)
             transform = windows.transform(window, ds.transform)
             yield window, transform
 
+
     with rasterio.open(in_raster) as inds:
-        tile_width, tile_height = 1024, 1024
+        tile_width, tile_height = 256, 256
 
         meta = inds.meta.copy()
-        print(meta)
 
         for window, transform in get_tiles(inds):
-            print(window)
             meta['transform'] = transform
             meta['width'], meta['height'] = window.width, window.height
             outpath = os.path.join(out_dir,output_filename.format(int(window.col_off), int(window.row_off)))
             with rasterio.open(outpath, 'w', **meta) as outds:
-                print(outds.meta)
                 outds.write(inds.read(window=window))

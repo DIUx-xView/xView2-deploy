@@ -1,28 +1,35 @@
 import glob
 import inference
 from raster_processing import *
+
+import sys
+
+from tqdm import tqdm
+
+
 # TODO: Clean up directory structure
 # TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
-PRE_DIR = 'tests/data/input/pre'
-POST_DIR = 'tests/data/input/post'
+PRE_DIR = '/Users/rgupta/Downloads/data/input/pre'
+POST_DIR = '/Users/rgupta/Downloads/data/input/post'
 # TODO: Should we clear this directory first?
-STAGING_DIR = 'tests/data/input/staging'
-OUTPUT_DIR = 'tests/data/output'
+STAGING_DIR = '/Users/rgupta/Downloads/data/input/staging'
+OUTPUT_DIR = '/Users/rgupta/Downloads/data/output'
 
 
 def main():
 
     pre_files = get_files(PRE_DIR)
     post_files = get_files(POST_DIR)
+    print("Got files")
 
     # TODO: Can be removed after chip creation is implemented
-    #string_len_check(pre_files, post_files)
+    #assert string_len_check(pre_files, post_files)
 
     pre_reproj = []
     post_reproj = []
 
-    for file in pre_files:
+    for file in tqdm(pre_files):
         basename = os.path.splitext(os.path.split(file)[1])
         dest_file = os.path.join(STAGING_DIR, 'pre', f'{basename[0]}.tif')
 
@@ -32,23 +39,24 @@ def main():
         except:
             pass
 
-    for file in post_files:
+    for file in tqdm(post_files):
         basename = os.path.splitext(os.path.split(file)[1])
         dest_file = os.path.join(STAGING_DIR, 'post', f'{basename[0]}.tif')
-        post_reproj.append(reproject(file, dest_file))
 
         # Use try to discard images that are not geo images
         try:
-            pre_reproj.append(reproject(file, dest_file))
+            post_reproj.append(reproject(file, dest_file))
         except:
             pass
 
+    print("Creating pre mosaic")
     pre_mosaic = create_mosaic(pre_reproj, os.path.join(STAGING_DIR, 'mosaics', 'pre.tif'))
+    print("Creating post mosaic")
     post_mosaic = create_mosaic(post_reproj, os.path.join(STAGING_DIR, 'mosaics', 'post.tif'))
     extent = get_intersect(pre_mosaic, post_mosaic)
     print(extent)
-    create_chips(pre_mosaic, '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/chips/pre')
-    create_chips(post_mosaic, '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/chips/post')
+    create_chips(pre_mosaic, '/Users/rgupta/Downloads/data/output/chips/pre')
+    create_chips(post_mosaic, '/Users/rgupta/Downloads/data/output/chips/post')
 
     # TODO: Create our package object
 
