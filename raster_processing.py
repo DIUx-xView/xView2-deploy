@@ -83,7 +83,7 @@ def get_intersect_win(rio_obj, intersect):
 def create_chips(in_raster, out_dir):
     output_filename = 'tile_{}-{}.tif'
 
-    def get_tiles(ds, width=256, height=256):
+    def get_tiles(ds, width=1024, height=1024):
         nols, nrows = ds.meta['width'], ds.meta['height']
         offsets = product(range(0, nols, width), range(0, nrows, height))
         big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
@@ -94,7 +94,7 @@ def create_chips(in_raster, out_dir):
 
 
     with rasterio.open(in_raster) as inds:
-        tile_width, tile_height = 256, 256
+        tile_width, tile_height = 1024, 1024
 
         meta = inds.meta.copy()
 
