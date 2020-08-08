@@ -10,11 +10,11 @@ from tqdm import tqdm
 # TODO: Clean up directory structure
 # TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
-PRE_DIR = '/Users/rgupta/Downloads/data/input/pre'
-POST_DIR = '/Users/rgupta/Downloads/data/input/post'
+PRE_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/input/pre'
+POST_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/input/post'
 # TODO: Should we clear this directory first?
-STAGING_DIR = '/Users/rgupta/Downloads/data/input/staging'
-OUTPUT_DIR = '/Users/rgupta/Downloads/data/output'
+STAGING_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/input/staging'
+OUTPUT_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/output'
 
 
 def main():
@@ -55,8 +55,8 @@ def main():
     post_mosaic = create_mosaic(post_reproj, os.path.join(STAGING_DIR, 'mosaics', 'post.tif'))
     extent = get_intersect(pre_mosaic, post_mosaic)
     print(extent)
-    create_chips(pre_mosaic, '/Users/rgupta/Downloads/data/output/chips/pre')
-    create_chips(post_mosaic, '/Users/rgupta/Downloads/data/output/chips/post')
+    create_chips(pre_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'pre'))
+    create_chips(post_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'post'))
 
     # TODO: Create our package object
 
