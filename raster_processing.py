@@ -11,10 +11,15 @@ import gdal_merge
 import os
 
 
-def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
+def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
 
     with rasterio.open(in_file) as src:
-        transform, width, height = rasterio.warp.calculate_default_transform(src.crs, dest_crs, src.width, src.height, *src.bounds)
+
+        src_crs = in_crs if in_crs is not None else src.crs
+
+        assert src_crs is not None
+
+        transform, width, height = rasterio.warp.calculate_default_transform(src_crs, dest_crs, src.width, src.height, *src.bounds)
         kwargs = src.meta.copy()
         kwargs.update({
             'driver': 'GTiff',
@@ -32,7 +37,8 @@ def reproject(in_file, dest_file, dest_crs='EPSG:4326'):
                     src_crs=src.crs,
                     dst_transform=transform,
                     dst_crs=dest_crs,
-                    resampling=rasterio.warp.Resampling.nearest)
+                    resampling=rasterio.warp.Resampling.nearest,
+                )
 
     return os.path.abspath(dest_file)
 

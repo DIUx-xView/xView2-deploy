@@ -15,6 +15,8 @@ POST_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/inp
 # TODO: Should we clear this directory first?
 STAGING_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/input/staging'
 OUTPUT_DIR = '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data_small/output'
+PRE_IN_CRS = None
+POST_IN_CRS = 'EPSG:26915'
 
 
 def main():
@@ -34,8 +36,9 @@ def main():
         dest_file = os.path.join(STAGING_DIR, 'pre', f'{basename[0]}.tif')
 
         # Use try to discard images that are not geo images
+        # TODO: deconflict this with the function assertions
         try:
-            pre_reproj.append(reproject(file, dest_file))
+            pre_reproj.append(reproject(file, dest_file, PRE_IN_CRS))
         except:
             pass
 
@@ -45,7 +48,7 @@ def main():
 
         # Use try to discard images that are not geo images
         try:
-            post_reproj.append(reproject(file, dest_file))
+            post_reproj.append(reproject(file, dest_file, POST_IN_CRS))
         except:
             pass
 
