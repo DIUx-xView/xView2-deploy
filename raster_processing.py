@@ -5,6 +5,7 @@ import rasterio.plot
 from rasterio import windows
 from itertools import product
 from tqdm import tqdm
+from osgeo import gdal
 
 import gdal_merge
 
@@ -13,32 +14,16 @@ import os
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
 
-    with rasterio.open(in_file) as src:
+    input_raster = gdal.Open(in_file)
 
-        src_crs = in_crs if in_crs is not None else src.crs
+    if input_raster.GetSpatialRef() is not None:
+        in_crs = input_raster.GetSpatialRef()
 
-        assert src_crs is not None
+    if in_crs is None:
+        raise Exception('No CRS set')
 
-        transform, width, height = rasterio.warp.calculate_default_transform(src_crs, dest_crs, src.width, src.height, *src.bounds)
-        kwargs = src.meta.copy()
-        kwargs.update({
-            'driver': 'GTiff',
-            'crs': dest_crs,
-            'transform': transform,
-            'width': width,
-            'height': height
-        })
-        with rasterio.open(dest_file, 'w', **kwargs) as dst:
-            for i in range(1, src.count + 1):
-                rasterio.warp.reproject(
-                    source=rasterio.band(src, i),
-                    destination=rasterio.band(dst, i),
-                    src_transform=src.transform,
-                    src_crs=src.crs,
-                    dst_transform=transform,
-                    dst_crs=dest_crs,
-                    resampling=rasterio.warp.Resampling.nearest,
-                )
+
+    gdal.Warp(dest_file, input_raster, dstSRS=dest_crs, srcSRS=in_crs)
 
     return os.path.abspath(dest_file)
 
