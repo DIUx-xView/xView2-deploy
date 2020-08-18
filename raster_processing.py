@@ -6,6 +6,7 @@ from rasterio import windows
 from itertools import product
 from osgeo import gdal
 import os
+from handler import Files
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
@@ -74,24 +75,23 @@ def get_intersect(*args):
     return intersect
 
 
-def get_intersect_win(rio_obj, intersect):
-
-    xy_ul = rasterio.transform.rowcol(rio_obj.transform, intersect[0], intersect[3])
-    xy_lr = rasterio.transform.rowcol(rio_obj.transform, intersect[2], intersect[1])
-
-    int_window = rasterio.windows.Window(xy_ul[1], xy_ul[0],
-                                         abs(xy_ul[1] - xy_lr[1]),
-                                         abs(xy_ul[0] - xy_lr[0]))
-
-    return int_window
-
-
 def create_chips(in_raster, out_dir, intersect):
     output_filename = 'tile_{}-{}.tif'
 
+    def get_intersect_win(rio_obj):
+
+        xy_ul = rasterio.transform.rowcol(rio_obj.transform, intersect[0], intersect[3])
+        xy_lr = rasterio.transform.rowcol(rio_obj.transform, intersect[2], intersect[1])
+
+        int_window = rasterio.windows.Window(xy_ul[1], xy_ul[0],
+                                             abs(xy_ul[1] - xy_lr[1]),
+                                             abs(xy_ul[0] - xy_lr[0]))
+
+        return int_window
+
     def get_tiles(ds, width=1024, height=1024):
         #nols, nrows = ds.meta['width'], ds.meta['height']
-        intersect_window = get_intersect_win(ds, intersect)
+        intersect_window = get_intersect_win(ds)
         offsets = product(range(intersect_window.col_off, intersect_window.width + intersect_window.col_off, width),
                           range(intersect_window.row_off, intersect_window.height + intersect_window.row_off, height))
         for col_off, row_off in offsets:
