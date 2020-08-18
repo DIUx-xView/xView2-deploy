@@ -28,9 +28,28 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     return os.path.abspath(dest_file)
 
 
-def create_mosaic(in_files, out_file='output/staging/mosaic.tif', plot=False):
+def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
 
-    gdal_merge.run(out_file, in_files, pre_init=[255])
+    file_objs = []
+
+    for file in in_files:
+        src = rasterio.open(file)
+        file_objs.append(src)
+
+    mosaic, out_trans = rasterio.merge.merge(file_objs)
+
+    out_meta = src.meta.copy()
+
+    out_meta.update({"driver": "GTiff",
+                     "height": mosaic.shape[1],
+                     "width": mosaic.shape[2],
+                     "transform": out_trans
+                     }
+                    )
+
+    with rasterio.open(out_file, "w", **out_meta) as dest:
+        dest.write(mosaic)
+
     return os.path.abspath(out_file)
 
 
@@ -65,8 +84,8 @@ def get_intersect_win(rio_obj, intersect):
     xy_lr = rasterio.transform.rowcol(rio_obj.transform, intersect[2], intersect[1])
 
     int_window = rasterio.windows.Window(xy_ul[1], xy_ul[0],
-                                         abs(xy_ul[0] - xy_lr[0]),
-                                         abs(xy_ul[1] - xy_lr[1]))
+                                         abs(xy_ul[1] - xy_lr[1]),
+                                         abs(xy_ul[0] - xy_lr[0]))
 
     return int_window
 
