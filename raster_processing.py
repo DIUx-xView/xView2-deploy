@@ -22,8 +22,8 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     if in_crs is None:
         raise Exception('No CRS set')
 
-
-    gdal.Warp(dest_file, input_raster, dstSRS=dest_crs, srcSRS=in_crs)
+    # TODO: Change the resolution based on the lowest resolution in the inputs
+    gdal.Warp(dest_file, input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
 
     return os.path.abspath(dest_file)
 
@@ -112,5 +112,6 @@ def create_chips(in_raster, out_dir):
             meta['transform'] = transform
             meta['width'], meta['height'] = window.width, window.height
             outpath = os.path.join(out_dir,output_filename.format(int(window.col_off), int(window.row_off)))
+
             with rasterio.open(outpath, 'w', **meta) as outds:
                 outds.write(inds.read(window=window))
