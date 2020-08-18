@@ -90,7 +90,7 @@ def create_chips(in_raster, out_dir, intersect):
         return int_window
 
     def get_tiles(ds, width=1024, height=1024):
-        #nols, nrows = ds.meta['width'], ds.meta['height']
+
         intersect_window = get_intersect_win(ds)
         offsets = product(range(intersect_window.col_off, intersect_window.width + intersect_window.col_off, width),
                           range(intersect_window.row_off, intersect_window.height + intersect_window.row_off, height))
@@ -99,6 +99,7 @@ def create_chips(in_raster, out_dir, intersect):
             transform = windows.transform(window, ds.transform)
             yield window, transform
 
+    chips = []
 
     with rasterio.open(in_raster) as inds:
         tile_width, tile_height = 1024, 1024
@@ -112,3 +113,7 @@ def create_chips(in_raster, out_dir, intersect):
 
             with rasterio.open(outpath, 'w', **meta) as outds:
                 outds.write(inds.read(window=window))
+
+            chips.append(os.path.abspath(outpath))
+
+    return chips
