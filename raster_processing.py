@@ -90,15 +90,16 @@ def get_intersect_win(rio_obj, intersect):
     return int_window
 
 
-def create_chips(in_raster, out_dir):
+def create_chips(in_raster, out_dir, intersect):
     output_filename = 'tile_{}-{}.tif'
 
     def get_tiles(ds, width=1024, height=1024):
-        nols, nrows = ds.meta['width'], ds.meta['height']
-        offsets = product(range(0, nols, width), range(0, nrows, height))
-        big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
-        for col_off, row_off in  offsets:
-            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(big_window)
+        #nols, nrows = ds.meta['width'], ds.meta['height']
+        intersect_window = get_intersect_win(ds, intersect)
+        offsets = product(range(intersect_window.col_off, intersect_window.width + intersect_window.col_off, width),
+                          range(intersect_window.row_off, intersect_window.height + intersect_window.row_off, height))
+        for col_off, row_off in offsets:
+            window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(intersect_window)
             transform = windows.transform(window, ds.transform)
             yield window, transform
 
