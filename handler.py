@@ -2,8 +2,6 @@ import glob
 import inference
 from raster_processing import *
 
-import sys
-
 from tqdm import tqdm
 
 
@@ -56,10 +54,11 @@ def main():
     pre_mosaic = create_mosaic(pre_reproj, os.path.join(STAGING_DIR, 'mosaics', 'pre.tif'))
     print("Creating post mosaic")
     post_mosaic = create_mosaic(post_reproj, os.path.join(STAGING_DIR, 'mosaics', 'post.tif'))
+
     extent = get_intersect(pre_mosaic, post_mosaic)
-    print(extent)
-    create_chips(pre_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'pre'))
-    create_chips(post_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'post'))
+
+    create_chips(pre_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'pre'), extent)
+    create_chips(post_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'post'), extent)
 
     # TODO: Create our package object
 
