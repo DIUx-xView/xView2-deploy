@@ -4,11 +4,7 @@ import rasterio.warp
 import rasterio.plot
 from rasterio import windows
 from itertools import product
-from tqdm import tqdm
 from osgeo import gdal
-
-import gdal_merge
-
 import os
 
 
