@@ -29,6 +29,8 @@ def main():
     pre_reproj = []
     post_reproj = []
 
+    print('Re-projecting...')
+
     for file in tqdm(pre_files):
         basename = os.path.splitext(os.path.split(file)[1])
         dest_file = os.path.join(STAGING_DIR, 'pre', f'{basename[0]}.tif')
@@ -57,33 +59,38 @@ def main():
 
     extent = get_intersect(pre_mosaic, post_mosaic)
 
-    create_chips(pre_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'pre'), extent)
-    create_chips(post_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'post'), extent)
+    pre_chips = create_chips(pre_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'pre'), extent)
+    post_chips = create_chips(post_mosaic, os.path.join(OUTPUT_DIR, 'chips', 'post'), extent)
 
-    # TODO: Create our package object
+    assert (len(pre_chips) == len(post_chips))
+
+    pairs = []
+    # TODO: using a for loop seems to only parse about half the values in test data.
+    i = 0
+    while pre_chips:
+        pre = pre_chips.pop(0)
+        post = post_chips.pop(0)
+        pairs.append(Files(i, pre, post))
+        i += 1
+
+    print('Inferring building locations...')
+    for obj in tqdm(pairs):
+        obj.loc = obj.infer()
 
 
 class Files(object):
 
-    def __init__(self, pre, post):
+    def __init__(self, ident, pre, post):
+        self.ident = ident
         self.pre = os.path.abspath(os.path.join(PRE_DIR, pre))
         self.post = os.path.abspath(os.path.join(POST_DIR, post))
-        self.base_num = self.check_extent()
-        self.output_loc = os.path.abspath(os.path.join(OUTPUT_DIR, 'loc', f'{self.base_num}_loc.png'))
-        self.output_dmg = os.path.abspath(os.path.join(OUTPUT_DIR, 'dmg', f'{self.base_num}_dmg.png'))
-        self.opts = inference.Options(self.pre, self.post, self.output_loc, self.output_dmg)
-
-    def check_extent(self):
-        """
-        Check that our pre and post are the same extent
-        Note:
-        Currently only checks that the number sequence matches for both the pre and post images.
-        :return: True if numbers match
-        """
-        pre_base = ''.join([digit for digit in self.pre if digit.isdigit()])
-        post_base = ''.join([digit for digit in self.post if digit.isdigit()])
-        if pre_base == post_base:
-            return pre_base
+        self.loc = os.path.join(OUTPUT_DIR, 'loc', f'{self.ident}.png')
+        self.dmg = os.path.join(OUTPUT_DIR, 'dmg', f'{self.ident}.png')
+        self.opts = inference.Options(pre_path=self.pre,
+                                      post_path=self.post,
+                                      out_loc_path=self.loc,
+                                      out_dmg_path=self.dmg
+                                      )
 
     def infer(self):
         """
@@ -92,15 +99,14 @@ class Files(object):
         """
 
         try:
-            # TODO: Not sure why opts seems to be a list.
-            inference.main(self.opts[0])
+            inference.main(self.opts)
         except Exception as e:
-            print(f'File: {self.pre}. Error: {e}')
-            return False
+            print(f'Error: {e}')
 
         return True
 
     def georef(self):
+        # TODO: Name final raster with the extent of the corners
         pass
 
 
