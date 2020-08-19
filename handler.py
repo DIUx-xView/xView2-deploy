@@ -1,6 +1,7 @@
 import glob
 import inference
 from raster_processing import *
+import rasterio.warp
 
 from tqdm import tqdm
 
@@ -91,6 +92,11 @@ class Files(object):
                                       out_loc_path=self.loc,
                                       out_dmg_path=self.dmg
                                       )
+        self.transform = self.get_transform()
+
+    def get_transform(self):
+        with rasterio.open(self.pre) as src:
+            return src.transform
 
     def infer(self):
         """
@@ -100,12 +106,14 @@ class Files(object):
 
         try:
             inference.main(self.opts)
+            self.georef(self.loc, 'loc')
+            self.georef(self.dmg, 'dmg')
         except Exception as e:
             print(f'Error: {e}')
 
         return True
 
-    def georef(self):
+    def georef(self, in_file, path):
         # TODO: Name final raster with the extent of the corners
         pass
 
