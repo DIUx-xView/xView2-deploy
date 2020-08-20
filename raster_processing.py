@@ -6,8 +6,7 @@ from rasterio import windows
 from itertools import product
 from osgeo import gdal
 
-import os
-import shutil
+from pathlib import Path
 from handler import Files
 
 
@@ -18,12 +17,12 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
         in_crs = input_raster.GetSpatialRef()
 
     if in_crs is None:
-        raise Exception('No CRS set')
+        raise ValueError('No CRS set')
 
     # TODO: Change the resolution based on the lowest resolution in the inputs
-    gdal.Warp(dest_file, input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
+    gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
 
-    return os.path.abspath(dest_file)
+    return dest_file.resolve()
 
 
 def create_mosaic(in_files, out_file):
@@ -31,7 +30,6 @@ def create_mosaic(in_files, out_file):
     file_objs = []
 
     for file in in_files:
-        print(file)
         src = rasterio.open(file)
         file_objs.append(src)
 
@@ -49,7 +47,7 @@ def create_mosaic(in_files, out_file):
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
 
-    return os.path.abspath(out_file)
+    return out_file.resolve()
 
 
 def get_intersect(*args):
@@ -111,11 +109,12 @@ def create_chips(in_raster, out_dir, intersect):
         for window, transform in get_tiles(inds):
             meta['transform'] = transform
             meta['width'], meta['height'] = window.width, window.height
-            outpath = os.path.join(out_dir,output_filename.format(int(window.col_off), int(window.row_off)))
+            output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
+            outpath = out_dir.joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:
                 outds.write(inds.read(window=window))
 
-            chips.append(os.path.abspath(outpath))
+            chips.append(outpath.resolve())
 
     return chips

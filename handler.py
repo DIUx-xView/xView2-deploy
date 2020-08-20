@@ -95,8 +95,6 @@ def main():
 
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
-    print(pre_files)
-    print(post_files)
     print("Got files")
 
     # TODO: Can be removed after chip creation is implemented
@@ -109,20 +107,23 @@ def main():
 
     for file in tqdm(pre_files):
         basename = file.stem
-        dest_file = os.path.join(args.staging_directory, 'pre', f'{basename}.tif')
+        dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
 
         # Use try to discard images that are not geo images
         # TODO: deconflict this with the function assertions
-        pre_reproj.append(reproject(file, dest_file, args.pre_crs, args.destination_crs))
+        try:
+            pre_reproj.append(reproject(file, dest_file, args.pre_crs, args.destination_crs))
+        except ValueError:
+            pass
 
     for file in tqdm(post_files):
-        basename = os.path.splitext(os.path.split(file)[1])
-        dest_file = os.path.join(args.staging_directory, 'post', f'{basename[0]}.tif')
+        basename = file.stem
+        dest_file = args.staging_directory.joinpath('post').joinpath(f'{basename}.tif')
 
         # Use try to discard images that are not geo images
         try:
             post_reproj.append(reproject(file, dest_file, args.post_crs, args.destination_crs))
-        except:
+        except ValueError:
             pass
 
     print("Creating pre mosaic")
@@ -132,8 +133,8 @@ def main():
 
     extent = get_intersect(pre_mosaic, post_mosaic)
 
-    pre_chips = create_chips(pre_mosaic, os.path.join(args.output_directory, 'chips', 'pre'), extent)
-    post_chips = create_chips(post_mosaic, os.path.join(args.output_directory, 'chips', 'post'), extent)
+    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
     assert len(pre_chips) == len(post_chips)
 
