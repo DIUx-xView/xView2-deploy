@@ -17,10 +17,10 @@ class Files(object):
 
     def __init__(self, ident, pre_directory, post_directory, output_directory, pre, post):
         self.ident = ident
-        self.pre = os.path.abspath(os.path.join(pre_directory, pre))
-        self.post = os.path.abspath(os.path.join(post_directory, post))
-        self.loc = os.path.join(output_directory, 'loc', f'{self.ident}.png')
-        self.dmg = os.path.join(output_directory, 'dmg', f'{self.ident}.png')
+        self.pre = pre_directory.joinpath(pre).resolve()
+        self.post = post_directory.joinpath(post).resolve()
+        self.loc = output_directory.joinpath('loc').joinpath(f'{self.ident}.png').resolve()
+        self.dmg = output_directory.joinpath('dmg').joinpath(f'{self.ident}.png').resolve()
         self.opts = inference.Options(pre_path=self.pre,
                                       post_path=self.post,
                                       out_loc_path=self.loc,
@@ -64,8 +64,12 @@ def make_output_structure(output_path):
 
 
 def get_files(dirname, extensions=['.png', '.tif', '.jpg'], recursive=True):
-    files = glob.glob(f'{dirname}/**', recursive=recursive)
-    match = [os.path.abspath(file) for file in files if os.path.splitext(file)[1].lower() in extensions]
+    dir_path = Path(dirname)
+    files = dir_path.glob('**/*')
+    files = [path.resolve() for path in files]
+    # files = glob.glob(f'{dirname}/**', recursive=recursive)
+
+    match = [f for f in files if f.suffix in extensions]
     return match
 
 
@@ -76,10 +80,10 @@ def string_len_check(pre, post):
 def main():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
-    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/')
-    parser.add_argument('--post_directory', metavar='/path/to/post/files/')
-    parser.add_argument('--staging_directory', metavar='/path/to/staging/')
-    parser.add_argument('--output_directory', metavar='/path/to/output/')
+    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path)
+    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path)
+    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path)
+    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', metavar='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
@@ -104,15 +108,12 @@ def main():
     print('Re-projecting...')
 
     for file in tqdm(pre_files):
-        basename = os.path.splitext(os.path.split(file)[1])
-        dest_file = os.path.join(args.staging_directory, 'pre', f'{basename[0]}.tif')
+        basename = file.stem
+        dest_file = os.path.join(args.staging_directory, 'pre', f'{basename}.tif')
 
         # Use try to discard images that are not geo images
         # TODO: deconflict this with the function assertions
-        try:
-            pre_reproj.append(reproject(file, dest_file, args.pre_crs, args.destination_crs))
-        except:
-            pass
+        pre_reproj.append(reproject(file, dest_file, args.pre_crs, args.destination_crs))
 
     for file in tqdm(post_files):
         basename = os.path.splitext(os.path.split(file)[1])

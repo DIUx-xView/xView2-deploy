@@ -5,13 +5,14 @@ import rasterio.plot
 from rasterio import windows
 from itertools import product
 from osgeo import gdal
+
 import os
+import shutil
 from handler import Files
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
-
-    input_raster = gdal.Open(in_file)
+    input_raster = gdal.Open(str(in_file))
 
     if input_raster.GetSpatialRef() is not None:
         in_crs = input_raster.GetSpatialRef()
@@ -25,11 +26,12 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     return os.path.abspath(dest_file)
 
 
-def create_mosaic(in_files, out_file='output/staging/mosaic.tif'):
+def create_mosaic(in_files, out_file):
 
     file_objs = []
 
     for file in in_files:
+        print(file)
         src = rasterio.open(file)
         file_objs.append(src)
 
