@@ -11,6 +11,16 @@ from handler import Files
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
+
+    """
+    Re-project images
+    :param in_file: path to file to be reprojected
+    :param dest_file: path to write re-projected image
+    :param in_crs: crs of input file -- only valid if image does not contain crs in metadata
+    :param dest_crs: destination crs
+    :return: path to re-projected image
+    """
+
     input_raster = gdal.Open(str(in_file))
 
     if input_raster.GetSpatialRef() is not None:
@@ -26,6 +36,13 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
 
 
 def create_mosaic(in_files, out_file):
+
+    """
+    Creates mosaic from in_files.
+    :param in_files: list of paths to input files
+    :param out_file: path to output mosaic
+    :return: path to output file
+    """
 
     file_objs = []
 
@@ -51,11 +68,13 @@ def create_mosaic(in_files, out_file):
 
 
 def get_intersect(*args):
+
+    """
+    Computes intersect of input rasters.
+    :param args: list of files to compute
+    :return: tuple of intersect in (left, bottom, right, top)
     """
 
-    :param args:
-    :return: Tuple of intersect extent in (left, bottom, right, top)
-    """
     # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
 
     left = []
@@ -76,9 +95,24 @@ def get_intersect(*args):
 
 
 def create_chips(in_raster, out_dir, intersect):
+
+    """
+    Creates chips from mosaic that fall inside the intersect
+    :param in_raster: mosaic to create chips from
+    :param out_dir: path to write chips
+    :param intersect: bounds of chips to create
+    :return: list of path to chips
+    """
+
     output_filename = 'tile_{}-{}.tif'
 
     def get_intersect_win(rio_obj):
+
+        """
+        Calculate rasterio window from intersect
+        :param rio_obj: rasterio dataset
+        :return: window of intersect
+        """
 
         xy_ul = rasterio.transform.rowcol(rio_obj.transform, intersect[0], intersect[3])
         xy_lr = rasterio.transform.rowcol(rio_obj.transform, intersect[2], intersect[1])
@@ -90,6 +124,14 @@ def create_chips(in_raster, out_dir, intersect):
         return int_window
 
     def get_tiles(ds, width=1024, height=1024):
+
+        """
+        Create chip tiles generator
+        :param ds: rasterio dataset
+        :param width: tile width
+        :param height: tile height
+        :return: generator of rasterio windows and transforms for each tile to be created
+        """
 
         intersect_window = get_intersect_win(ds)
         offsets = product(range(intersect_window.col_off, intersect_window.width + intersect_window.col_off, width),

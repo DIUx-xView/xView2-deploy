@@ -53,28 +53,46 @@ class Files(object):
 
 
 def make_staging_structure(staging_path):
+    """
+    Creates directory structure for staging.
+    :param staging_path: Staging path
+    :return: True if successful
+    """
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
 
+    return True
+
 
 def make_output_structure(output_path):
+
+    """
+    Creates directory structure for outputs.
+    :param output_path: Output path
+    :return: True if succussful
+    """
+
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
 
+    return True
 
-def get_files(dirname, extensions=['.png', '.tif', '.jpg'], recursive=True):
+
+def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
+
+    """
+    Gathers list of files for processing from path recursively.
+    :param dirname: path to parse
+    :param extensions: extensions to match
+    :return: list of files matching extensions
+    """
     dir_path = Path(dirname)
     files = dir_path.glob('**/*')
     files = [path.resolve() for path in files]
-    # files = glob.glob(f'{dirname}/**', recursive=recursive)
 
     match = [f for f in files if f.suffix in extensions]
     return match
-
-
-def string_len_check(pre, post):
-    return len(pre) == len(post)
 
 
 def main():
