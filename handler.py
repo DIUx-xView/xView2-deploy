@@ -43,7 +43,7 @@ class Files(object):
             self.georef(self.loc, 'loc')
             self.georef(self.dmg, 'dmg')
         except Exception as e:
-            print(f'Error: {e}')
+            raise e
 
         return True
 
