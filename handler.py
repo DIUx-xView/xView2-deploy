@@ -26,11 +26,13 @@ class Files(object):
                                       out_loc_path=self.loc,
                                       out_dmg_path=self.dmg
                                       )
-        self.transform = self.get_transform()
+        self.profile = self.get_profile()
+        self.transform = self.profile["transform"]
+        print(self.transform)
 
-    def get_transform(self):
+    def get_profile(self):
         with rasterio.open(self.pre) as src:
-            return src.transform
+            return src.profile
 
     def infer(self):
         """
