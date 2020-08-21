@@ -4,6 +4,7 @@ import multiprocessing
 import warnings
 import copy
 
+import rasterio
 import numpy as np
 import tifffile
 import torch
@@ -23,15 +24,17 @@ warnings.filterwarnings("ignore")
 class Options(object):
 
     def __init__(self, pre_path='input/pre', post_path='input/post',
-                 out_loc_path='output/loc', out_dmg_path='output/dmg',
+                 out_loc_path='output/loc', out_dmg_path='output/dmg', out_overlay_path='output/over',
                  model_config='configs/model.yaml', model_weights='weights/weight.pth',
-                 use_gpu=False, vis=False):
+                 geo_profile=None, use_gpu=False, vis=False):
         self.in_pre_path = pre_path
         self.in_post_path = post_path
         self.out_loc_path = out_loc_path
         self.out_cls_path = out_dmg_path
+        self.out_overlay_path = out_overlay_path
         self.model_config_path = model_config
         self.model_weight_path = model_weights
+        self.geo_profile = geo_profile
         self.is_use_gpu = use_gpu
         self.is_vis = vis
 
@@ -135,8 +138,16 @@ def main(args):
         loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
         cls = copy.deepcopy(loc)
 
-    imsave(args.out_loc_path, loc)
-    imsave(args.out_cls_path, cls)
+    args.geo_profile.update(dtype=rasterio.uint8)
+
+    with rasterio.open(args.out_loc_path, 'w', **args.geo_profile) as dst:
+        dst.write(loc, 1)
+
+    with rasterio.open(args.out_cls_path, 'w', **args.geo_profile) as dst:
+        dst.write(cls, 1)
+
+    #imsave(args.out_loc_path, loc)
+    #imsave(args.out_cls_path, cls)
 
     if args.is_vis:
         mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
@@ -146,8 +157,16 @@ def main(args):
         mask_map_img[cls == 4] = (255, 0, 0)
         compare_img = np.concatenate((pre_image, mask_map_img, post_image), axis=1)
 
-        out_dir = os.path.dirname(args.out_loc_path)
-        imsave(os.path.join(out_dir, 'compare_img.png'), compare_img)
+        out_dir = os.path.dirname(args.out_overlay_path)
+        with rasterio.open(args.out_overlay_path, 'w', **args.geo_profile) as dst:
+            # Go from (x, y, bands) to (bands, x, y)
+            mask_map_img = np.flipud(mask_map_img)
+            mask_map_img = np.rot90(mask_map_img, 3)
+            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
+            dst.write(mask_map_img)
+
+        # Debug only line below
+        # imsave(args.out_loc_path.parent / (args.out_loc_path.stem + '.comp.png'), compare_img)
 
 
 if __name__ == '__main__':

@@ -19,15 +19,19 @@ class Files(object):
         self.ident = ident
         self.pre = pre_directory.joinpath(pre).resolve()
         self.post = post_directory.joinpath(post).resolve()
-        self.loc = output_directory.joinpath('loc').joinpath(f'{self.ident}.png').resolve()
-        self.dmg = output_directory.joinpath('dmg').joinpath(f'{self.ident}.png').resolve()
+        self.loc = output_directory.joinpath('loc').joinpath(f'{self.ident}.tif').resolve()
+        self.dmg = output_directory.joinpath('dmg').joinpath(f'{self.ident}.tif').resolve()
+        self.over = output_directory.joinpath('over').joinpath(f'{self.ident}.tif').resolve()
+        self.profile = self.get_profile()
+        self.transform = self.profile["transform"]
         self.opts = inference.Options(pre_path=self.pre,
                                       post_path=self.post,
                                       out_loc_path=self.loc,
-                                      out_dmg_path=self.dmg
+                                      out_dmg_path=self.dmg,
+                                      out_overlay_path=self.over,
+                                      geo_profile=self.profile,
+                                      vis=True
                                       )
-        self.profile = self.get_profile()
-        self.transform = self.profile["transform"]
 
     def get_profile(self):
         with rasterio.open(self.pre) as src:
@@ -78,6 +82,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -162,7 +167,7 @@ def main():
     pairs = []
     for idx, (pre, post) in enumerate(zip(pre_chips, post_chips)):
         pairs.append(Files(
-            idx,
+            pre.stem,
             args.pre_directory,
             args.post_directory,
             args.output_directory,

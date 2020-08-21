@@ -5,6 +5,7 @@ import rasterio.plot
 from rasterio import windows
 from itertools import product
 from osgeo import gdal
+from tqdm import tqdm
 
 from pathlib import Path
 from handler import Files
@@ -148,7 +149,7 @@ def create_chips(in_raster, out_dir, intersect):
 
         meta = inds.meta.copy()
 
-        for window, transform in get_tiles(inds):
+        for window, transform in tqdm(get_tiles(inds)):
             meta['transform'] = transform
             meta['width'], meta['height'] = window.width, window.height
             output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
