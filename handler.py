@@ -28,7 +28,6 @@ class Files(object):
                                       )
         self.profile = self.get_profile()
         self.transform = self.profile["transform"]
-        print(self.transform)
 
     def get_profile(self):
         with rasterio.open(self.pre) as src:
@@ -77,6 +76,8 @@ def make_output_structure(output_path):
 
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
 
     return True
 
