@@ -1,3 +1,4 @@
+import numpy as np
 import rasterio
 import rasterio.merge
 import rasterio.warp
@@ -94,7 +95,26 @@ def get_intersect(*args):
 
     return intersect
 
+def check_dims(arr, w, h):
+    """
+    Check dimensions of output tiles and pad
+    :param arr: numpy array
+    :param w: tile width
+    :param h: tile height
+    :return: tile of same dimensions specified
+    """
 
+    dims = arr.shape
+    if dims[1] != w or dims[2] != h:
+        result = np.zeros((arr.shape[0],w,h)).astype(arr.dtype)
+        result[:arr.shape[0],:arr.shape[1],:arr.shape[2]] = arr
+    else:
+        result = arr
+        
+    
+
+    return result 
+    
 def create_chips(in_raster, out_dir, intersect):
 
     """
@@ -140,7 +160,7 @@ def create_chips(in_raster, out_dir, intersect):
         for col_off, row_off in offsets:
             window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(intersect_window)
             transform = windows.transform(window, ds.transform)
-            yield window, transform
+            yield window, transform      
 
     chips = []
 
@@ -151,12 +171,18 @@ def create_chips(in_raster, out_dir, intersect):
 
         for window, transform in tqdm(get_tiles(inds)):
             meta['transform'] = transform
-            meta['width'], meta['height'] = window.width, window.height
+            #meta['width'], meta['height'] = window.width, window.height
+            meta['width'], meta['height'] = tile_width, tile_height
             output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
             outpath = out_dir.joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:
-                outds.write(inds.read(window=window))
+                chip_arr = inds.read(window=window)
+                out_arr = check_dims(chip_arr, tile_width, tile_height)
+                assert(out_arr.shape[1] == tile_width)
+                assert(out_arr.shape[2] == tile_height)
+                
+                outds.write(out_arr)
 
             chips.append(outpath.resolve())
 

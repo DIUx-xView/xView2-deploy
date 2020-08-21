@@ -124,6 +124,10 @@ def main(args):
 
     inputs_pre = image_transforms(pre_image)
     inputs_post = image_transforms(post_image)
+    
+    #if (inputs_pre.shape[1] != 1024 or inputs_pre.shape[2] != 1024):
+    #    import ipdb; ipdb.set_trace()
+    
     inputs_pre.unsqueeze_(0)
     inputs_post.unsqueeze_(0)
 

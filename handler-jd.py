@@ -111,6 +111,7 @@ def main():
     parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path)
     parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path)
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path)
+    parser.add_arguemnt('--use_gpu', default=False, help="If True, use GPUs")
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', metavar='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
