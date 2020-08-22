@@ -133,13 +133,6 @@ def main():
 
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
-    print("Got files")
-
-    # TODO: Can be removed after chip creation is implemented
-    #assert string_len_check(pre_files, post_files)
-
-    pre_reproj = []
-    post_reproj = []
 
     print('Re-projecting...')
 
