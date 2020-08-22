@@ -119,10 +119,10 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
 def main():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
-    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path)
-    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path)
-    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path)
-    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path)
+    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True)
+    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True)
+    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True)
+    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
