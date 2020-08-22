@@ -1,7 +1,6 @@
 import glob
 import argparse
 import os
-from collections import defaultdict
 from pathlib import Path
 import sys
 import resource
@@ -20,7 +19,7 @@ from tqdm import tqdm
 
 from dataset import XViewDataset
 from models.dual_hrnet import get_model
-from inference import ModelWrapper, argmax
+from inference import ModelWrapper, argmax, run_inference
 from utils import build_image_transforms
 
 
@@ -249,26 +248,7 @@ def main():
 
     # Running inference
     print('Running inference...')
-    results = defaultdict(list)
-
-    with torch.no_grad(): # This is really important to not explode memory with gradients!
-        for result_dict in tqdm(eval_dataloader, total=len(eval_dataloader)):
-            loc, cls = model_wrapper(result_dict['pre_image'], result_dict['post_image'])
-            loc = loc.detach().cpu()
-            cls = cls.detach().cpu()
-
-            result_dict['pre_image'] = result_dict['pre_image'].cpu().numpy()
-            result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
-            result_dict['loc'] = loc
-            result_dict['cls'] = cls
-            # Do this one separately because you can't return a class from a dataloader
-            result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts.geo_profile
-                                          for idx in result_dict['idx']]
-            for k,v in result_dict.items():
-                results[k] = results[k] + list(v)
-
-    # Making a list
-    results_list = [dict(zip(results,t)) for t in zip(*results.values())]
+    results_list = run_inference(args, config, model_wrapper, eval_dataset, eval_dataloader)
 
     # Running postprocessing
     p = mp.Pool(args.n_procs)
