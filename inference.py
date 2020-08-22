@@ -16,6 +16,7 @@ from skimage.io import imread, imsave
 from yacs.config import CfgNode
 
 from models.dual_hrnet import get_model
+from utils import build_image_transforms
 
 multiprocessing.set_start_method('spawn', True)
 warnings.filterwarnings("ignore")
@@ -53,9 +54,9 @@ def parse_cli_args():
     return parser.parse_args()
 
 
-class ModelWraper(nn.Module):
+class ModelWrapper(nn.Module):
     def __init__(self, model, is_use_gpu=False, is_split_loss=True):
-        super(ModelWraper, self).__init__()
+        super(ModelWrapper, self).__init__()
         self.is_use_gpu = is_use_gpu
         self.is_split_loss = is_split_loss
         if self.is_use_gpu:
@@ -80,7 +81,46 @@ class ModelWraper(nn.Module):
             cls = None
 
         return loc, cls
+"""    
+    def inference(self, inputs_pre, inputs_post, args)
+        loc, cls = self.forward(inputs_pre, inputs_post)
+        
+        if self.config.MODEL.IS_SPLIT_LOSS:
+            loc, cls = argmax(loc, cls)
+            loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
+            cls = cls.detach().cpu().numpy().astype(np.uint8)[0]
+        else:
+            loc = torch.argmax(loc, dim=1, keepdim=False)
+            loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
+            cls = copy.deepcopy(loc)
 
+        args.geo_profile.update(dtype=rasterio.uint8)
+
+        with rasterio.open(args.out_loc_path, 'w', **args.geo_profile) as dst:
+            dst.write(loc, 1)
+
+        with rasterio.open(args.out_cls_path, 'w', **args.geo_profile) as dst:
+            dst.write(cls, 1)
+
+        #imsave(args.out_loc_path, loc)
+        #imsave(args.out_cls_path, cls)
+
+        if args.is_vis:
+            mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
+            mask_map_img[cls == 1] = (255, 255, 255)
+            mask_map_img[cls == 2] = (229, 255, 50)
+            mask_map_img[cls == 3] = (255, 159, 0)
+            mask_map_img[cls == 4] = (255, 0, 0)
+            compare_img = np.concatenate((pre_image, mask_map_img, post_image), axis=1)
+
+            out_dir = os.path.dirname(args.out_overlay_path)
+            with rasterio.open(args.out_overlay_path, 'w', **args.geo_profile) as dst:
+                # Go from (x, y, bands) to (bands, x, y)
+                mask_map_img = np.flipud(mask_map_img)
+                mask_map_img = np.rot90(mask_map_img, 3)
+                mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
+                dst.write(mask_map_img)
+"""
 
 def argmax(loc, cls):
     loc = torch.argmax(loc, dim=1, keepdim=False)
@@ -90,14 +130,6 @@ def argmax(loc, cls):
     cls[loc == 0] = 0
 
     return loc, cls
-
-
-def build_image_transforms():
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-
 
 def main(args):
     config = CfgNode.load_cfg(open(args.model_config_path, 'rb'))
@@ -110,7 +142,7 @@ def main(args):
     model.load_state_dict(torch.load(ckpt_path, map_location='cpu')['state_dict'])
     model.eval()
 
-    model_wrapper = ModelWraper(model, args.is_use_gpu, config.MODEL.IS_SPLIT_LOSS)
+    model_wrapper = ModelWrapper(model, args.is_use_gpu, config.MODEL.IS_SPLIT_LOSS)
     model_wrapper.eval()
 
     image_transforms = build_image_transforms()

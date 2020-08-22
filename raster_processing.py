@@ -171,7 +171,6 @@ def create_chips(in_raster, out_dir, intersect):
 
         for window, transform in tqdm(get_tiles(inds)):
             meta['transform'] = transform
-            #meta['width'], meta['height'] = window.width, window.height
             meta['width'], meta['height'] = tile_width, tile_height
             output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
             outpath = out_dir.joinpath(output_filename)
