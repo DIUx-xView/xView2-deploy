@@ -106,7 +106,7 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
         return None
 
     
-def postprocess_and_write(result_dict, config):
+def postprocess_and_write(config, result_dict):
 
         if config.MODEL.IS_SPLIT_LOSS:
             loc, cls = argmax(loc, cls)
@@ -264,7 +264,7 @@ def main():
     
     # Running postprocessing
     p = mp.Pool(args.n_procs)
-    f_p = partial(postprocess_and_write, 'config'=config)
+    f_p = partial(postprocess_and_write, config)
     p.starmap(f_p, results)
     
     # Complete
