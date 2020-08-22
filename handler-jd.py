@@ -1,5 +1,6 @@
 import glob
 import argparse
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from tqdm import tqdm
 
 from dataset import XViewDataset
 from models.dual_hrnet import get_model
-from inference import ModelWrapper
+from inference import ModelWrapper, argmax
 from utils import build_image_transforms
 
 
@@ -109,15 +110,15 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
 def postprocess_and_write(config, result_dict):
 
         if config.MODEL.IS_SPLIT_LOSS:
-            loc, cls = argmax(loc, cls)
-            loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
-            cls = cls.detach().cpu().numpy().astype(np.uint8)[0]
+            loc, cls = argmax(result_dict['loc'], result_dict['cls'])
+            loc = loc.numpy().astype(np.uint8)
+            cls = cls.numpy().astype(np.uint8)
         else:
-            loc = torch.argmax(loc, dim=1, keepdim=False)
-            loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
+            loc = torch.argmax(result_dict['loc'], dim=0, keepdim=False)
+            loc = loc.numpy().astype(np.uint8)
             cls = copy.deepcopy(loc)
 
-        geo_profile.update(dtype=rasterio.uint8)
+        result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
         with rasterio.open(result_dict['out_loc_path'], 'w', **result_dict['geo_profile']) as dst:
             dst.write(loc, 1)
@@ -125,16 +126,14 @@ def postprocess_and_write(config, result_dict):
         with rasterio.open(result_dict['out_cls_path'], 'w', **result_dict['geo_profile']) as dst:
             dst.write(cls, 1)
 
-        #imsave(args.out_loc_path, loc)
-        #imsave(args.out_cls_path, cls)
-
         if result_dict['is_vis']:
             mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
             mask_map_img[cls == 1] = (255, 255, 255)
             mask_map_img[cls == 2] = (229, 255, 50)
             mask_map_img[cls == 3] = (255, 159, 0)
             mask_map_img[cls == 4] = (255, 0, 0)
-            compare_img = np.concatenate((result_dict['pre_image'], mask_map_img, result_dict['post_image']), axis=1)
+            #for debugging original code
+            #compare_img = np.concatenate((result_dict['pre_image'], mask_map_img, result_dict['post_image']), axis=1)
 
             out_dir = os.path.dirname(result_dict['out_overlay_path'])
             with rasterio.open(result_dict['out_overlay_path'], 'w', **result_dict['geo_profile']) as dst:
@@ -193,15 +192,16 @@ def main():
     pre_reproj = [x[1] for x in reproj if x[0] == "pre"]
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
-    print("Creating pre mosaic")
+    print("Creating pre mosaic...")
     pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
-    print("Creating post mosaic")
+    print("Creating post mosaic...")
     post_mosaic = create_mosaic(post_reproj, Path(f"{args.staging_directory}/mosaics/post.tif"))
 
     import ipdb; ipdb.set_trace()
     
     extent = get_intersect(pre_mosaic, post_mosaic)
 
+    print('Chipping...')
     pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
     post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
     
@@ -245,13 +245,14 @@ def main():
     model_wrapper.eval()
         
     # Running inference
+    print('Running inference...')
     results = defaultdict(list)
     
     with torch.no_grad():
         for result_dict in tqdm(eval_dataloader, total=len(eval_dataloader)):
             loc, cls = model_wrapper(result_dict['pre_image'], result_dict['post_image'])
-            loc = loc.detach().cpu().numpy().astype(np.uint8)
-            cls = cls.detach().cpu().numpy().astype(np.uint8)
+            loc = loc.detach().cpu()
+            cls = cls.detach().cpu()
             
             result_dict['pre_image'] = result_dict['pre_image'].cpu().numpy()
             result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
@@ -262,10 +263,12 @@ def main():
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
     
+    results_list = [dict(zip(results,t)) for t in zip(*results.values())]
+    
     # Running postprocessing
     p = mp.Pool(args.n_procs)
     f_p = partial(postprocess_and_write, config)
-    p.starmap(f_p, results)
+    p.map(f_p, results_list)
     
     # Complete
     print('Run complete!')

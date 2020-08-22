@@ -123,8 +123,9 @@ class ModelWrapper(nn.Module):
 """
 
 def argmax(loc, cls):
-    loc = torch.argmax(loc, dim=1, keepdim=False)
-    cls = torch.argmax(cls, dim=1, keepdim=False)
+    dm = len(loc.shape)-3 # handles cases where batch size is passed and is not
+    loc = torch.argmax(loc, dim=dm, keepdim=False)
+    cls = torch.argmax(cls, dim=dm, keepdim=False)
 
     cls = cls + 1
     cls[loc == 0] = 0
@@ -165,6 +166,7 @@ def main(args):
 
     loc, cls = model_wrapper(inputs_pre, inputs_post)
 
+    import ipdb; ipdb.set_trace()
     if config.MODEL.IS_SPLIT_LOSS:
         loc, cls = argmax(loc, cls)
         loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
