@@ -257,15 +257,14 @@ def main():
             result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
             result_dict['loc'] = loc
             result_dict['cls'] = cls
-            result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts['geo_profile']
+            result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts.geo_profile
                                           for idx in result_dict['idx']]
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
     
-    import ipdb; ipdb.set_trace()
     # Running postprocessing
     p = mp.Pool(args.n_procs)
-    f_p = partial(postprocess_and_write, config=config)
+    f_p = partial(postprocess_and_write, 'config'=config)
     p.starmap(f_p, results)
     
     # Complete
