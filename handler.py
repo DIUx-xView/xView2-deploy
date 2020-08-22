@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import sys
 import multiprocessing
+import resource
 
 import inference
 from raster_processing import *
@@ -124,7 +125,8 @@ def main():
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
-    parser.add_argument('--destination_crs', metavar='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
+    parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
+    parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
 
     args = parser.parse_args()
 
@@ -184,6 +186,25 @@ def main():
     print('Inferring building locations...')
     for obj in tqdm(pairs):
         obj.loc = obj.infer()
+
+    if args.create_overlay_mosaic:
+        print("Creating overlay mosaic")
+        p = Path(args.output_directory) / "over"
+        overlay_files = p.glob('*')
+        overlay_files = [x for x in overlay_files]
+
+        # This is some hacky, dumb shit
+        # There is a limit on how many file descriptors we can have open at once
+        # So we will up that limit for a bit and then set it back
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if len(overlay_files) >= soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (len(overlay_files) + 10, hard))
+
+        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
+
+        # Reset soft limit
+        if len(overlay_files) + 10 < soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
 
 
 if __name__ == '__main__':
