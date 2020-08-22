@@ -154,7 +154,7 @@ def main():
     parser.add_argument('--model_weight_path', metavar='/path/to/model/weights', type=Path)
     parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
     parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
-    parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing")
+    parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', metavar='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
@@ -257,9 +257,12 @@ def main():
             result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
             result_dict['loc'] = loc
             result_dict['cls'] = cls
+            result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts['geo_profile']
+                                          for idx in result_dict['idx']]
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
     
+    import ipdb; ipdb.set_trace()
     # Running postprocessing
     p = mp.Pool(args.n_procs)
     f_p = partial(postprocess_and_write, config=config)
