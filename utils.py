@@ -10,6 +10,11 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
 
+def build_image_transforms():
+    return transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
 
 class AverageMeter(object):
     def __init__(self):

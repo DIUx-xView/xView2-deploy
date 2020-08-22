@@ -33,7 +33,8 @@ class Files(object):
                                       out_dmg_path=self.dmg,
                                       out_overlay_path=self.over,
                                       geo_profile=self.profile,
-                                      vis=True
+                                      vis=True,
+                                      use_gpu=True
                                       )
 
     def get_profile(self):
