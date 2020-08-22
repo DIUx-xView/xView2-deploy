@@ -771,6 +771,8 @@ class DualHRNet(nn.Module):
 
         if self.is_split_loss:
             del x_pre
+        # This was in the original code probably to save memory...
+        # causes a *major* slowdown!
         #    gc.collect()
         #    x_post = torch.load('x_post.ph')
             cls = self.cls_net.last_layer(x_post)

@@ -98,6 +98,9 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
 
 def reproject_helper(args, raster_tuple, procnum, return_dict):
+    """
+    Helper function for reprojection 
+    """
     (pre_post, src_crs, raster_file) = raster_tuple
     basename = raster_file.stem
     dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
@@ -108,6 +111,11 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
 
     
 def postprocess_and_write(config, result_dict):
+    """
+    Postprocess results from inference and write results to file
+    :param config: configuration dictionary
+    :param result_dict: dictionary containing all required opts for each example
+    """
 
         if config.MODEL.IS_SPLIT_LOSS:
             loc, cls = argmax(result_dict['loc'], result_dict['cls'])
@@ -162,11 +170,11 @@ def main():
 
     make_staging_structure(args.staging_directory)
     make_output_structure(args.output_directory)
-
-    """
+    
+    print('Retrieving files...')
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
-    print("Got files")
+
     
     print('Re-projecting...')
 
@@ -180,7 +188,7 @@ def main():
     post_files = [("post", args.post_crs, x) for x in post_files]
     files = pre_files + post_files
 
-    # Launch multiprocessing jobs
+    # Launch multiprocessing jobs for reprojection
     for idx, f in enumerate(files):
         p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict))
         jobs.append(p)
@@ -196,8 +204,6 @@ def main():
     pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
     print("Creating post mosaic...")
     post_mosaic = create_mosaic(post_reproj, Path(f"{args.staging_directory}/mosaics/post.tif"))
-
-    import ipdb; ipdb.set_trace()
     
     extent = get_intersect(pre_mosaic, post_mosaic)
 
@@ -206,13 +212,13 @@ def main():
     post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
     
     """
-    
     # FOR TESTING
     import os
     pre_mosaic = Path('/raid/data/jdunnmon/test/staging/mosaics/pre.tif')
     post_mosaic = Path('/raid/data/jdunnmon/test/staging/mosaics/post.tif')
     pre_chips = [Path(os.path.join('/raid/data/jdunnmon/test/out/chips/pre',a)) for a in os.listdir('/raid/data/jdunnmon/test/out/chips/pre')]
     post_chips = [Path(os.path.join('/raid/data/jdunnmon/test/out/chips/post',a)) for a in os.listdir('/raid/data/jdunnmon/test/out/chips/post')]
+    """
     
     # Loading config
     config = CfgNode.load_cfg(open(args.model_config_path, 'rb'))
@@ -248,7 +254,7 @@ def main():
     print('Running inference...')
     results = defaultdict(list)
     
-    with torch.no_grad():
+    with torch.no_grad(): # This is really important to not explode memory with gradients!
         for result_dict in tqdm(eval_dataloader, total=len(eval_dataloader)):
             loc, cls = model_wrapper(result_dict['pre_image'], result_dict['post_image'])
             loc = loc.detach().cpu()
@@ -258,11 +264,13 @@ def main():
             result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
             result_dict['loc'] = loc
             result_dict['cls'] = cls
+            # Do this one separately because you can't return a class from a dataloader
             result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts.geo_profile
                                           for idx in result_dict['idx']]
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
     
+    # Making a list 
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     
     # Running postprocessing
@@ -273,9 +281,6 @@ def main():
     # Complete
     print('Run complete!')
         
-    
-        
-
 
 if __name__ == '__main__':
     main()
