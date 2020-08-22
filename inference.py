@@ -4,7 +4,9 @@ import multiprocessing
 import warnings
 import copy
 
+import rasterio
 import numpy as np
+import tifffile
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -18,17 +20,37 @@ from models.dual_hrnet import get_model
 multiprocessing.set_start_method('spawn', True)
 warnings.filterwarnings("ignore")
 
-parser = argparse.ArgumentParser()
-parser.add_argument('in_pre_path', type=str, default='test_images/test_pre_00000.png')
-parser.add_argument('in_post_path', type=str, default='test_images/test_post_00000.png')
-parser.add_argument('out_loc_path', type=str, default='test_images/test_loc_00000.png')
-parser.add_argument('out_cls_path', type=str, default='test_images/test_cls_00000.png')
-parser.add_argument('--model_config_path', type=str, default='configs/model.yaml')
-parser.add_argument('--model_weight_path', type=str, default='weights/weight.pth')
-parser.add_argument('--is_use_gpu', action='store_true', dest='is_use_gpu')
-parser.add_argument('--is_vis', action='store_true', dest='is_vis')
 
-args = parser.parse_args()
+class Options(object):
+
+    def __init__(self, pre_path='input/pre', post_path='input/post',
+                 out_loc_path='output/loc', out_dmg_path='output/dmg', out_overlay_path='output/over',
+                 model_config='configs/model.yaml', model_weights='weights/weight.pth',
+                 geo_profile=None, use_gpu=False, vis=False):
+        self.in_pre_path = pre_path
+        self.in_post_path = post_path
+        self.out_loc_path = out_loc_path
+        self.out_cls_path = out_dmg_path
+        self.out_overlay_path = out_overlay_path
+        self.model_config_path = model_config
+        self.model_weight_path = model_weights
+        self.geo_profile = geo_profile
+        self.is_use_gpu = use_gpu
+        self.is_vis = vis
+
+def parse_cli_args():
+    # TODO: Unsure if this works. Moved to a function to allow direct passing of args.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('in_pre_path', type=str, default='test_images/test_pre_00000.png')
+    parser.add_argument('in_post_path', type=str, default='test_images/test_post_00000.png')
+    parser.add_argument('out_loc_path', type=str, default='test_images/test_loc_00000.png')
+    parser.add_argument('out_cls_path', type=str, default='test_images/test_cls_00000.png')
+    parser.add_argument('--model_config_path', type=str, default='configs/model.yaml')
+    parser.add_argument('--model_weight_path', type=str, default='weights/weight.pth')
+    parser.add_argument('--is_use_gpu', action='store_true', dest='is_use_gpu')
+    parser.add_argument('--is_vis', action='store_true', dest='is_vis')
+
+    return parser.parse_args()
 
 
 class ModelWraper(nn.Module):
@@ -77,7 +99,7 @@ def build_image_transforms():
     ])
 
 
-def main():
+def main(args):
     config = CfgNode.load_cfg(open(args.model_config_path, 'rb'))
     ckpt_path = args.model_weight_path
 
@@ -93,8 +115,12 @@ def main():
 
     image_transforms = build_image_transforms()
 
-    pre_image = imread(args.in_pre_path)
-    post_image = imread(args.in_post_path)
+    if config.DATASET.IS_TIFF:
+        pre_image = tifffile.imread(args.in_pre_path)
+        post_image = tifffile.imread(args.in_post_path)
+    else:
+        pre_image = imread(args.in_pre_path)
+        post_image = imread(args.in_post_path)
 
     inputs_pre = image_transforms(pre_image)
     inputs_post = image_transforms(post_image)
@@ -112,8 +138,16 @@ def main():
         loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
         cls = copy.deepcopy(loc)
 
-    imsave(args.out_loc_path, loc)
-    imsave(args.out_cls_path, cls)
+    args.geo_profile.update(dtype=rasterio.uint8)
+
+    with rasterio.open(args.out_loc_path, 'w', **args.geo_profile) as dst:
+        dst.write(loc, 1)
+
+    with rasterio.open(args.out_cls_path, 'w', **args.geo_profile) as dst:
+        dst.write(cls, 1)
+
+    #imsave(args.out_loc_path, loc)
+    #imsave(args.out_cls_path, cls)
 
     if args.is_vis:
         mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
@@ -123,9 +157,18 @@ def main():
         mask_map_img[cls == 4] = (255, 0, 0)
         compare_img = np.concatenate((pre_image, mask_map_img, post_image), axis=1)
 
-        out_dir = os.path.dirname(args.out_loc_path)
-        imsave(os.path.join(out_dir, 'compare_img.png'), compare_img)
+        out_dir = os.path.dirname(args.out_overlay_path)
+        with rasterio.open(args.out_overlay_path, 'w', **args.geo_profile) as dst:
+            # Go from (x, y, bands) to (bands, x, y)
+            mask_map_img = np.flipud(mask_map_img)
+            mask_map_img = np.rot90(mask_map_img, 3)
+            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
+            dst.write(mask_map_img)
+
+        # Debug only line below
+        # imsave(args.out_loc_path.parent / (args.out_loc_path.stem + '.comp.png'), compare_img)
 
 
 if __name__ == '__main__':
-    main()
+    arguments = Options
+    main(arguments)

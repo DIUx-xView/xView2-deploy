@@ -26,7 +26,7 @@ parser.add_argument('--config_path', type=str, default="",
                     help='the location of the data folder')
 parser.add_argument('--data_dir', type=str, required=True, default="./Dataset/xView2/v2",
                     help='the location of the data folder')
-parser.add_argument('--test', type=str, required=False,
+parser.add_argument('--tests', type=str, required=False,
                     help='testing the model')
 parser.add_argument("--local_rank", type=int, default=0)
 parser.add_argument("--ckpt_save_dir", type=str, required=True, default='',
@@ -109,7 +109,7 @@ def main():
     torch.backends.cudnn.benchmark = True
     test_model = None
     max_epoch = config.TRAIN.NUM_EPOCHS
-    if 'test' in args:
+    if 'tests' in args:
         test_model = args.test
     print('data folder: ', args.data_dir)
 

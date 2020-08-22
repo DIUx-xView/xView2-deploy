@@ -90,8 +90,8 @@ def main():
     ckpt_path = args.ckpt_path
     result_submit_dir = os.path.join(args.result_dir, 'submit/')
     result_compare_dir = os.path.join(args.result_dir, 'compare/')
-    dataset_mode = 'test' if not args.is_train_data else 'train'
-    imgs_dir = os.path.join(args.data_path, 'test/images/') if dataset_mode == 'test' \
+    dataset_mode = 'tests' if not args.is_train_data else 'train'
+    imgs_dir = os.path.join(args.data_path, 'tests/images/') if dataset_mode == 'tests' \
         else os.path.join(args.data_path, 'tier3/images/')
 
     torch.backends.cudnn.deterministic = False

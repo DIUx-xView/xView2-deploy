@@ -25,7 +25,7 @@ class XView2Dataset(Dataset):
     diaster_type = {'earthquake': 0, 'fire': 1, 'tsunami': 2, 'volcano': 3, 'wind': 4, 'flooding': 5}
 
     def __init__(self, root_dir, rgb_bgr='rgb', preprocessing=None, mode='train'):
-        assert mode in ('train', 'test')
+        assert mode in ('train', 'tests')
         self.mode = mode
         self.root = root_dir
         assert rgb_bgr in ('rgb', 'bgr')
@@ -35,7 +35,7 @@ class XView2Dataset(Dataset):
                      'train_labs': os.path.join(self.root, 'train', 'labels'),
                      'tier3_imgs': os.path.join(self.root, 'tier3', 'images'),
                      'tier3_labs': os.path.join(self.root, 'tier3', 'labels'),
-                     'test_imgs': os.path.join(self.root, 'test', 'images')}
+                     'test_imgs': os.path.join(self.root, 'tests', 'images')}
         train_imgs = [s for s in os.listdir(self.dirs['train_imgs'])]
         tier3_imgs = [s for s in os.listdir(self.dirs['tier3_imgs'])]
         train_labs = [s for s in os.listdir(self.dirs['train_labs'])]
@@ -59,7 +59,7 @@ class XView2Dataset(Dataset):
                          'post_img': os.path.join(self.dirs['test_imgs'], post)}
                 self.sample_files.append(files)
 
-        if mode == 'test':
+        if mode == 'tests':
             self.data_transforms = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
