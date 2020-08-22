@@ -3,10 +3,12 @@ import argparse
 import multiprocessing
 import warnings
 import copy
+from collections import defaultdict
 
 import rasterio
 import numpy as np
 import tifffile
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -16,6 +18,7 @@ from skimage.io import imread, imsave
 from yacs.config import CfgNode
 
 from models.dual_hrnet import get_model
+from utils import build_image_transforms
 
 multiprocessing.set_start_method('spawn', True)
 warnings.filterwarnings("ignore")
@@ -53,9 +56,9 @@ def parse_cli_args():
     return parser.parse_args()
 
 
-class ModelWraper(nn.Module):
+class ModelWrapper(nn.Module):
     def __init__(self, model, is_use_gpu=False, is_split_loss=True):
-        super(ModelWraper, self).__init__()
+        super(ModelWrapper, self).__init__()
         self.is_use_gpu = is_use_gpu
         self.is_split_loss = is_split_loss
         if self.is_use_gpu:
@@ -83,8 +86,9 @@ class ModelWraper(nn.Module):
 
 
 def argmax(loc, cls):
-    loc = torch.argmax(loc, dim=1, keepdim=False)
-    cls = torch.argmax(cls, dim=1, keepdim=False)
+    dm = len(loc.shape)-3 # handles cases where batch size is passed and is not
+    loc = torch.argmax(loc, dim=dm, keepdim=False)
+    cls = torch.argmax(cls, dim=dm, keepdim=False)
 
     cls = cls + 1
     cls[loc == 0] = 0
@@ -92,83 +96,25 @@ def argmax(loc, cls):
     return loc, cls
 
 
-def build_image_transforms():
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+def run_inference(args, config, model_wrapper, eval_dataset, eval_dataloader):
+    results = defaultdict(list)
+    with torch.no_grad(): # This is really important to not explode memory with gradients!
+        for result_dict in tqdm(eval_dataloader, total=len(eval_dataloader)):
+            loc, cls = model_wrapper(result_dict['pre_image'], result_dict['post_image'])
+            loc = loc.detach().cpu()
+            cls = cls.detach().cpu()
 
+            result_dict['pre_image'] = result_dict['pre_image'].cpu().numpy()
+            result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
+            result_dict['loc'] = loc
+            result_dict['cls'] = cls
+            # Do this one separately because you can't return a class from a dataloader
+            result_dict['geo_profile'] = [eval_dataset.pairs[idx].opts.geo_profile
+                                          for idx in result_dict['idx']]
+            for k,v in result_dict.items():
+                results[k] = results[k] + list(v)
 
-def main(args):
-    config = CfgNode.load_cfg(open(args.model_config_path, 'rb'))
-    ckpt_path = args.model_weight_path
+    # Making a list
+    results_list = [dict(zip(results,t)) for t in zip(*results.values())]
 
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = True
-
-    model = get_model(config)
-    model.load_state_dict(torch.load(ckpt_path, map_location='cpu')['state_dict'])
-    model.eval()
-
-    model_wrapper = ModelWraper(model, args.is_use_gpu, config.MODEL.IS_SPLIT_LOSS)
-    model_wrapper.eval()
-
-    image_transforms = build_image_transforms()
-
-    if config.DATASET.IS_TIFF:
-        pre_image = tifffile.imread(args.in_pre_path)
-        post_image = tifffile.imread(args.in_post_path)
-    else:
-        pre_image = imread(args.in_pre_path)
-        post_image = imread(args.in_post_path)
-
-    inputs_pre = image_transforms(pre_image)
-    inputs_post = image_transforms(post_image)
-    inputs_pre.unsqueeze_(0)
-    inputs_post.unsqueeze_(0)
-
-    loc, cls = model_wrapper(inputs_pre, inputs_post)
-
-    if config.MODEL.IS_SPLIT_LOSS:
-        loc, cls = argmax(loc, cls)
-        loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
-        cls = cls.detach().cpu().numpy().astype(np.uint8)[0]
-    else:
-        loc = torch.argmax(loc, dim=1, keepdim=False)
-        loc = loc.detach().cpu().numpy().astype(np.uint8)[0]
-        cls = copy.deepcopy(loc)
-
-    args.geo_profile.update(dtype=rasterio.uint8)
-
-    with rasterio.open(args.out_loc_path, 'w', **args.geo_profile) as dst:
-        dst.write(loc, 1)
-
-    with rasterio.open(args.out_cls_path, 'w', **args.geo_profile) as dst:
-        dst.write(cls, 1)
-
-    #imsave(args.out_loc_path, loc)
-    #imsave(args.out_cls_path, cls)
-
-    if args.is_vis:
-        mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
-        mask_map_img[cls == 1] = (255, 255, 255)
-        mask_map_img[cls == 2] = (229, 255, 50)
-        mask_map_img[cls == 3] = (255, 159, 0)
-        mask_map_img[cls == 4] = (255, 0, 0)
-        compare_img = np.concatenate((pre_image, mask_map_img, post_image), axis=1)
-
-        out_dir = os.path.dirname(args.out_overlay_path)
-        with rasterio.open(args.out_overlay_path, 'w', **args.geo_profile) as dst:
-            # Go from (x, y, bands) to (bands, x, y)
-            mask_map_img = np.flipud(mask_map_img)
-            mask_map_img = np.rot90(mask_map_img, 3)
-            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
-            dst.write(mask_map_img)
-
-        # Debug only line below
-        # imsave(args.out_loc_path.parent / (args.out_loc_path.stem + '.comp.png'), compare_img)
-
-
-if __name__ == '__main__':
-    arguments = Options
-    main(arguments)
+    return results_list
