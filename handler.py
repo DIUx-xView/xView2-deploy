@@ -1,6 +1,8 @@
 import glob
 import argparse
 from pathlib import Path
+import sys
+import multiprocessing
 
 import inference
 from raster_processing import *
@@ -103,6 +105,16 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     return match
 
 
+def reproject_helper(args, raster_tuple, procnum, return_dict):
+    (pre_post, src_crs, raster_file) = raster_tuple
+    basename = raster_file.stem
+    dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
+    try:
+        return_dict[procnum] = (pre_post, reproject(raster_file, dest_file, src_crs, args.destination_crs))
+    except ValueError:
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
@@ -131,26 +143,27 @@ def main():
 
     print('Re-projecting...')
 
-    for file in tqdm(pre_files):
-        basename = file.stem
-        dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
+    # Run reprojection in parallel processes
+    manager = multiprocessing.Manager()
+    return_dict = manager.dict()
+    jobs = []
 
-        # Use try to discard images that are not geo images
-        # TODO: deconflict this with the function assertions
-        try:
-            pre_reproj.append(reproject(file, dest_file, args.pre_crs, args.destination_crs))
-        except ValueError:
-            pass
+    # Some data hacking to make it more efficient for multiprocessing
+    pre_files = [("pre", args.pre_crs, x) for x in pre_files]
+    post_files = [("post", args.post_crs, x) for x in post_files]
+    files = pre_files + post_files
 
-    for file in tqdm(post_files):
-        basename = file.stem
-        dest_file = args.staging_directory.joinpath('post').joinpath(f'{basename}.tif')
+    # Launch multiprocessing jobs
+    for idx, f in enumerate(files):
+        p = multiprocessing.Process(target=reproject_helper, args=(args, f, idx, return_dict))
+        jobs.append(p)
+        p.start()
+    for proc in jobs:
+        proc.join()
 
-        # Use try to discard images that are not geo images
-        try:
-            post_reproj.append(reproject(file, dest_file, args.post_crs, args.destination_crs))
-        except ValueError:
-            pass
+    reproj = [x for x in return_dict.values() if x[1] is not None]
+    pre_reproj = [x[1] for x in reproj if x[0] == "pre"]
+    post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
     print("Creating pre mosaic")
     pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
