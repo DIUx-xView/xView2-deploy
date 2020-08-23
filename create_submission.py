@@ -43,6 +43,7 @@ def process_image(f):
         msk2 = cv2.imread(path.join(d, f.replace('_part1', '_part2')), cv2.IMREAD_UNCHANGED)
         msk = np.concatenate([msk1, msk2[..., 1:]], axis=2)
         preds.append(msk * pred_coefs[_i])
+    
     preds = np.asarray(preds).astype('float').sum(axis=0) / np.sum(pred_coefs) / 255
     
     loc_preds = []
@@ -54,7 +55,7 @@ def process_image(f):
     loc_preds = np.asarray(loc_preds).astype('float').sum(axis=0) / np.sum(loc_coefs) / 255
 
     loc_preds = loc_preds 
-
+    
     msk_dmg = preds[..., 1:].argmax(axis=2) + 1
     msk_loc = (1 * ((loc_preds > _thr[0]) | ((loc_preds > _thr[1]) & (msk_dmg > 1) & (msk_dmg < 4)) | ((loc_preds > _thr[2]) & (msk_dmg > 1)))).astype('uint8')
     
@@ -65,8 +66,9 @@ def process_image(f):
         msk_dmg[_msk & msk_dmg == 1] = 2
 
     msk_dmg = msk_dmg.astype('uint8')
-    cv2.imwrite(path.join(sub_folder, '{0}'.format(f.replace('_pre_', '_localization_').replace('_part1.png', '_prediction'))), msk_loc, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-    cv2.imwrite(path.join(sub_folder, '{0}'.format(f.replace('_pre_', '_damage_').replace('_part1.png', '_prediction'))), msk_dmg, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+
+    cv2.imwrite(path.join(sub_folder, '{0}'.format(f.replace('_part1.png', '_localization_prediction.png'))), msk_loc, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+    cv2.imwrite(path.join(sub_folder, '{0}'.format(f.replace('_part1.png', '_damage_prediction.png'))), msk_dmg, [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
 
 if __name__ == '__main__':
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     for f in tqdm(sorted(listdir(pred_folders[0]))):
         if '_part1.png' in f:
             all_files.append(f)
-
+    
     with Pool() as pool:
         _ = pool.map(process_image, all_files)
 
