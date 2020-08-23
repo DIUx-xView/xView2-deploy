@@ -232,7 +232,7 @@ def main():
             )
 
     eval_dataset = XViewDataset(pairs, config, transform=build_image_transforms())
-    eval_dataloader = DataLoader(eval_dataset, batch_size=16, num_workers=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=8, num_workers=8)
 
     # Loading model
     ckpt_path = args.model_weight_path
@@ -266,7 +266,7 @@ def main():
         # So we will up that limit for a bit and then set it back
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if len(overlay_files) >= soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (len(overlay_files) + 10, hard))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (len(overlay_files) * 2, hard))
 
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
