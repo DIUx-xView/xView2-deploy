@@ -100,7 +100,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
 def reproject_helper(args, raster_tuple, procnum, return_dict):
     """
-    Helper function for reprojection 
+    Helper function for reprojection
     """
     (pre_post, src_crs, raster_file) = raster_tuple
     basename = raster_file.stem
@@ -164,6 +164,8 @@ def main():
     parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
     parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
+    parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
+    parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
@@ -232,7 +234,7 @@ def main():
             )
 
     eval_dataset = XViewDataset(pairs, config, transform=build_image_transforms())
-    eval_dataloader = DataLoader(eval_dataset, batch_size=8, num_workers=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
 
     # Loading model
     ckpt_path = args.model_weight_path
@@ -271,7 +273,7 @@ def main():
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
         # Reset soft limit
-        if len(overlay_files) + 10 < soft:
+        if len(overlay_files) >= soft:
             resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
 
     # Complete
