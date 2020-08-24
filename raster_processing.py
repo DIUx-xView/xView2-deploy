@@ -5,11 +5,12 @@ import rasterio.warp
 import rasterio.plot
 from rasterio import windows
 from itertools import product
-from osgeo import gdal
+from osgeo import gdal, ogr
 from tqdm import tqdm
+import subprocess
+import handler
 
 from pathlib import Path
-from handler import Files
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
@@ -34,7 +35,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     # TODO: Change the resolution based on the lowest resolution in the inputs
     gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
 
-    return dest_file.resolve()
+    return Path(dest_file).resolve()
 
 
 def create_mosaic(in_files, out_file):
@@ -66,7 +67,7 @@ def create_mosaic(in_files, out_file):
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
 
-    return out_file.resolve()
+    return Path(out_file).resolve()
 
 
 def get_intersect(*args):
@@ -186,3 +187,19 @@ def create_chips(in_raster, out_dir, intersect):
             chips.append(outpath.resolve())
 
     return chips
+
+
+def create_shapefile(in_dir, out_mosaic, out_shapefile):
+
+    files = handler.get_files(in_dir)
+    mos_out = create_mosaic(files, out_mosaic)
+
+    dst_layername = "dmg"
+    subprocess.run(['gdal_polygonize.py',
+                    mos_out,
+                    out_shapefile,
+                    '-b', '1',
+                    '-f', 'ESRI Shapefile',
+                    'damage',
+                    dst_layername
+                    ])

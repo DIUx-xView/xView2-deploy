@@ -58,6 +58,8 @@ def make_staging_structure(staging_path):
     :param staging_path: Staging path
     :return: True if successful
     """
+
+    # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
@@ -78,6 +80,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -170,6 +173,7 @@ def main():
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
+    parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
 
     args = parser.parse_args()
 
@@ -275,6 +279,13 @@ def main():
         # Reset soft limit
         if len(overlay_files) >= soft:
             resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+    if args.create_shapefile:
+        create_shapefile(Path(args.output_directory).joinpath('dmg'),
+                         Path(args.staging_directory).joinpath('mosacis').joinpath('damage.tif'),
+                         Path(args.output_directory).joinpath('shapes'))
+
+
 
     # Complete
     print('Run complete!')
