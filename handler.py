@@ -10,6 +10,7 @@ from os import makedirs, path
 
 from functools import partial
 import torch.multiprocessing as mp
+mp.set_start_method('spawn', force=True)
 import numpy as np
 from raster_processing import *
 import rasterio.warp
@@ -18,7 +19,7 @@ from torch.utils.data import DataLoader
 from yacs.config import CfgNode
 
 from tqdm import tqdm
-import ray
+#import ray
 
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
@@ -213,7 +214,6 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
         return_dict[f'{model_wrapper.model_size}{mode}'] = results_list
 
 def main():
-    mp.set_start_method('forkserver', force=True)
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True)
@@ -342,6 +342,8 @@ def main():
     jobs.append(p2)
     for proc in jobs:
         proc.join()
+        
+    results_dict = {k:v for k,v in return_dict.items()}
     
     import ipdb; ipdb.set_trace()
     #loc_results = run_loc_inference(eval_loc_dataloader, loc_wrapper)
