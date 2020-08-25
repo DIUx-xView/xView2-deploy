@@ -15,6 +15,9 @@ class XViewFirstPlaceLocModel(nn.Module):
     def __init__(self, model_size, models_folder='weights', devices=[0,0,0]):
         super(XViewFirstPlaceLocModel, self).__init__()
         self.models = []
+        self.model_size = model_size
+        self.models_folder = models_folder
+        self.devices = devices
         self.model_dict = {
             '34':Res34_Unet_Loc,
             '50':SeResNext50_Unet_Loc,
@@ -30,12 +33,15 @@ class XViewFirstPlaceLocModel(nn.Module):
             
         }
         self.pred_folder = f'pred{model_size}_loc'
+        self.load_models()
+        
+    def load_models(self):
         for ii, seed in enumerate([0, 1, 2]):
-            snap_to_load = self.checkpoint_dict[model_size].replace('{}',str(seed))
-            model = self.model_dict[model_size]()
-            model.to(f'cuda:{devices[ii]}')
+            snap_to_load = self.checkpoint_dict[self.model_size].replace('{}',str(seed))
+            model = self.model_dict[self.model_size]()
+            model.to(f'cuda:{self.devices[ii]}')
             print("=> loading checkpoint '{}'".format(snap_to_load))
-            checkpoint = torch.load(path.join(models_folder, snap_to_load), map_location='cpu')
+            checkpoint = torch.load(path.join(self.models_folder, snap_to_load), map_location='cpu')
             loaded_dict = checkpoint['state_dict']
             sd = model.state_dict()
             for k in model.state_dict():
@@ -73,7 +79,8 @@ class XViewFirstPlaceLocModel(nn.Module):
                 
         for i in range(msk0.shape[0]):
             pred = []
-            for msk in [msk0, msk1, msk2]:                    
+            for msk in [msk0, msk1, msk2]:   
+                # This is test-time augmentation, flipping on different axes
                 pred.append(msk[i][0, ...])
                 pred.append(msk[i][1, :, ::-1, :])
                 pred.append(msk[i][2, :, :, ::-1])
@@ -84,6 +91,30 @@ class XViewFirstPlaceLocModel(nn.Module):
         msk_out = torch.stack(msk_out)
          
         return msk_out
+    
+    
+class XViewFirstPlaceClsModel(XViewFirstPlaceLocModel):
+    def __init__(self, model_size, models_folder='weights', devices=[0,0,0]):
+        super(XViewFirstPlaceClsModel, self).__init__(model_size,
+                                                      models_folder=models_folder,
+                                                      devices=devices)
+        self.models = []
+        self.model_dict = {
+            '34':Res34_Unet_Double,
+            '50':SeResNext50_Unet_Double,
+            '92':Dpn92_Unet_Double,
+            '154':SeNet154_Unet_Double,
             
+        }
+        self.checkpoint_dict = {
+            '34':'res34_cls2_{}_tuned_best',
+            '50':'res50_cls_cce_{}_tuned_best',
+            '92':'dpn92_cls_cce_{}_tuned_best',
+            '154':'se154_cls_cce_{}_tuned_best',
+            
+        }
+
+        self.pred_folder = f'pred{model_size}_cls'
+        self.load_models()
             
             
