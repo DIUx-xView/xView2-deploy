@@ -68,3 +68,9 @@ class TestGetIntersectWin(unittest.TestCase):
 #
 #     def test_chip_exist(self):
 #         self.assertEqual(0, len())
+
+class TestCreateShapefile(unittest.TestCase):
+
+    def test_shapefile(self):
+        self.test = raster_processing.create_shapefile('data/input/staging/mosaics/overlay.tif',
+                                                       '/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/input/staging/mosaics/test.shp')

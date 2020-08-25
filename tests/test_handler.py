@@ -8,17 +8,12 @@ class TestGetFiles(unittest.TestCase):
     def test_get_files(self):
         self.path = 'data/input/pre'
         self.result = handler.get_files(self.path)
-        self.assertEqual(5, len(self.result))
+        self.assertEqual(15, len(self.result))
 
     def test_get_files_mixed_case(self):
         self.path = 'data/input/post'
         self.result = handler.get_files(self.path)
-        self.assertEqual(0, len(self.result))
-
-    def test_get_files_no_recursive(self):
-        self.path = 'data/input/post'
-        self.result = handler.get_files(self.path, recursive=False)
-        self.assertEqual(0, len(self.result))
+        self.assertEqual(30, len(self.result))
 
 
 class TestFileValidCheck(unittest.TestCase):
