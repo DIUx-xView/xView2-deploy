@@ -45,6 +45,8 @@ class XViewDataset(Dataset):
         inp = torch.from_numpy(inp.transpose((0, 3, 1, 2))).float()
         
         out_dict = {}
+        out_dict['in_pre_path'] = str(fl.opts.in_pre_path)
+        out_dict['in_post_path'] = str(fl.opts.in_post_path)
         out_dict['pre_image'] = pre_image
         out_dict['post_image'] = post_image
         out_dict['img'] = inp
