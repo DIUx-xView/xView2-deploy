@@ -16,7 +16,13 @@ Arguments:
 --model_config_path: Path to model config.
 --is_use_gpu: Flag to use GPU (must be supported by CUDA ie. NVIDIA cards).
 --n_procs: Number of processors to use for parallel processing.
---batch_size: Number of photos to include in each inferrence batch.
+--batch_size: Number of photos to include in each inference batch.
+--num_workers: Number of workers.
+--pre_crs: CRS of pre-incident imagery. Setting will only be honored if image has no CRS set in metadata.
+--post_crs: CRS of post-incident imagery. Setting will only be honored if image has no CRS set in metadata.
+--destination_crs: CRS for destination exports.
+--create_overlay_mosaic: Flag for creating overlay mosaic.
+--create_shapefile: Flag for creating shapefile from damage inference.
 
 # FAQ
 1. Why the fifth place model?
