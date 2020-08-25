@@ -107,6 +107,7 @@ def get_intersect(*args):
 
     return intersect
 
+
 def check_dims(arr, w, h):
     """
     Check dimensions of output tiles and pad
@@ -122,8 +123,6 @@ def check_dims(arr, w, h):
         result[:arr.shape[0],:arr.shape[1],:arr.shape[2]] = arr
     else:
         result = arr
-        
-    
 
     return result 
 
@@ -135,6 +134,8 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
     :param in_raster: mosaic to create chips from
     :param out_dir: path to write chips
     :param intersect: bounds of chips to create
+    :param tile_width: width of tiles to chip
+    :param tile_height: height of tiles to chip
     :return: list of path to chips
     """
 
@@ -178,7 +179,6 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
     chips = []
 
     with rasterio.open(in_raster) as inds:
-
 
         meta = inds.meta.copy()
 

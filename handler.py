@@ -50,6 +50,7 @@ class Files(object):
         with rasterio.open(self.pre) as src:
             return src.profile
 
+
 def make_staging_structure(staging_path):
     """
     Creates directory structure for staging.
@@ -269,7 +270,7 @@ def main():
 
     if args.create_shapefile:
         print('Creating shapefile')
-        files = handler.get_files(Path(args.output_directory) / 'dmg')
+        files = get_files(Path(args.output_directory) / 'dmg')
         mos_out = create_mosaic(files, Path(args.staging_directory) / 'mosaics' / 'damage.tif')
 
         create_shapefile(mos_out, Path(args.output_directory).joinpath('shapes'))
