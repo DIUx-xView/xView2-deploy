@@ -127,8 +127,9 @@ def check_dims(arr, w, h):
     
 
     return result 
-    
-def create_chips(in_raster, out_dir, intersect):
+
+
+def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
 
     """
     Creates chips from mosaic that fall inside the intersect
@@ -157,7 +158,7 @@ def create_chips(in_raster, out_dir, intersect):
 
         return int_window
 
-    def get_tiles(ds, width=1024, height=1024):
+    def get_tiles(ds, width, height):
 
         """
         Create chip tiles generator
@@ -178,15 +179,15 @@ def create_chips(in_raster, out_dir, intersect):
     chips = []
 
     with rasterio.open(in_raster) as inds:
-        tile_width, tile_height = 1024, 1024
+
 
         meta = inds.meta.copy()
 
-        for window, transform in tqdm(get_tiles(inds)):
+        for window, transform in tqdm(get_tiles(inds, tile_width, tile_height)):
             meta['transform'] = transform
             meta['width'], meta['height'] = tile_width, tile_height
             output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
-            outpath = out_dir.joinpath(output_filename)
+            outpath = Path(out_dir).joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:
                 chip_arr = inds.read(window=window)
@@ -201,14 +202,11 @@ def create_chips(in_raster, out_dir, intersect):
     return chips
 
 
-def create_shapefile(in_dir, out_mosaic, out_shapefile):
-
-    files = handler.get_files(in_dir)
-    mos_out = create_mosaic(files, out_mosaic)
+def create_shapefile(in_mosaic, out_shapefile):
 
     dst_layername = "dmg"
     subprocess.run(['gdal_polygonize.py',
-                    mos_out,
+                    in_mosaic,
                     out_shapefile,
                     '-b', '1',
                     '-f', 'ESRI Shapefile',

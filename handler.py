@@ -3,7 +3,6 @@ import argparse
 import os
 from pathlib import Path
 import sys
-import resource
 
 from functools import partial
 import inference
@@ -271,9 +270,10 @@ def main():
 
     if args.create_shapefile:
         print('Creating shapefile')
-        create_shapefile(Path(args.output_directory).joinpath('dmg'),
-                         Path(args.staging_directory).joinpath('mosacis').joinpath('damage.tif'),
-                         Path(args.output_directory).joinpath('shapes'))
+        files = handler.get_files(Path(args.output_directory) / 'dmg')
+        mos_out = create_mosaic(files, Path(args.staging_directory) / 'mosaics' / 'damage.tif')
+
+        create_shapefile(mos_out, Path(args.output_directory).joinpath('shapes'))
 
 
 
