@@ -17,6 +17,7 @@ import rasterio.warp
 import torch
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode
+from skimage.morphology import square, dilation
 
 from tqdm import tqdm
 #import ray
@@ -129,41 +130,71 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
         return None
 
 
-def postprocess_and_write(config, result_dict):
+def postprocess_and_write(result_dict):
     """
     Postprocess results from inference and write results to file
-    :param config: configuration dictionary
     :param result_dict: dictionary containing all required opts for each example
     """
+    _thr = [0.38, 0.13, 0.14]
+    pred_coefs = [1.0] * 4 # not 12, b/c already took mean over 3 in each subset 
+    loc_coefs = [1.0] * 4 
 
-    if config.MODEL.IS_SPLIT_LOSS:
-        loc, cls = argmax(result_dict['loc'], result_dict['cls'])
-        loc = loc.numpy().astype(np.uint8)
-        cls = cls.numpy().astype(np.uint8)
-    else:
-        loc = torch.argmax(result_dict['loc'], dim=0, keepdim=False)
-        loc = loc.numpy().astype(np.uint8)
-        cls = copy.deepcopy(loc)
+    preds = []
+    _i = -1
+    for k,v in result_dict.items():
+        if 'cls' in k:
+            _i += 1
+            # I think the below can just be replaced by v['cls'] -- shoul dcheck
+            msk1 = v['cls'].numpy()[..., :3]
+            msk2 =  v['cls'].numpy()[..., 2:]
+            msk = np.concatenate([msk1, msk2[..., 1:]], axis=2)
+            preds.append(msk * pred_coefs[_i])
+    
+    preds = np.asarray(preds).astype('float').sum(axis=0) / np.sum(pred_coefs) / 255
+    
+    loc_preds = []
+    _i = -1
+    for k,v in result_dict.items():
+        if 'loc' in k:
+            _i += 1
+            msk = v['loc'].numpy()
+            loc_preds.append(msk * loc_coefs[_i])
+    
+    loc_preds = np.asarray(loc_preds).astype('float').sum(axis=0) / np.sum(loc_coefs) / 255
+    
+    msk_dmg = preds[..., 1:].argmax(axis=2) + 1
+    msk_loc = (1 * ((loc_preds > _thr[0]) | ((loc_preds > _thr[1]) & (msk_dmg > 1) & (msk_dmg < 4)) | ((loc_preds > _thr[2]) & (msk_dmg > 1)))).astype('uint8')
+    
+    msk_dmg = msk_dmg * msk_loc
+    _msk = (msk_dmg == 2)
+    if _msk.sum() > 0:
+        _msk = dilation(_msk, square(5))
+        msk_dmg[_msk & msk_dmg == 1] = 2
 
-    result_dict['geo_profile'].update(dtype=rasterio.uint8)
+    msk_dmg = msk_dmg.astype('uint8')
 
-    with rasterio.open(result_dict['out_loc_path'], 'w', **result_dict['geo_profile']) as dst:
+    loc = msk_loc
+    cls = msk_dmg
+    
+    sample_result_dict = result_dict['34loc']
+    sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
+
+    with rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(loc, 1)
 
-    with rasterio.open(result_dict['out_cls_path'], 'w', **result_dict['geo_profile']) as dst:
+    with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
 
-    if result_dict['is_vis']:
+    if sample_result_dict['is_vis']:
+        #TODO: Make sure this works with First Place code!
         mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
         mask_map_img[cls == 1] = (255, 255, 255)
         mask_map_img[cls == 2] = (229, 255, 50)
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
-        #for debugging original code
-        #compare_img = np.concatenate((result_dict['pre_image'], mask_map_img, result_dict['post_image']), axis=1)
 
-        out_dir = os.path.dirname(result_dict['out_overlay_path'])
-        with rasterio.open(result_dict['out_overlay_path'], 'w', **result_dict['geo_profile']) as dst:
+        out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
+        with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
             # Go from (x, y, bands) to (bands, x, y)
             mask_map_img = np.flipud(mask_map_img)
             mask_map_img = np.rot90(mask_map_img, 3)
@@ -174,7 +205,7 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     results = defaultdict(list)
     pred_folder = model_wrapper.pred_folder
     with torch.no_grad(): # This is really important to not explode memory with gradients!
-        for result_dict in tqdm(loader, total=len(loader)):
+        for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
             out = model_wrapper(result_dict['img'])
             out = out.detach().cpu()
 
@@ -191,13 +222,16 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
                                           for idx in result_dict['idx']]
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
+            if ii > 2: # For debugging
+                break
                 
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
-    if pred_folder is not None:
+    if write_output:
         print('Writing results...')
         makedirs(pred_folder, exist_ok=True)
         for result in tqdm(results_list, total=len(results_list)):
+            # TODO: Multithread this to make it more efficient/maybe eliminate it from workflow
             if mode == 'loc':
                 cv2.imwrite(path.join(pred_folder, 
                                   result['in_pre_path'].split('/')[-1].replace('.tif', '_part1.png')),
@@ -301,61 +335,122 @@ def main():
                                      batch_size=batch_size,
                                      num_workers=4,
                                      shuffle=False)
-
-    # Loading model
-    loc_gpus = {'34':[0,0,0],
-                '50':[1,1,1],
-                '92':[0,0,0],
-                '154':[1,1,1]}
     
-    cls_gpus = {'34':[1,1,1],
-                '50':[0,0,0],
-                '92':[1,1,1],
-                '154':[0,0,0]}
+    if torch.cuda.device_count() == 2:
+        # For 2-GPU machines [TESTED]
         
-    sz = '34'
-    loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
-    cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+        # Loading model
+        loc_gpus = {'34':[0,0,0],
+                    '50':[1,1,1],
+                    '92':[0,0,0],
+                    '154':[1,1,1]}
 
-    # Running inference
-    print('Running inference...')
-    
-    # Run inference in parallel processes
-    manager = mp.Manager()
-    return_dict = manager.dict()
-    jobs = []
-    
-    # Launch multiprocessing jobs for different pytorch jobs
-    p1 = mp.Process(target=run_inference,
-                    args=(eval_cls_dataloader,
-                        cls_wrapper,
-                        True,
-                        'cls',
-                        return_dict))
-    p2 = mp.Process(target=run_inference,
-                    args=(eval_loc_dataloader,
-                        loc_wrapper,
-                        True,
-                        'loc',
-                        return_dict))
-    p1.start()
-    p2.start()
-    jobs.append(p1)
-    jobs.append(p2)
-    for proc in jobs:
-        proc.join()
+        cls_gpus = {'34':[1,1,1],
+                    '50':[0,0,0],
+                    '92':[1,1,1],
+                    '154':[0,0,0]}
+
+        results_dict = {}
         
-    results_dict = {k:v for k,v in return_dict.items()}
+        for sz in loc_gpus.keys():
+            print(f'Running models of size {sz}...')
+            loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
+            cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+
+            # Running inference
+            print('Running inference...')
+
+            # Run inference in parallel processes
+            manager = mp.Manager()
+            return_dict = manager.dict()
+            jobs = []
+
+            # Launch multiprocessing jobs for different pytorch jobs
+            p1 = mp.Process(target=run_inference,
+                            args=(eval_cls_dataloader,
+                                cls_wrapper,
+                                False,
+                                'cls',
+                                return_dict))
+            p2 = mp.Process(target=run_inference,
+                            args=(eval_loc_dataloader,
+                                loc_wrapper,
+                                False,
+                                'loc',
+                                return_dict))
+            p1.start()
+            p2.start()
+            jobs.append(p1)
+            jobs.append(p2)
+            for proc in jobs:
+                proc.join()
+
+            results_dict.update({k:v for k,v in return_dict.items()})
+            
+    elif torch.cuda.device_count() == 8:
+        # For 8-GPU machines
+        # TODO: Test!
+        
+        # Loading model
+        loc_gpus = {'34':[0,0,0],
+                    '50':[1,1,1],
+                    '92':[2,2,2],
+                    '154':[3,3,3]}
+
+        cls_gpus = {'34':[4,4,4],
+                    '50':[5,5,5],
+                    '92':[6,6,6],
+                    '154':[7,7,7]}
+
+        results_dict = {}
+        
+        for sz in loc_gpus.keys():
+            print(f'Running models of size {sz}...')
+            loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
+            cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+
+            # Running inference
+            print('Running inference...')
+
+            # Run inference in parallel processes
+            manager = mp.Manager()
+            return_dict = manager.dict()
+            jobs = []
+
+            # Launch multiprocessing jobs for different pytorch jobs
+            p1 = mp.Process(target=run_inference,
+                            args=(eval_cls_dataloader,
+                                cls_wrapper,
+                                False, # Don't write intermediate outputs
+                                'cls',
+                                return_dict))
+            p2 = mp.Process(target=run_inference,
+                            args=(eval_loc_dataloader,
+                                loc_wrapper,
+                                False, # Don't write intermediate outputs
+                                'loc',
+                                return_dict))
+            p1.start()
+            p2.start()
+            jobs.append(p1)
+            jobs.append(p2)
+            for proc in jobs:
+                proc.join()
+
+            results_dict.update({k:v for k,v in return_dict.items()})
+    else:
+        raise ValueError('Must use either 2 or 8 GPUs')
+        
+    # Quick check to make sure the samples in cls and loc are in teh same orer
+    assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
     
-    import ipdb; ipdb.set_trace()
-    #loc_results = run_loc_inference(eval_loc_dataloader, loc_wrapper)
-    #cls_results = run_inference(eval_cls_dataloader, cls_wrapper, write_output=True, mode='cls')
+    results_list = [{k:v[i] for k,v in results_dict.items()} for i in range(len(results_dict['34cls'])) ]
 
     # Running postprocessing
-    #p = mp.Pool(args.n_procs)
-    # TODO -- ADJUST POSTPROCESS_AND_WRITE FOR FIRST PLACE MODEL
-    #f_p = partial(postprocess_and_write, config)
-    #p.map(f_p, results_list)
+    p = mp.Pool(args.n_procs)
+    postprocess_and_write(results_list[0])
+    f_p = postprocess_and_write
+    p.map(f_p, results_list)
 
     # Complete
     print('Run complete!')

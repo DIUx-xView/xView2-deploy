@@ -12,7 +12,7 @@ import random
 random.seed(1)
 
 class XViewFirstPlaceLocModel(nn.Module):
-    def __init__(self, model_size, models_folder='weights', devices=[0,0,0]):
+    def __init__(self, model_size, models_folder='weights', devices=[0,0,0], load_models=True):
         super(XViewFirstPlaceLocModel, self).__init__()
         self.models = []
         self.model_size = model_size
@@ -33,7 +33,9 @@ class XViewFirstPlaceLocModel(nn.Module):
             
         }
         self.pred_folder = f'pred{model_size}_loc'
-        self.load_models()
+        # Allows subclassing without loading models twice
+        if load_models: 
+            self.load_models()
         
     def load_models(self):
         for ii, seed in enumerate([0, 1, 2]):
@@ -97,7 +99,8 @@ class XViewFirstPlaceClsModel(XViewFirstPlaceLocModel):
     def __init__(self, model_size, models_folder='weights', devices=[0,0,0]):
         super(XViewFirstPlaceClsModel, self).__init__(model_size,
                                                       models_folder=models_folder,
-                                                      devices=devices)
+                                                      devices=devices,
+                                                      load_models=False)
         self.models = []
         self.model_dict = {
             '34':Res34_Unet_Double,
