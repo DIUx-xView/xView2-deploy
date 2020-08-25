@@ -293,12 +293,14 @@ def main():
     eval_loc_dataset = XViewDataset(pairs, 'loc')
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 
                                      batch_size=batch_size, 
-                                     num_workers=num_workers)
+                                     num_workers=num_workers,
+                                     shuffle=False)
     
     eval_cls_dataset = XViewDataset(pairs, 'cls')
     eval_cls_dataloader = DataLoader(eval_cls_dataset, 
                                      batch_size=batch_size,
-                                     num_workers=4)
+                                     num_workers=4,
+                                     shuffle=False)
 
     # Loading model
     loc_gpus = {'34':[0,0,0],
