@@ -5,10 +5,9 @@ import rasterio.warp
 import rasterio.plot
 from rasterio import windows
 from itertools import product
-from osgeo import gdal, ogr
+from osgeo import gdal
 from tqdm import tqdm
 import subprocess
-import handler
 import resource
 
 from pathlib import Path

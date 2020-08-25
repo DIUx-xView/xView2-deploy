@@ -1,4 +1,3 @@
-import glob
 import argparse
 import os
 from pathlib import Path
@@ -274,8 +273,6 @@ def main():
         mos_out = create_mosaic(files, Path(args.staging_directory) / 'mosaics' / 'damage.tif')
 
         create_shapefile(mos_out, Path(args.output_directory).joinpath('shapes'))
-
-
 
     # Complete
     print('Run complete!')

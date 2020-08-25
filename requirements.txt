@@ -9,3 +9,6 @@ opencv-python
 torch
 torchvision
 tifffile
+
+rasterio
+shapely
