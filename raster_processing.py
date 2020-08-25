@@ -9,6 +9,7 @@ from osgeo import gdal, ogr
 from tqdm import tqdm
 import subprocess
 import handler
+import resource
 
 from pathlib import Path
 
@@ -47,6 +48,13 @@ def create_mosaic(in_files, out_file):
     :return: path to output file
     """
 
+    # This is some hacky, dumb shit
+    # There is a limit on how many file descriptors we can have open at once
+    # So we will up that limit for a bit and then set it back
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
+
     file_objs = []
 
     for file in in_files:
@@ -66,6 +74,10 @@ def create_mosaic(in_files, out_file):
 
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
+
+    # Reset soft limit
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
 
     return Path(out_file).resolve()
 

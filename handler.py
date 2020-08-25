@@ -267,20 +267,10 @@ def main():
         overlay_files = p.glob('*')
         overlay_files = [x for x in overlay_files]
 
-        # This is some hacky, dumb shit
-        # There is a limit on how many file descriptors we can have open at once
-        # So we will up that limit for a bit and then set it back
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        if len(overlay_files) >= soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (len(overlay_files) * 2, hard))
-
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
-        # Reset soft limit
-        if len(overlay_files) >= soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
-
     if args.create_shapefile:
+        print('Creating shapefile')
         create_shapefile(Path(args.output_directory).joinpath('dmg'),
                          Path(args.staging_directory).joinpath('mosacis').joinpath('damage.tif'),
                          Path(args.output_directory).joinpath('shapes'))
