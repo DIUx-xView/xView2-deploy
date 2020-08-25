@@ -90,7 +90,7 @@ def get_intersect(*args):
     :return: tuple of intersect in (left, bottom, right, top)
     """
 
-    # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
+    # TODO: Calculate real intersection.
 
     left = []
     bottom = []
