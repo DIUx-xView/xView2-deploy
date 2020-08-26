@@ -10,9 +10,10 @@ from rasterio import windows
 from itertools import product
 from osgeo import gdal
 from tqdm import tqdm
+import subprocess
+import resource
 
 from pathlib import Path
-from handler import Files
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
@@ -37,7 +38,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     # TODO: Change the resolution based on the lowest resolution in the inputs
     gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
 
-    return dest_file.resolve()
+    return Path(dest_file).resolve()
 
 
 def create_mosaic(in_files, out_file):
@@ -48,6 +49,13 @@ def create_mosaic(in_files, out_file):
     :param out_file: path to output mosaic
     :return: path to output file
     """
+
+    # This is some hacky, dumb shit
+    # There is a limit on how many file descriptors we can have open at once
+    # So we will up that limit for a bit and then set it back
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
 
     file_objs = []
 
@@ -69,7 +77,11 @@ def create_mosaic(in_files, out_file):
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
 
-    return out_file.resolve()
+    # Reset soft limit
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+    return Path(out_file).resolve()
 
 
 def get_intersect(*args):
@@ -80,7 +92,7 @@ def get_intersect(*args):
     :return: tuple of intersect in (left, bottom, right, top)
     """
 
-    # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
+    # TODO: Calculate real intersection.
 
     left = []
     bottom = []
@@ -98,6 +110,7 @@ def get_intersect(*args):
 
     return intersect
 
+
 def check_dims(arr, w, h):
     """
     Check dimensions of output tiles and pad
@@ -114,17 +127,18 @@ def check_dims(arr, w, h):
     else:
         result = arr
 
+    return result 
 
 
-    return result
-
-def create_chips(in_raster, out_dir, intersect, uuid):
+def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_height=1024):
 
     """
     Creates chips from mosaic that fall inside the intersect
     :param in_raster: mosaic to create chips from
     :param out_dir: path to write chips
     :param intersect: bounds of chips to create
+    :param tile_width: width of tiles to chip
+    :param tile_height: height of tiles to chip
     :return: list of path to chips
     """
 
@@ -145,7 +159,7 @@ def create_chips(in_raster, out_dir, intersect, uuid):
 
         return int_window
 
-    def get_tiles(ds, width=1024, height=1024):
+    def get_tiles(ds, width, height):
 
         """
         Create chip tiles generator
@@ -166,11 +180,10 @@ def create_chips(in_raster, out_dir, intersect, uuid):
     chips = []
 
     with rasterio.open(in_raster) as inds:
-        tile_width, tile_height = 1024, 1024
 
         meta = inds.meta.copy()
 
-        for idx, (window, transform) in enumerate(tqdm(get_tiles(inds))):
+        for idx, (window, transform) in enumerate(tqdm(get_tiles(inds, tile_width, tile_height))):
             meta['transform'] = transform
             meta['width'], meta['height'] = tile_width, tile_height
             output_filename = f'{uuid}_{idx}_{out_dir.parts[-1]}.tif'
@@ -187,3 +200,16 @@ def create_chips(in_raster, out_dir, intersect, uuid):
             chips.append(outpath.resolve())
 
     return chips
+
+
+def create_shapefile(in_mosaic, out_shapefile):
+
+    dst_layername = "dmg"
+    subprocess.run(['gdal_polygonize.py',
+                    in_mosaic,
+                    out_shapefile,
+                    '-b', '1',
+                    '-f', 'ESRI Shapefile',
+                    'damage',
+                    dst_layername
+                    ])
