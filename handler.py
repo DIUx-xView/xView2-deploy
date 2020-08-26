@@ -276,25 +276,9 @@ def main():
 
     if args.create_shapefile:
         print('Creating shapefile')
-        files = get_files(Path(args.output_directory) / 'dmg')
-
-        polys = []
-        for idx, f in enumerate(files):
-            p = create_shapefile(f, Path(args.output_directory).joinpath('shapes'), idx)
-            polys.extend(p)
-
-        shp_schema = {
-            'geometry': 'MultiPolygon',
-            'properties': {'dmg': 'int'}
-        }
-
-        # Write out all the multipolygons to the same file
-        with fiona.open(args.output_directory.joinpath('shapes') / 'damage.shp', 'w', 'ESRI Shapefile', shp_schema, args.destination_crs) as shp:
-            for multipolygon, px_val in polys:
-                shp.write({
-                    'geometry': mapping(multipolygon),
-                    'properties': {'dmg': int(px_val)}
-                })
+        create_shapefile(Path(args.output_directory) / 'dmg',
+                         Path(args.output_directory).joinpath('shapes'),
+                         args.destination_crs)
 
     # Complete
     print('Run complete!')
