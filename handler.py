@@ -277,7 +277,7 @@ def main():
     if args.create_shapefile:
         print('Creating shapefile')
         create_shapefile(Path(args.output_directory) / 'dmg',
-                         Path(args.output_directory).joinpath('shapes'),
+                         Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
     # Complete
