@@ -1,6 +1,10 @@
 import argparse
+import glob
 import os
 from pathlib import Path
+import random
+import resource
+import string
 import sys
 
 from functools import partial
@@ -216,8 +220,9 @@ def main():
     extent = get_intersect(pre_mosaic, post_mosaic)
 
     print('Chipping...')
-    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
-    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
+    uuid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
+    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent, uuid)
+    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent, uuid)
 
     assert len(pre_chips) == len(post_chips)
 
