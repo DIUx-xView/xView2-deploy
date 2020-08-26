@@ -219,10 +219,10 @@ def create_shapefile(dmg_dir, out_shapefile, dest_crs):
         bnd = src.read(1)
         polys = list(shapes(bnd, transform=transform))
 
-        for p, val in polys:
+        for geom, val in polys:
             if val == 0:
                 continue
-            polygons.append((Polygon(shape(p)), val))
+            polygons.append((Polygon(shape(geom)), val))
 
     shp_schema = {
         'geometry': 'Polygon',
