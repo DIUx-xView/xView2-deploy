@@ -9,7 +9,6 @@ import resource
 import string
 import sys
 
-import fiona
 import numpy as np
 from raster_processing import *
 import rasterio.warp

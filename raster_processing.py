@@ -3,7 +3,7 @@ import random
 import resource
 import string
 import subprocess
-
+import fiona
 import numpy as np
 import rasterio
 import rasterio.merge
