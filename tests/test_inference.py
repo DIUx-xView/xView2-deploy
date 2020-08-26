@@ -14,3 +14,4 @@ class TestInference(unittest.TestCase):
 
     def test_default_path(self):
         self.assertEqual('input/post', self.opts.in_post_path)
+ 

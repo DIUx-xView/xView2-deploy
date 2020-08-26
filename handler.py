@@ -1,16 +1,19 @@
-import glob
 import argparse
+from functools import partial
+import glob
+import multiprocessing as mp
 import os
 from pathlib import Path
-import sys
+import random
 import resource
+import string
+import sys
 
-from functools import partial
-import inference
-import multiprocessing as mp
+import fiona
 import numpy as np
 from raster_processing import *
 import rasterio.warp
+from shapely.geometry import mapping
 import torch
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode
@@ -19,6 +22,7 @@ from tqdm import tqdm
 
 from dataset import XViewDataset
 from models.dual_hrnet import get_model
+import inference
 from inference import ModelWrapper, argmax, run_inference
 from utils import build_image_transforms
 
@@ -52,12 +56,15 @@ class Files(object):
         with rasterio.open(self.pre) as src:
             return src.profile
 
+
 def make_staging_structure(staging_path):
     """
     Creates directory structure for staging.
     :param staging_path: Staging path
     :return: True if successful
     """
+
+    # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
@@ -78,6 +85,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -100,7 +108,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
 def reproject_helper(args, raster_tuple, procnum, return_dict):
     """
-    Helper function for reprojection 
+    Helper function for reprojection
     """
     (pre_post, src_crs, raster_file) = raster_tuple
     basename = raster_file.stem
@@ -164,10 +172,13 @@ def main():
     parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
     parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
+    parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
+    parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
+    parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
 
     args = parser.parse_args()
 
@@ -211,8 +222,9 @@ def main():
     extent = get_intersect(pre_mosaic, post_mosaic)
 
     print('Chipping...')
-    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
-    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
+    uuid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
+    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent, uuid)
+    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent, uuid)
 
     assert len(pre_chips) == len(post_chips)
 
@@ -232,7 +244,7 @@ def main():
             )
 
     eval_dataset = XViewDataset(pairs, config, transform=build_image_transforms())
-    eval_dataloader = DataLoader(eval_dataset, batch_size=16, num_workers=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
 
     # Loading model
     ckpt_path = args.model_weight_path
@@ -260,19 +272,29 @@ def main():
         p = Path(args.output_directory) / "over"
         overlay_files = p.glob('*')
         overlay_files = [x for x in overlay_files]
-
-        # This is some hacky, dumb shit
-        # There is a limit on how many file descriptors we can have open at once
-        # So we will up that limit for a bit and then set it back
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        if len(overlay_files) >= soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (len(overlay_files) + 10, hard))
-
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
-        # Reset soft limit
-        if len(overlay_files) + 10 < soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+    if args.create_shapefile:
+        print('Creating shapefile')
+        files = get_files(Path(args.output_directory) / 'dmg')
+
+        polys = []
+        for idx, f in enumerate(files):
+            p = create_shapefile(f, Path(args.output_directory).joinpath('shapes'), idx)
+            polys.extend(p)
+
+        shp_schema = {
+            'geometry': 'MultiPolygon',
+            'properties': {'dmg': 'int'}
+        }
+
+        # Write out all the multipolygons to the same file
+        with fiona.open(args.output_directory.joinpath('shapes') / 'damage.shp', 'w', 'ESRI Shapefile', shp_schema, args.destination_crs) as shp:
+            for multipolygon, px_val in polys:
+                shp.write({
+                    'geometry': mapping(multipolygon),
+                    'properties': {'dmg': int(px_val)}
+                })
 
     # Complete
     print('Run complete!')
