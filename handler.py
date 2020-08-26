@@ -1,5 +1,7 @@
 import argparse
+from functools import partial
 import glob
+import multiprocessing as mp
 import os
 from pathlib import Path
 import random
@@ -7,12 +9,11 @@ import resource
 import string
 import sys
 
-from functools import partial
-import inference
-import multiprocessing as mp
+import fiona
 import numpy as np
 from raster_processing import *
 import rasterio.warp
+from shapely.geometry import mapping
 import torch
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode
@@ -21,6 +22,7 @@ from tqdm import tqdm
 
 from dataset import XViewDataset
 from models.dual_hrnet import get_model
+import inference
 from inference import ModelWrapper, argmax, run_inference
 from utils import build_image_transforms
 
@@ -270,15 +272,29 @@ def main():
         p = Path(args.output_directory) / "over"
         overlay_files = p.glob('*')
         overlay_files = [x for x in overlay_files]
-
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
         files = get_files(Path(args.output_directory) / 'dmg')
-        mos_out = create_mosaic(files, Path(args.staging_directory) / 'mosaics' / 'damage.tif')
 
-        create_shapefile(mos_out, Path(args.output_directory).joinpath('shapes'))
+        polys = []
+        for idx, f in enumerate(files):
+            p = create_shapefile(f, Path(args.output_directory).joinpath('shapes'), idx)
+            polys.extend(p)
+
+        shp_schema = {
+            'geometry': 'MultiPolygon',
+            'properties': {'dmg': 'int'}
+        }
+
+        # Write out all the multipolygons to the same file
+        with fiona.open(args.output_directory.joinpath('shapes') / 'damage.shp', 'w', 'ESRI Shapefile', shp_schema, args.destination_crs) as shp:
+            for multipolygon, px_val in polys:
+                shp.write({
+                    'geometry': mapping(multipolygon),
+                    'properties': {'dmg': int(px_val)}
+                })
 
     # Complete
     print('Run complete!')

@@ -1,5 +1,8 @@
+from itertools import product
 import random
+import resource
 import string
+import subprocess
 
 import numpy as np
 import rasterio
@@ -7,11 +10,11 @@ import rasterio.merge
 import rasterio.warp
 import rasterio.plot
 from rasterio import windows
-from itertools import product
+from rasterio.features import shapes
+from shapely.geometry import shape
+from shapely.geometry.multipolygon import MultiPolygon
 from osgeo import gdal
 from tqdm import tqdm
-import subprocess
-import resource
 
 from pathlib import Path
 
@@ -202,14 +205,25 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
     return chips
 
 
-def create_shapefile(in_mosaic, out_shapefile):
+def create_shapefile(in_mosaic, out_shapefile, idx):
 
-    dst_layername = "dmg"
-    subprocess.run(['gdal_polygonize.py',
-                    in_mosaic,
-                    out_shapefile,
-                    '-b', '1',
-                    '-f', 'ESRI Shapefile',
-                    'damage',
-                    dst_layername
-                    ])
+    src = rasterio.open(in_mosaic)
+    crs = src.crs
+    transform = src.transform
+
+    bnd = src.read(1)
+    unique_values = np.unique(bnd)
+    polys = list(shapes(bnd, transform=transform))
+
+    shp_schema = {
+        'geometry': 'MultiPolygon',
+        'properties': {'dmg': 'int'}
+    }
+
+    p = []
+    for px_val in unique_values:
+        polygons = [shape(geom) for geom, value in polys if value == px_val]
+        multipolygon = MultiPolygon(polygons)
+        p.append((multipolygon, px_val))
+
+    return p
