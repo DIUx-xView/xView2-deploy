@@ -1,4 +1,5 @@
 import cv2
+import timeit
 import glob
 import argparse
 import os
@@ -222,8 +223,6 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
                                           for idx in result_dict['idx']]
             for k,v in result_dict.items():
                 results[k] = results[k] + list(v)
-            if ii > 2: # For debugging
-                break
                 
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
@@ -248,6 +247,9 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
         return_dict[f'{model_wrapper.model_size}{mode}'] = results_list
 
 def main():
+    
+    t0 = timeit.default_timer()
+
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True)
@@ -322,7 +324,7 @@ def main():
             )
 
     batch_size = 2
-    num_workers = 4
+    num_workers = 8
     
     eval_loc_dataset = XViewDataset(pairs, 'loc')
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 
@@ -403,44 +405,44 @@ def main():
                     '154':[7,7,7]}
 
         results_dict = {}
+         # Run inference in parallel processes
+        manager = mp.Manager()
+        return_dict = manager.dict()
+        jobs = []
         
         for sz in loc_gpus.keys():
-            print(f'Running models of size {sz}...')
+            print(f'Adding jobs for size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
 
-            # Running inference
-            print('Running inference...')
-
-            # Run inference in parallel processes
-            manager = mp.Manager()
-            return_dict = manager.dict()
-            jobs = []
-
             # Launch multiprocessing jobs for different pytorch jobs
-            p1 = mp.Process(target=run_inference,
+            jobs.append(mp.Process(target=run_inference,
                             args=(eval_cls_dataloader,
                                 cls_wrapper,
                                 False, # Don't write intermediate outputs
                                 'cls',
                                 return_dict))
-            p2 = mp.Process(target=run_inference,
+                            )
+            jobs.append(mp.Process(target=run_inference,
                             args=(eval_loc_dataloader,
                                 loc_wrapper,
                                 False, # Don't write intermediate outputs
                                 'loc',
                                 return_dict))
-            p1.start()
-            p2.start()
-            jobs.append(p1)
-            jobs.append(p2)
-            for proc in jobs:
-                proc.join()
+                            )
 
-            results_dict.update({k:v for k,v in return_dict.items()})
+        print('Running inference...')
+
+        for proc in jobs:
+            proc.start()
+        for proc in jobs:
+            proc.join()
+
+        results_dict.update({k:v for k,v in return_dict.items()})
+    
     else:
         raise ValueError('Must use either 2 or 8 GPUs')
-        
+       
     # Quick check to make sure the samples in cls and loc are in teh same orer
     assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
     
@@ -448,13 +450,13 @@ def main():
 
     # Running postprocessing
     p = mp.Pool(args.n_procs)
-    postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
     # Complete
     print('Run complete!')
-
+    elapsed = timeit.default_timer() - t0
+    print('Time: {:.3f} min'.format(elapsed / 60))
 
 if __name__ == '__main__':
     main()
