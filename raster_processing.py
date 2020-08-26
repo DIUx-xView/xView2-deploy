@@ -12,7 +12,7 @@ import rasterio.plot
 from rasterio import windows
 from rasterio.features import shapes
 from shapely.geometry import shape
-from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
 from shapely.ops import cascaded_union
 from osgeo import gdal
 from tqdm import tqdm
@@ -208,50 +208,33 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
 
 def create_shapefile(dmg_dir, out_shapefile, dest_crs):
 
-    def create_polys(in_mosaic):
-        src = rasterio.open(in_mosaic)
+    files = get_files(dmg_dir)
+
+    polygons = []
+    for idx, f in enumerate(files):
+        src = rasterio.open(f)
         crs = src.crs
         transform = src.transform
 
         bnd = src.read(1)
-        unique_values = np.unique(bnd)
         polys = list(shapes(bnd, transform=transform))
 
-        shp_schema = {
-            'geometry': 'MultiPolygon',
-            'properties': {'dmg': 'int'}
-        }
-
-        p = []
-        for px_val in unique_values:
-            if px_val == 0:
+        for p, val in polys:
+            if val == 0:
                 continue
-            polygons = [shape(geom) for geom, value in polys if value == px_val]
-            multipolygon = MultiPolygon(polygons)
-            p.append((multipolygon, px_val))
-
-        return p
-
-    ####
-
-    files = get_files(dmg_dir)
-
-    polys = []
-    for idx, f in enumerate(files):
-        p = create_polys(f)
-        polys.extend(p)
+            polygons.append((Polygon(shape(p)), val))
 
     shp_schema = {
-        'geometry': 'MultiPolygon',
+        'geometry': 'Polygon',
         'properties': {'dmg': 'int'}
     }
 
     # Write out all the multipolygons to the same file
     with fiona.open(out_shapefile, 'w', 'ESRI Shapefile', shp_schema,
                     dest_crs) as shp:
-        for multipolygon, px_val in polys:
+        for polygon, px_val in polygons:
             shp.write({
-                'geometry': mapping(multipolygon),
+                'geometry': mapping(polygon),
                 'properties': {'dmg': int(px_val)}
             })
 
