@@ -12,3 +12,4 @@ tifffile
 
 rasterio
 shapely
+fiona
