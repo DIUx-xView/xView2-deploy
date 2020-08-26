@@ -324,7 +324,7 @@ def main():
             )
 
     batch_size = 2
-    num_workers = 8
+    num_workers = 0
     
     eval_loc_dataset = XViewDataset(pairs, 'loc')
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 
