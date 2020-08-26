@@ -10,7 +10,7 @@ from collections import defaultdict
 from os import makedirs, path
 
 from functools import partial
-import torch.multiprocessing as mp
+import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
 from raster_processing import *
@@ -29,6 +29,12 @@ from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 # TODO: Clean up directory structure
 # TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
+import functools
+import logging
+import struct
+import sys
+
+logger = logging.getLogger()
 
 class Options(object):
 
@@ -209,9 +215,13 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
         for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
             out = model_wrapper(result_dict['img'])
             out = out.detach().cpu()
+            
+            del result_dict['img']
 
-            result_dict['pre_image'] = result_dict['pre_image'].cpu().numpy()
-            result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
+            if 'pre_image' in result_dict:
+                result_dict['pre_image'] = result_dict['pre_image'].cpu().numpy()
+            if 'post_img' in result_dict:
+                result_dict['post_image'] = result_dict['post_image'].cpu().numpy()
             if mode == 'loc':
                 result_dict['loc'] = out
             elif mode == 'cls':
@@ -324,7 +334,7 @@ def main():
             )
 
     batch_size = 2
-    num_workers = 0
+    num_workers = 6
     
     eval_loc_dataset = XViewDataset(pairs, 'loc')
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 

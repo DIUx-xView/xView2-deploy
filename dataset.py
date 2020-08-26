@@ -23,7 +23,7 @@ class XViewDataset(Dataset):
     def __len__(self):
         return(len(self.pairs))
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, return_img=False):
         fl = self.pairs[idx]
         pre_image = cv2.imread(str(fl.opts.in_pre_path), cv2.IMREAD_COLOR)
         post_image = cv2.imread(str(fl.opts.in_post_path), cv2.IMREAD_COLOR)
@@ -47,8 +47,9 @@ class XViewDataset(Dataset):
         out_dict = {}
         out_dict['in_pre_path'] = str(fl.opts.in_pre_path)
         out_dict['in_post_path'] = str(fl.opts.in_post_path)
-        out_dict['pre_image'] = pre_image
-        out_dict['post_image'] = post_image
+        if return_img:
+            out_dict['pre_image'] = pre_image
+            out_dict['post_image'] = post_image
         out_dict['img'] = inp
         out_dict['idx'] = idx
         out_dict['out_cls_path'] = str(fl.opts.out_cls_path)
