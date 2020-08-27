@@ -134,7 +134,7 @@ def check_dims(arr, w, h):
     return result 
 
 
-def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_height=1024):
+def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
 
     """
     Creates chips from mosaic that fall inside the intersect
@@ -190,7 +190,7 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
         for idx, (window, transform) in enumerate(tqdm(get_tiles(inds, tile_width, tile_height))):
             meta['transform'] = transform
             meta['width'], meta['height'] = tile_width, tile_height
-            output_filename = f'{uuid}_{idx}_{out_dir.parts[-1]}.tif'
+            output_filename = f'{idx}_{out_dir.parts[-1]}.tif'
             outpath = out_dir.joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:

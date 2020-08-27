@@ -86,7 +86,7 @@ def make_output_structure(output_path):
     return True
 
 
-def get_files(dirname, extensions=['.png', '.tif', '.jpg'], uuid=None):
+def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
     """
     Gathers list of files for processing from path recursively.
@@ -96,10 +96,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg'], uuid=None):
     """
     dir_path = Path(dirname)
 
-    if uuid:
-        files = dir_path.glob(f'**/{uuid}*')
-    else:
-        files = dir_path.glob('**/*')
+    files = dir_path.glob('**/*')
 
     files = [path.resolve() for path in files]
 
@@ -223,9 +220,8 @@ def main():
     extent = get_intersect(pre_mosaic, post_mosaic)
 
     print('Chipping...')
-    uuid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
-    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent, uuid)
-    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent, uuid)
+    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
     assert len(pre_chips) == len(post_chips)
 
@@ -271,13 +267,13 @@ def main():
     if args.create_overlay_mosaic:
         print("Creating overlay mosaic")
         p = Path(args.output_directory) / "over"
-        overlay_files = get_files(p, uuid=uuid)
+        overlay_files = get_files(p)
         overlay_files = [x for x in overlay_files]
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
-        files = get_files(Path(args.output_directory) / 'dmg', uuid=uuid)
+        files = get_files(Path(args.output_directory) / 'dmg')
         create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
