@@ -24,6 +24,10 @@ To run the inference
 - --create_overlay_mosaic: Flag for creating overlay mosaic.
 - --create_shapefile: Flag for creating shapefile from damage inference.
 
+# Dependencies
+
+Requires python 3.7 and GDAL, which can be installed with [anaconda](https://anaconda.org/conda-forge/gdal).
+
 # FAQ
 1. Why the fifth place model?
     While it's not the most accurate of the models submitted, the fifth-place model in far less compute intensive than the other models.

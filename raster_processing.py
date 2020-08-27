@@ -13,9 +13,10 @@ from rasterio import windows
 from rasterio.features import shapes
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
+from shapely.ops import cascaded_union
 from osgeo import gdal
 from tqdm import tqdm
-
+from handler import *
 from pathlib import Path
 
 
@@ -205,25 +206,55 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
     return chips
 
 
-def create_shapefile(in_mosaic, out_shapefile, idx):
+def create_shapefile(dmg_dir, out_shapefile, dest_crs):
 
-    src = rasterio.open(in_mosaic)
-    crs = src.crs
-    transform = src.transform
+    def create_polys(in_mosaic):
+        src = rasterio.open(in_mosaic)
+        crs = src.crs
+        transform = src.transform
 
-    bnd = src.read(1)
-    unique_values = np.unique(bnd)
-    polys = list(shapes(bnd, transform=transform))
+        bnd = src.read(1)
+        unique_values = np.unique(bnd)
+        polys = list(shapes(bnd, transform=transform))
+
+        shp_schema = {
+            'geometry': 'MultiPolygon',
+            'properties': {'dmg': 'int'}
+        }
+
+        p = []
+        for px_val in unique_values:
+            if px_val == 0:
+                continue
+            polygons = [shape(geom) for geom, value in polys if value == px_val]
+            multipolygon = MultiPolygon(polygons)
+            p.append((multipolygon, px_val))
+
+        return p
+
+    ####
+
+    files = get_files(dmg_dir)
+
+    polys = []
+    for idx, f in enumerate(files):
+        p = create_polys(f)
+        polys.extend(p)
 
     shp_schema = {
         'geometry': 'MultiPolygon',
         'properties': {'dmg': 'int'}
     }
 
-    p = []
-    for px_val in unique_values:
-        polygons = [shape(geom) for geom, value in polys if value == px_val]
-        multipolygon = MultiPolygon(polygons)
-        p.append((multipolygon, px_val))
+    # Write out all the multipolygons to the same file
+    with fiona.open(out_shapefile, 'w', 'ESRI Shapefile', shp_schema,
+                    dest_crs) as shp:
+        for multipolygon, px_val in polys:
+            shp.write({
+                'geometry': mapping(multipolygon),
+                'properties': {'dmg': int(px_val)}
+            })
 
-    return p
+
+    ####
+
