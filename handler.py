@@ -26,10 +26,6 @@ from inference import ModelWrapper, argmax, run_inference
 from utils import build_image_transforms
 
 
-# TODO: Clean up directory structure
-# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
-
-
 class Files(object):
 
     def __init__(self, ident, pre_directory, post_directory, output_directory, pre, post):
@@ -66,7 +62,7 @@ def make_staging_structure(staging_path):
     # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-    Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
+
 
     return True
 
@@ -79,6 +75,7 @@ def make_output_structure(output_path):
     :return: True if succussful
     """
 
+    Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
@@ -219,9 +216,9 @@ def main():
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
     print("Creating pre mosaic...")
-    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
+    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
     print("Creating post mosaic...")
-    post_mosaic = create_mosaic(post_reproj, Path(f"{args.staging_directory}/mosaics/post.tif"))
+    post_mosaic = create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
 
     extent = get_intersect(pre_mosaic, post_mosaic)
 
@@ -276,7 +273,7 @@ def main():
         p = Path(args.output_directory) / "over"
         overlay_files = get_files(p, uuid=uuid)
         overlay_files = [x for x in overlay_files]
-        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
+        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
