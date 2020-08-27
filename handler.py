@@ -89,7 +89,7 @@ def make_output_structure(output_path):
     return True
 
 
-def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
+def get_files(dirname, extensions=['.png', '.tif', '.jpg'], uuid=None):
 
     """
     Gathers list of files for processing from path recursively.
@@ -98,7 +98,12 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     :return: list of files matching extensions
     """
     dir_path = Path(dirname)
-    files = dir_path.glob('**/*')
+
+    if uuid:
+        files = dir_path.glob(f'**/{uuid}*')
+    else:
+        files = dir_path.glob('**/*')
+
     files = [path.resolve() for path in files]
 
     match = [f for f in files if f.suffix in extensions]
@@ -269,13 +274,14 @@ def main():
     if args.create_overlay_mosaic:
         print("Creating overlay mosaic")
         p = Path(args.output_directory) / "over"
-        overlay_files = p.glob('*')
+        overlay_files = get_files(p, uuid=uuid)
         overlay_files = [x for x in overlay_files]
         overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
-        create_shapefile(Path(args.output_directory) / 'dmg',
+        files = get_files(Path(args.output_directory) / 'dmg', uuid=uuid)
+        create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 

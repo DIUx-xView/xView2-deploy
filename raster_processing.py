@@ -206,12 +206,10 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
     return chips
 
 
-def create_shapefile(dmg_dir, out_shapefile, dest_crs):
-
-    files = get_files(dmg_dir)
+def create_shapefile(in_files, out_shapefile, dest_crs):
 
     polygons = []
-    for idx, f in enumerate(files):
+    for idx, f in enumerate(in_files):
         src = rasterio.open(f)
         crs = src.crs
         transform = src.transform
