@@ -220,7 +220,12 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     pred_folder = model_wrapper.pred_folder
     with torch.no_grad(): # This is really important to not explode memory with gradients!
         for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
-            out = model_wrapper(result_dict['img'])
+            print(result_dict['in_pre_path'])
+            debug=False
+            if '116' in result_dict['in_pre_path'][0]:
+                import ipdb; ipdb.set_trace()
+                debug=True
+            out = model_wrapper.forward(result_dict['img'],debug=debug)
             out = out.detach().cpu()
             
             del result_dict['img']
@@ -320,9 +325,9 @@ def main():
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
     print("Creating pre mosaic...")
-    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
+    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
     print("Creating post mosaic...")
-    post_mosaic = create_mosaic(post_reproj, Path(f"{args.staging_directory}/mosaics/post.tif"))
+    post_mosaic = create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
 
     extent = get_intersect(pre_mosaic, post_mosaic)
 
@@ -432,6 +437,15 @@ def main():
             print(f'Adding jobs for size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+            
+            # DEBUG
+            #run_inference(eval_loc_dataloader,
+            #                    loc_wrapper,
+            #                    True, # Don't write intermediate outputs
+            #                    'loc',
+            #                    return_dict)
+            
+            #import ipdb; ipdb.set_trace()
 
             # Launch multiprocessing jobs for different pytorch jobs
             jobs.append(mp.Process(target=run_inference,

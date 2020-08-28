@@ -45,16 +45,20 @@ class XViewFirstPlaceLocModel(nn.Module):
             print("=> loading checkpoint '{}'".format(snap_to_load))
             checkpoint = torch.load(path.join(self.models_folder, snap_to_load), map_location='cpu')
             loaded_dict = checkpoint['state_dict']
+            loaded_dict = {key.replace("module.", ""): value for key, value in loaded_dict.items()}
             sd = model.state_dict()
-            for k in model.state_dict():
+            for ii, k in model.state_dict():
                 if k in loaded_dict and sd[k].size() == loaded_dict[k].size():
                     sd[k] = loaded_dict[k]
+                    if ii == 0:
+                        print('loaded first layer') # --> debug to make sure model loaded!
             loaded_dict = sd
             model.load_state_dict(loaded_dict)
             print("loaded checkpoint '{}' (epoch {}, best_score {})"
                     .format(snap_to_load, checkpoint['epoch'], checkpoint['best_score']))
             model.eval()
             self.models.append(model)
+            
             
     def execute_model(self, x, model):
         model_device = next(model.parameters()).device # Hack to get device
@@ -63,7 +67,9 @@ class XViewFirstPlaceLocModel(nn.Module):
         return msk
         
             
-    def forward(self,x):
+    def forward(self,x, debug=False):
+        if debug:
+            import ipdb; ipdb.set_trace()
         msk_out = []
         x_shape = x.shape
         # Because this model actually executes something along the batch dimension, compress
@@ -75,18 +81,19 @@ class XViewFirstPlaceLocModel(nn.Module):
                      
         # Separating back into correct batch size for first dim
         new_shape = [x_shape[0],-1] + list(msk0.shape[1:])
-        msk0 = msk0.reshape(new_shape).numpy()
-        msk1 = msk1.reshape(new_shape).numpy()
-        msk2 = msk2.reshape(new_shape).numpy()
+        msk0 = msk0.reshape(new_shape)
+        msk1 = msk1.reshape(new_shape)
+        msk2 = msk2.reshape(new_shape)
                 
         for i in range(msk0.shape[0]):
             pred = []
             for msk in [msk0, msk1, msk2]:   
+                tmp = torch.sigmoid(msk[i]).numpy()
                 # This is test-time augmentation, flipping on different axes
-                pred.append(msk[i][0, ...])
-                pred.append(msk[i][1, :, ::-1, :])
-                pred.append(msk[i][2, :, :, ::-1])
-                pred.append(msk[i][3, :, ::-1, ::-1])
+                pred.append(tmp[0, ...])
+                pred.append(tmp[1, :, ::-1, :])
+                pred.append(tmp[2, :, :, ::-1])
+                pred.append(tmp[3, :, ::-1, ::-1])
 
             pred_full = np.asarray(pred).mean(axis=0) * 255
             msk_out.append(torch.tensor(pred_full.astype('uint8').transpose(1, 2, 0)).squeeze())

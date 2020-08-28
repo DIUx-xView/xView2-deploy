@@ -52,6 +52,7 @@ if __name__ == '__main__':
         for k in model.state_dict():
             if k in loaded_dict and sd[k].size() == loaded_dict[k].size():
                 sd[k] = loaded_dict[k]
+                # print('loaded') --> for debugging to ensure model loads
         loaded_dict = sd
         model.load_state_dict(loaded_dict)
         print("loaded checkpoint '{}' (epoch {}, best_score {})"
@@ -63,7 +64,10 @@ if __name__ == '__main__':
     with torch.no_grad():
         for f in tqdm(sorted(listdir(test_dir))):
             if True:
+                #import ipdb; ipdb.set_trace()
                 fn = path.join(test_dir, f)
+                #if '116' in fn:
+                #    import ipdb; ipdb.set_trace()
 
                 img = cv2.imread(fn, cv2.IMREAD_COLOR)
                 img = preprocess_inputs(img)
