@@ -504,7 +504,6 @@ def main():
     if args.create_shapefile:
         print('Creating shapefile')
         files = get_files(Path(args.output_directory) / 'dmg')
-        import ipdb; ipdb.set_trace()
         create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          int(args.destination_crs.split(':')[-1]))
