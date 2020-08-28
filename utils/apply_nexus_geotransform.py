@@ -1,5 +1,7 @@
 import argparse
 from pathlib import Path
+import sys
+sys.path.append('..')
 
 import numpy as np
 import rasterio
@@ -59,7 +61,8 @@ def main(args):
 
     if args.create_shapefile:
         print('Creating shapefile')
-        create_shapefile(Path(args.output_directory) / 'dmg',
+        files = get_files(Path(args.output_directory) / 'dmg')
+        create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
