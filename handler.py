@@ -14,6 +14,7 @@ import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
 from raster_processing import *
+from shapely.geometry import mapping
 import rasterio.warp
 import torch
 from torch.utils.data import DataLoader
@@ -159,9 +160,6 @@ def postprocess_and_write(result_dict):
         if 'cls' in k:
             _i += 1
             # I think the below can just be replaced by v['cls'] -- shoul dcheck
-            #msk1 = v['cls'].numpy()[..., :3]
-            #msk2 =  v['cls'].numpy()[..., 2:]
-            #msk = np.concatenate([msk1, msk2[..., 1:]], axis=2)
             msk = v['cls'].numpy()
             preds.append(msk * pred_coefs[_i])
     
@@ -340,8 +338,8 @@ def main():
     post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
     # debug
-    pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
-    post_chips =  [bb for bb in post_chips if '116' in str(bb)]
+    #pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
+    #post_chips =  [bb for bb in post_chips if '116' in str(bb)]
     
     assert len(pre_chips) == len(post_chips)
 
@@ -506,7 +504,7 @@ def main():
         files = get_files(Path(args.output_directory) / 'dmg')
         create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                         int(args.destination_crs.split(':')[-1]))
+                         args.destination_crs)
 
     # Complete
     print('Run complete!')
