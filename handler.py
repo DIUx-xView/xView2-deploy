@@ -199,7 +199,7 @@ def postprocess_and_write(result_dict):
 
     with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
-
+        
     if sample_result_dict['is_vis']:
         #TODO: Make sure this works with First Place code!
         mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
@@ -208,7 +208,8 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
 
-        cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
+        # debug
+        # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
         
         out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
         with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
@@ -338,6 +339,7 @@ def main():
     pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
     post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
+    # debug
     pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
     post_chips =  [bb for bb in post_chips if '116' in str(bb)]
     
@@ -488,7 +490,7 @@ def main():
 
     # Running postprocessing
     p = mp.Pool(args.n_procs)
-    postprocess_and_write(results_list[0])
+    #postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
     
@@ -502,9 +504,10 @@ def main():
     if args.create_shapefile:
         print('Creating shapefile')
         files = get_files(Path(args.output_directory) / 'dmg')
+        import ipdb; ipdb.set_trace()
         create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                         args.destination_crs)
+                         int(args.destination_crs.split(':')[-1]))
 
     # Complete
     print('Run complete!')
