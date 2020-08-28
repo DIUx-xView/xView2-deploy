@@ -220,11 +220,11 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     pred_folder = model_wrapper.pred_folder
     with torch.no_grad(): # This is really important to not explode memory with gradients!
         for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
-            print(result_dict['in_pre_path'])
+            #print(result_dict['in_pre_path'])
             debug=False
-            if '116' in result_dict['in_pre_path'][0]:
-                import ipdb; ipdb.set_trace()
-                debug=True
+            #if '116' in result_dict['in_pre_path'][0]:
+            #    import ipdb; ipdb.set_trace()
+            #    debug=True
             out = model_wrapper.forward(result_dict['img'],debug=debug)
             out = out.detach().cpu()
             

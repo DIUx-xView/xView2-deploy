@@ -47,7 +47,7 @@ class XViewFirstPlaceLocModel(nn.Module):
             loaded_dict = checkpoint['state_dict']
             loaded_dict = {key.replace("module.", ""): value for key, value in loaded_dict.items()}
             sd = model.state_dict()
-            for ii, k in model.state_dict():
+            for ii, k in enumerate(model.state_dict()):
                 if k in loaded_dict and sd[k].size() == loaded_dict[k].size():
                     sd[k] = loaded_dict[k]
                     if ii == 0:
