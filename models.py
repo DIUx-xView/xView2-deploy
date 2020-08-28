@@ -12,9 +12,11 @@ import random
 random.seed(1)
 
 class XViewFirstPlaceLocModel(nn.Module):
-    def __init__(self, model_size, models_folder='weights', devices=[0,0,0], load_models=True):
+    def __init__(self, model_size, models_folder='weights', devices=[0,0,0], 
+                 load_models=True, dp_mode=False):
         super(XViewFirstPlaceLocModel, self).__init__()
         self.models = []
+        self.dp_mode = dp_mode
         self.model_size = model_size
         self.models_folder = models_folder
         self.devices = devices
@@ -41,7 +43,6 @@ class XViewFirstPlaceLocModel(nn.Module):
         for ii, seed in enumerate([0, 1, 2]):
             snap_to_load = self.checkpoint_dict[self.model_size].replace('{}',str(seed))
             model = self.model_dict[self.model_size]()
-            model.to(f'cuda:{self.devices[ii]}')
             print("=> loading checkpoint '{}'".format(snap_to_load))
             checkpoint = torch.load(path.join(self.models_folder, snap_to_load), map_location='cpu')
             loaded_dict = checkpoint['state_dict']
@@ -56,6 +57,12 @@ class XViewFirstPlaceLocModel(nn.Module):
             model.load_state_dict(loaded_dict)
             print("loaded checkpoint '{}' (epoch {}, best_score {})"
                     .format(snap_to_load, checkpoint['epoch'], checkpoint['best_score']))
+            if self.dp_mode:
+                print('Using DataParallel mode...')
+                model = nn.DataParallel(model).cuda()
+            else:
+                print(f'Assigning model to GPU {self.devices[ii]}')
+                model.to(f'cuda:{self.devices[ii]}')
             model.eval()
             self.models.append(model)
             
@@ -103,11 +110,13 @@ class XViewFirstPlaceLocModel(nn.Module):
     
     
 class XViewFirstPlaceClsModel(XViewFirstPlaceLocModel):
-    def __init__(self, model_size, models_folder='weights', devices=[0,0,0]):
+    def __init__(self, model_size, models_folder='weights', 
+                 devices=[0,0,0], dp_mode=False):
         super(XViewFirstPlaceClsModel, self).__init__(model_size,
                                                       models_folder=models_folder,
                                                       devices=devices,
-                                                      load_models=False)
+                                                      load_models=False,
+                                                      dp_mode=dp_mode)
         self.models = []
         self.model_dict = {
             '34':Res34_Unet_Double,

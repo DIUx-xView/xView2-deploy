@@ -291,6 +291,8 @@ def main():
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
     parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
+    parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
+    parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
 
 
     args = parser.parse_args()
@@ -359,15 +361,47 @@ def main():
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 
                                      batch_size=args.batch_size, 
                                      num_workers=args.num_workers,
-                                     shuffle=False)
+                                     shuffle=False,
+                                     pin_memory=True)
     
     eval_cls_dataset = XViewDataset(pairs, 'cls')
     eval_cls_dataloader = DataLoader(eval_cls_dataset, 
                                      batch_size=args.batch_size,
                                      num_workers=args.num_workers,
-                                     shuffle=False)
+                                     shuffle=False,
+                                     pin_memory=True)
     
-    if torch.cuda.device_count() == 2:
+    
+    if args.dp_mode:
+        results_dict = {}
+        
+        for sz in ['34', '50', '92', '154']:
+            print(f'Running models of size {sz}...')
+            return_dict = {}
+            loc_wrapper = XViewFirstPlaceLocModel(sz, dp_mode=args.dp_mode)
+            
+            run_inference(eval_loc_dataloader,
+                                loc_wrapper,
+                                args.save_intermediates,
+                                'loc',
+                                return_dict)
+            
+            del loc_wrapper
+            
+            cls_wrapper = XViewFirstPlaceClsModel(sz, dp_mode=args.dp_mode)
+            
+            run_inference(eval_cls_dataloader,
+                                cls_wrapper,
+                                args.save_intermediates,
+                                'cls',
+                                return_dict)
+            
+            del cls_wrapper
+            
+            results_dict.update({k:v for k,v in return_dict.items()})
+        
+        
+    elif torch.cuda.device_count() == 2:
         # For 2-GPU machines [TESTED]
         
         # Loading model
@@ -382,6 +416,9 @@ def main():
                     '154':[0,0,0]}
 
         results_dict = {}
+        
+        # Running inference
+        print('Running inference...')
         
         for sz in loc_gpus.keys():
             print(f'Running models of size {sz}...')
@@ -400,13 +437,13 @@ def main():
             p1 = mp.Process(target=run_inference,
                             args=(eval_cls_dataloader,
                                 cls_wrapper,
-                                False,
+                                args.save_intermediates,
                                 'cls',
                                 return_dict))
             p2 = mp.Process(target=run_inference,
                             args=(eval_loc_dataloader,
                                 loc_wrapper,
-                                False,
+                                args.save_intermediates,
                                 'loc',
                                 return_dict))
             p1.start()
@@ -457,14 +494,14 @@ def main():
             jobs.append(mp.Process(target=run_inference,
                             args=(eval_cls_dataloader,
                                 cls_wrapper,
-                                True, # Don't write intermediate outputs
+                                args.save_intermediates, # Don't write intermediate outputs
                                 'cls',
                                 return_dict))
                             )
             jobs.append(mp.Process(target=run_inference,
                             args=(eval_loc_dataloader,
                                 loc_wrapper,
-                                True, # Don't write intermediate outputs
+                                args.save_intermediates, # Don't write intermediate outputs
                                 'loc',
                                 return_dict))
                             )
