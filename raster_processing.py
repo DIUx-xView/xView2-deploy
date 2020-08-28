@@ -1,35 +1,24 @@
+from itertools import product
+import random
+import resource
+import string
+import subprocess
+import fiona
 import numpy as np
 import rasterio
 import rasterio.merge
 import rasterio.warp
 import rasterio.plot
 from rasterio import windows
-from itertools import product
+from rasterio.features import shapes
+from shapely.geometry import shape
+from shapely.geometry.polygon import Polygon
+from shapely.ops import cascaded_union
 from osgeo import gdal
 from tqdm import tqdm
-
+from handler import *
 from pathlib import Path
 
-class Files(object):
-
-    def __init__(self, ident, pre_directory, post_directory, output_directory, pre, post):
-        self.ident = ident
-        self.pre = pre_directory.joinpath(pre).resolve()
-        self.post = post_directory.joinpath(post).resolve()
-        self.loc = output_directory.joinpath('loc').joinpath(f'{self.ident}.tif').resolve()
-        self.dmg = output_directory.joinpath('dmg').joinpath(f'{self.ident}.tif').resolve()
-        self.over = output_directory.joinpath('over').joinpath(f'{self.ident}.tif').resolve()
-        self.profile = self.get_profile()
-        self.transform = self.profile["transform"]
-        self.opts = inference.Options(pre_path=self.pre,
-                                      post_path=self.post,
-                                      out_loc_path=self.loc,
-                                      out_dmg_path=self.dmg,
-                                      out_overlay_path=self.over,
-                                      geo_profile=self.profile,
-                                      vis=True,
-                                      use_gpu=True
-                                      )
 
 def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
 
@@ -53,7 +42,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
     # TODO: Change the resolution based on the lowest resolution in the inputs
     gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
 
-    return dest_file.resolve()
+    return Path(dest_file).resolve()
 
 
 def create_mosaic(in_files, out_file):
@@ -64,6 +53,13 @@ def create_mosaic(in_files, out_file):
     :param out_file: path to output mosaic
     :return: path to output file
     """
+
+    # This is some hacky, dumb shit
+    # There is a limit on how many file descriptors we can have open at once
+    # So we will up that limit for a bit and then set it back
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
 
     file_objs = []
 
@@ -85,7 +81,11 @@ def create_mosaic(in_files, out_file):
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
 
-    return out_file.resolve()
+    # Reset soft limit
+    if len(in_files) >= soft:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+    return Path(out_file).resolve()
 
 
 def get_intersect(*args):
@@ -96,7 +96,7 @@ def get_intersect(*args):
     :return: tuple of intersect in (left, bottom, right, top)
     """
 
-    # TODO: This has been tested for NW hemisphere. Real intersection would be ideal.
+    # TODO: Calculate real intersection.
 
     left = []
     bottom = []
@@ -114,6 +114,7 @@ def get_intersect(*args):
 
     return intersect
 
+
 def check_dims(arr, w, h):
     """
     Check dimensions of output tiles and pad
@@ -129,22 +130,21 @@ def check_dims(arr, w, h):
         result[:arr.shape[0],:arr.shape[1],:arr.shape[2]] = arr
     else:
         result = arr
-        
-    
 
     return result 
-    
-def create_chips(in_raster, out_dir, intersect):
+
+
+def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
 
     """
     Creates chips from mosaic that fall inside the intersect
     :param in_raster: mosaic to create chips from
     :param out_dir: path to write chips
     :param intersect: bounds of chips to create
+    :param tile_width: width of tiles to chip
+    :param tile_height: height of tiles to chip
     :return: list of path to chips
     """
-
-    output_filename = 'tile_{}-{}.tif'
 
     def get_intersect_win(rio_obj):
 
@@ -163,7 +163,7 @@ def create_chips(in_raster, out_dir, intersect):
 
         return int_window
 
-    def get_tiles(ds, width=1024, height=1024):
+    def get_tiles(ds, width, height):
 
         """
         Create chip tiles generator
@@ -179,19 +179,18 @@ def create_chips(in_raster, out_dir, intersect):
         for col_off, row_off in offsets:
             window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(intersect_window)
             transform = windows.transform(window, ds.transform)
-            yield window, transform      
+            yield window, transform
 
     chips = []
 
     with rasterio.open(in_raster) as inds:
-        tile_width, tile_height = 1024, 1024
 
         meta = inds.meta.copy()
 
-        for window, transform in tqdm(get_tiles(inds)):
+        for idx, (window, transform) in enumerate(tqdm(get_tiles(inds, tile_width, tile_height))):
             meta['transform'] = transform
             meta['width'], meta['height'] = tile_width, tile_height
-            output_filename = f'tile_{int(window.col_off)}-{int(window.row_off)}.tif'
+            output_filename = f'{idx}_{out_dir.parts[-1]}.tif'
             outpath = out_dir.joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:
@@ -199,9 +198,44 @@ def create_chips(in_raster, out_dir, intersect):
                 out_arr = check_dims(chip_arr, tile_width, tile_height)
                 assert(out_arr.shape[1] == tile_width)
                 assert(out_arr.shape[2] == tile_height)
-                
+
                 outds.write(out_arr)
 
             chips.append(outpath.resolve())
 
     return chips
+
+
+def create_shapefile(in_files, out_shapefile, dest_crs):
+
+    polygons = []
+    for idx, f in enumerate(in_files):
+        src = rasterio.open(f)
+        crs = src.crs
+        transform = src.transform
+
+        bnd = src.read(1)
+        polys = list(shapes(bnd, transform=transform))
+
+        for geom, val in polys:
+            if val == 0:
+                continue
+            polygons.append((Polygon(shape(geom)), val))
+
+    shp_schema = {
+        'geometry': 'Polygon',
+        'properties': {'dmg': 'int'}
+    }
+
+    # Write out all the multipolygons to the same file
+    with fiona.open(out_shapefile, 'w', 'ESRI Shapefile', shp_schema,
+                    dest_crs) as shp:
+        for polygon, px_val in polygons:
+            shp.write({
+                'geometry': mapping(polygon),
+                'properties': {'dmg': int(px_val)}
+            })
+
+
+    ####
+

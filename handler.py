@@ -84,9 +84,11 @@ def make_staging_structure(staging_path):
     :param staging_path: Staging path
     :return: True if successful
     """
+
+    # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-    Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
+
 
     return True
 
@@ -99,11 +101,13 @@ def make_output_structure(output_path):
     :return: True if succussful
     """
 
+    Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -117,16 +121,19 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     :return: list of files matching extensions
     """
     dir_path = Path(dirname)
+
     files = dir_path.glob('**/*')
+
     files = [path.resolve() for path in files]
 
     match = [f for f in files if f.suffix in extensions]
     return match
 
 
+
 def reproject_helper(args, raster_tuple, procnum, return_dict):
     """
-    Helper function for reprojection 
+    Helper function for reprojection
     """
     (pre_post, src_crs, raster_file) = raster_tuple
     basename = raster_file.stem
@@ -270,10 +277,14 @@ def main():
     parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
     parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
+    parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
+    parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
+    parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
+
 
     args = parser.parse_args()
 
@@ -332,20 +343,17 @@ def main():
             pre,
             post)
             )
-
-    batch_size = 2
-    num_workers = 6
     
     eval_loc_dataset = XViewDataset(pairs, 'loc')
     eval_loc_dataloader = DataLoader(eval_loc_dataset, 
-                                     batch_size=batch_size, 
-                                     num_workers=num_workers,
+                                     batch_size=args.batch_size, 
+                                     num_workers=args.num_workers,
                                      shuffle=False)
     
     eval_cls_dataset = XViewDataset(pairs, 'cls')
     eval_cls_dataloader = DataLoader(eval_cls_dataset, 
-                                     batch_size=batch_size,
-                                     num_workers=4,
+                                     batch_size=args.batch_size,
+                                     num_workers=args.num_workers,
                                      shuffle=False)
     
     if torch.cuda.device_count() == 2:
@@ -429,14 +437,14 @@ def main():
             jobs.append(mp.Process(target=run_inference,
                             args=(eval_cls_dataloader,
                                 cls_wrapper,
-                                False, # Don't write intermediate outputs
+                                True, # Don't write intermediate outputs
                                 'cls',
                                 return_dict))
                             )
             jobs.append(mp.Process(target=run_inference,
                             args=(eval_loc_dataloader,
                                 loc_wrapper,
-                                False, # Don't write intermediate outputs
+                                True, # Don't write intermediate outputs
                                 'loc',
                                 return_dict))
                             )
@@ -462,6 +470,20 @@ def main():
     p = mp.Pool(args.n_procs)
     f_p = postprocess_and_write
     p.map(f_p, results_list)
+    
+    if args.create_overlay_mosaic:
+        print("Creating overlay mosaic")
+        p = Path(args.output_directory) / "over"
+        overlay_files = get_files(p)
+        overlay_files = [x for x in overlay_files]
+        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+
+    if args.create_shapefile:
+        print('Creating shapefile')
+        files = get_files(Path(args.output_directory) / 'dmg')
+        create_shapefile(files,
+                         Path(args.output_directory).joinpath('shapes') / 'damage.shp',
+                         args.destination_crs)
 
     # Complete
     print('Run complete!')
