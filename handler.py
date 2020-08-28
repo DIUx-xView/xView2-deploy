@@ -159,9 +159,10 @@ def postprocess_and_write(result_dict):
         if 'cls' in k:
             _i += 1
             # I think the below can just be replaced by v['cls'] -- shoul dcheck
-            msk1 = v['cls'].numpy()[..., :3]
-            msk2 =  v['cls'].numpy()[..., 2:]
-            msk = np.concatenate([msk1, msk2[..., 1:]], axis=2)
+            #msk1 = v['cls'].numpy()[..., :3]
+            #msk2 =  v['cls'].numpy()[..., 2:]
+            #msk = np.concatenate([msk1, msk2[..., 1:]], axis=2)
+            msk = v['cls'].numpy()
             preds.append(msk * pred_coefs[_i])
     
     preds = np.asarray(preds).astype('float').sum(axis=0) / np.sum(pred_coefs) / 255
@@ -207,6 +208,8 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
 
+        cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
+        
         out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
         with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
             # Go from (x, y, bands) to (bands, x, y)
@@ -335,6 +338,9 @@ def main():
     pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
     post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
+    pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
+    post_chips =  [bb for bb in post_chips if '116' in str(bb)]
+    
     assert len(pre_chips) == len(post_chips)
 
     # Defining dataset and dataloader
@@ -476,12 +482,13 @@ def main():
         raise ValueError('Must use either 2 or 8 GPUs')
        
     # Quick check to make sure the samples in cls and loc are in teh same orer
-    assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
+    #assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
     
     results_list = [{k:v[i] for k,v in results_dict.items()} for i in range(len(results_dict['34cls'])) ]
 
     # Running postprocessing
     p = mp.Pool(args.n_procs)
+    postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
     
