@@ -1,3 +1,7 @@
+# For damage assessment invocation purposes
+On 2 GPUs: `CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory '/Users/rgupta/Downloads/data/input/pre' --post_directory '/Users/rgupta/Downloads/data/input/post' --output_directory '/Users/rgupta/Downloads/output ' --staging_directory '/Users/rgupta/Downloads/staging'  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6 --create_shapefiles`
+
+
 d# xview2 1st place solution
 1st place solution for "xView2: Assess Building Damage" challenge. https://www.xview2.org
 
