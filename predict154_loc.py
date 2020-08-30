@@ -24,7 +24,7 @@ from utils import *
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
 
-test_dir = 'test/images'
+test_dir = 'test/images/pre'
 pred_folder = 'pred154_loc'
 models_folder = 'weights'
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         for f in tqdm(sorted(listdir(test_dir))):
-            if '_pre_' in f:
+            if True:
                 fn = path.join(test_dir, f)
 
                 img = cv2.imread(fn, cv2.IMREAD_COLOR)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
                 
                 msk = pred_full * 255
                 msk = msk.astype('uint8').transpose(1, 2, 0)
-                cv2.imwrite(path.join(pred_folder, '{0}.png'.format(f.replace('.png', '_part1.png'))), msk[..., 0], [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                cv2.imwrite(path.join(pred_folder, '{0}'.format(f.replace('.tif', '_part1.png'))), msk[..., 0], [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
     elapsed = timeit.default_timer() - t0
     print('Time: {:.3f} min'.format(elapsed / 60))

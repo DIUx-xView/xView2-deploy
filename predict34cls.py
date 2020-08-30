@@ -20,12 +20,14 @@ import cv2
 
 from zoo.models import Res34_Unet_Double
 
+from raster_processing import create_chips
+
 from utils import *
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
 
-test_dir = 'test/images'
+test_dir = 'test/images/pre'
 models_folder = 'weights'
 
 if __name__ == '__main__':
@@ -61,15 +63,15 @@ if __name__ == '__main__':
     model.eval()
     models.append(model)
     
+    print("Getting chips...")
+    pre_chips = [os.path.join(test_dir, a) for a in os.listdir(test_dir)]
+    post_chips = [os.path.join(test_dir.replace('pre','post'), a) for a in os.listdir(test_dir.replace('pre','post'))]
 
     with torch.no_grad():
-        for f in tqdm(sorted(listdir(test_dir))):
-            if '_pre_' in f:
-                fn = path.join(test_dir, f)
-
-                img = cv2.imread(fn, cv2.IMREAD_COLOR)
-                img2 = cv2.imread(fn.replace('_pre_', '_post_'), cv2.IMREAD_COLOR)
-
+        for i in tqdm(range(len(pre_chips))):
+            if True:
+                img = cv2.imread(pre_chips[i], cv2.IMREAD_COLOR)
+                img2 = cv2.imread(post_chips[i], cv2.IMREAD_COLOR)
                 img = np.concatenate([img, img2], axis=2)
                 img = preprocess_inputs(img)
 
@@ -97,8 +99,9 @@ if __name__ == '__main__':
                 
                 msk = pred_full * 255
                 msk = msk.astype('uint8').transpose(1, 2, 0)
-                cv2.imwrite(path.join(pred_folder, '{0}.png'.format(f.replace('.png', '_part1.png'))), msk[..., :3], [cv2.IMWRITE_PNG_COMPRESSION, 9])
-                cv2.imwrite(path.join(pred_folder, '{0}.png'.format(f.replace('.png', '_part2.png'))), msk[..., 2:], [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                rt = pre_chips[i].split('/')[-1]
+                cv2.imwrite(path.join(pred_folder, '{0}'.format(rt.replace('.tif', '_part1.png'))), msk[..., :3], [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                cv2.imwrite(path.join(pred_folder, '{0}'.format(rt.replace('.tif', '_part2.png'))), msk[..., 2:], [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
     elapsed = timeit.default_timer() - t0
     print('Time: {:.3f} min'.format(elapsed / 60))
