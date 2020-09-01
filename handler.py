@@ -100,7 +100,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
     files = [path.resolve() for path in files]
 
-    match = [f for f in files if f.suffix in extensions]
+    match = [f for f in files if f.suffix.lower() in extensions]
     return match
 
 
@@ -283,4 +283,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if os.name == 'nt':
+        from multiprocessing import freeze_support()
+        freeze_support()
     main()
