@@ -9,7 +9,6 @@ import resource
 import string
 import sys
 
-import fiona
 import numpy as np
 from raster_processing import *
 import rasterio.warp
@@ -25,10 +24,6 @@ from models.dual_hrnet import get_model
 import inference
 from inference import ModelWrapper, argmax, run_inference
 from utils import build_image_transforms
-
-
-# TODO: Clean up directory structure
-# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
 
 class Files(object):
@@ -67,7 +62,7 @@ def make_staging_structure(staging_path):
     # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-    Path(f"{staging_path}/mosaics").mkdir(parents=True, exist_ok=True)
+
 
     return True
 
@@ -80,6 +75,7 @@ def make_output_structure(output_path):
     :return: True if succussful
     """
 
+    Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
@@ -99,10 +95,12 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     :return: list of files matching extensions
     """
     dir_path = Path(dirname)
+
     files = dir_path.glob('**/*')
+
     files = [path.resolve() for path in files]
 
-    match = [f for f in files if f.suffix in extensions]
+    match = [f for f in files if f.suffix.lower() in extensions]
     return match
 
 
@@ -215,16 +213,15 @@ def main():
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
     print("Creating pre mosaic...")
-    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.staging_directory}/mosaics/pre.tif"))
+    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
     print("Creating post mosaic...")
-    post_mosaic = create_mosaic(post_reproj, Path(f"{args.staging_directory}/mosaics/post.tif"))
+    post_mosaic = create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
 
     extent = get_intersect(pre_mosaic, post_mosaic)
 
     print('Chipping...')
-    uuid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
-    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent, uuid)
-    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent, uuid)
+    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
     assert len(pre_chips) == len(post_chips)
 
@@ -270,13 +267,14 @@ def main():
     if args.create_overlay_mosaic:
         print("Creating overlay mosaic")
         p = Path(args.output_directory) / "over"
-        overlay_files = p.glob('*')
+        overlay_files = get_files(p)
         overlay_files = [x for x in overlay_files]
-        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.staging_directory}/mosaics/overlay.tif"))
+        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
-        create_shapefile(Path(args.output_directory) / 'dmg',
+        files = get_files(Path(args.output_directory) / 'dmg')
+        create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
@@ -285,4 +283,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if os.name == 'nt':
+        from multiprocessing import freeze_support()
+        freeze_support()
     main()

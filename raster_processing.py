@@ -1,9 +1,8 @@
 from itertools import product
 import random
-import resource
 import string
 import subprocess
-
+import fiona
 import numpy as np
 import rasterio
 import rasterio.merge
@@ -12,7 +11,7 @@ import rasterio.plot
 from rasterio import windows
 from rasterio.features import shapes
 from shapely.geometry import shape
-from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
 from shapely.ops import cascaded_union
 from osgeo import gdal
 from tqdm import tqdm
@@ -57,9 +56,16 @@ def create_mosaic(in_files, out_file):
     # This is some hacky, dumb shit
     # There is a limit on how many file descriptors we can have open at once
     # So we will up that limit for a bit and then set it back
-    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-    if len(in_files) >= soft:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
+    if os.name == 'posix':
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if len(in_files) >= soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
+    elif os.name == 'nt':
+        import win32file
+        soft = win32file._getmaxstdio()
+        if len(in_files) >= soft:
+            win32file._setmaxstdio(len(in_files) * 2)
 
     file_objs = []
 
@@ -82,8 +88,16 @@ def create_mosaic(in_files, out_file):
         dest.write(mosaic)
 
     # Reset soft limit
-    if len(in_files) >= soft:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+    if os.name == 'posix':
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if len(in_files) >= soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
+    elif os.name == 'nt':
+        import win32file
+        soft = win32file._getmaxstdio()
+        if len(in_files) >= soft:
+            win32file._setmaxstdio(len(in_files) * 2)
 
     return Path(out_file).resolve()
 
@@ -134,7 +148,7 @@ def check_dims(arr, w, h):
     return result 
 
 
-def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_height=1024):
+def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
 
     """
     Creates chips from mosaic that fall inside the intersect
@@ -190,7 +204,7 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
         for idx, (window, transform) in enumerate(tqdm(get_tiles(inds, tile_width, tile_height))):
             meta['transform'] = transform
             meta['width'], meta['height'] = tile_width, tile_height
-            output_filename = f'{uuid}_{idx}_{out_dir.parts[-1]}.tif'
+            output_filename = f'{idx}_{out_dir.parts[-1]}.tif'
             outpath = out_dir.joinpath(output_filename)
 
             with rasterio.open(outpath, 'w', **meta) as outds:
@@ -206,52 +220,33 @@ def create_chips(in_raster, out_dir, intersect, uuid, tile_width=1024, tile_heig
     return chips
 
 
-def create_shapefile(dmg_dir, out_shapefile, dest_crs):
+def create_shapefile(in_files, out_shapefile, dest_crs):
 
-    def create_polys(in_mosaic):
-        src = rasterio.open(in_mosaic)
+    polygons = []
+    for idx, f in enumerate(in_files):
+        src = rasterio.open(f)
         crs = src.crs
         transform = src.transform
 
         bnd = src.read(1)
-        unique_values = np.unique(bnd)
         polys = list(shapes(bnd, transform=transform))
 
-        shp_schema = {
-            'geometry': 'MultiPolygon',
-            'properties': {'dmg': 'int'}
-        }
-
-        p = []
-        for px_val in unique_values:
-            if px_val == 0:
+        for geom, val in polys:
+            if val == 0:
                 continue
-            polygons = [shape(geom) for geom, value in polys if value == px_val]
-            multipolygon = MultiPolygon(polygons)
-            p.append((multipolygon, px_val))
-
-        return p
-
-    ####
-
-    files = get_files(dmg_dir)
-
-    polys = []
-    for idx, f in enumerate(files):
-        p = create_polys(f)
-        polys.extend(p)
+            polygons.append((Polygon(shape(geom)), val))
 
     shp_schema = {
-        'geometry': 'MultiPolygon',
+        'geometry': 'Polygon',
         'properties': {'dmg': 'int'}
     }
 
     # Write out all the multipolygons to the same file
     with fiona.open(out_shapefile, 'w', 'ESRI Shapefile', shp_schema,
                     dest_crs) as shp:
-        for multipolygon, px_val in polys:
+        for polygon, px_val in polygons:
             shp.write({
-                'geometry': mapping(multipolygon),
+                'geometry': mapping(polygon),
                 'properties': {'dmg': int(px_val)}
             })
 
