@@ -549,4 +549,7 @@ def main():
     print('Time: {:.3f} min'.format(elapsed / 60))
 
 if __name__ == '__main__':
+    if os.name == 'nt':
+        from multiprocessing import freeze_support()
+        freeze_support()
     main()
