@@ -8,14 +8,15 @@ import rasterio
 import rasterio.merge
 import rasterio.warp
 import rasterio.plot
+import handler
+import os
 from rasterio import windows
 from rasterio.features import shapes
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
 from shapely.geometry.polygon import Polygon
 from shapely.ops import cascaded_union
 from osgeo import gdal
 from tqdm import tqdm
-from handler import *
 from pathlib import Path
 
 

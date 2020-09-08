@@ -3,26 +3,25 @@ import timeit
 import glob
 import argparse
 import os
-from pathlib import Path
-import sys
-import resource
-from collections import defaultdict
-from os import makedirs, path
-
-from functools import partial
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
+import sys
+import resource
 import numpy as np
-from raster_processing import *
-from shapely.geometry import mapping
+import raster_processing
 import rasterio.warp
 import torch
+#import ray
+from collections import defaultdict
+from os import makedirs, path
+from functools import partial
+from pathlib import Path
+from shapely.geometry import mapping
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode
 from skimage.morphology import square, dilation
-
 from tqdm import tqdm
-#import ray
+
 
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
@@ -140,7 +139,7 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
     basename = raster_file.stem
     dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
     try:
-        return_dict[procnum] = (pre_post, reproject(raster_file, dest_file, src_crs, args.destination_crs))
+        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs))
     except ValueError:
         return None
 
@@ -329,15 +328,15 @@ def main():
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
     print("Creating pre mosaic...")
-    pre_mosaic = create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
+    pre_mosaic = raster_processing.create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
     print("Creating post mosaic...")
-    post_mosaic = create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
+    post_mosaic = raster_processing.create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
 
-    extent = get_intersect(pre_mosaic, post_mosaic)
+    extent = raster_processing.get_intersect(pre_mosaic, post_mosaic)
 
     print('Chipping...')
-    pre_chips = create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
-    post_chips = create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
+    pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
 
     # debug
     #pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
@@ -534,12 +533,12 @@ def main():
         p = Path(args.output_directory) / "over"
         overlay_files = get_files(p)
         overlay_files = [x for x in overlay_files]
-        overlay_mosaic = create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+        overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     if args.create_shapefile:
         print('Creating shapefile')
         files = get_files(Path(args.output_directory) / 'dmg')
-        create_shapefile(files,
+        raster_processing.create_shapefile(files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
