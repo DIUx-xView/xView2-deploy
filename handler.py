@@ -292,12 +292,7 @@ def main():
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
-    parser.add_argument('--agol_dmg_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
-    parser.add_argument('--agol_dmg_layer_num', default=None, help='Layer number in ArcGIS feature service to append damage polygons.')
-    parser.add_argument('--agol_centroid_feature_service', default=None, help='ArcGIS online feature service to append damage centroids.')
-    parser.add_argument('--agol_centroid_layer_num', default=None, help='Layer number in ArcGIS feature service to append damage centroids.')
-    parser.add_argument('--agol_aoi_feature_service', default=None, help='ArcGIS online feature service to append bounds polygon.')
-    parser.add_argument('--agol_aoi_layer_num', default=None, help='Layer number in ArcGIS feature service to append bounds polygon.')
+    parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
 
     args = parser.parse_args()
 
@@ -553,35 +548,27 @@ def main():
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
-    if agol_push.get('dmg'):
+    if agol_push:
 
         gis = to_agol.connect_gis(username=args.agol_user, password=args.agol_password)
 
         agol_polys = to_agol.create_polys(dmg_files)
         dmg_polys = to_agol.create_damage_polys(agol_polys)
-
-        result = to_agol.agol_append(gis,
-                                       dmg_polys,
-                                       args.agol_dmg_feature_service,
-                                       args.agol_dmg_layer_num)
-
-    if agol_push.get('aoi'):
-
         aoi_poly = to_agol.create_aoi_poly(agol_polys)
-
-        result = to_agol.agol_append(gis,
-                                       aoi_poly,
-                                       args.agol_aoi_feature_service,
-                                       args.agol_aoi_layer_num)
-
-    if agol_push.get('centroids'):
-
         centroids = to_agol.create_centroids(agol_polys)
 
         result = to_agol.agol_append(gis,
-                                       centroids,
-                                       args.agol_centroid_feature_service,
-                                       args.agol_centroid_layer_num)
+                                     dmg_polys,
+                                     args.agol_feature_service,
+                                     1)
+        result = to_agol.agol_append(gis,
+                                     aoi_poly,
+                                     args.agol_aoi_feature_service,
+                                     2)
+        result = to_agol.agol_append(gis,
+                                     centroids,
+                                     args.agol_centroid_feature_service,
+                                     0)
 
     # Complete
     print('Run complete!')

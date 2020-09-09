@@ -16,41 +16,27 @@ arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 
 def agol_arg_check(args):
-    outputs = {'dmg': False, 'aoi': False, 'centroids': False}
+
     agol_args = [args.agol_user,
                  args.agol_password,
-                 args.agol_dmg_feature_service,
-                 args.agol_dmg_layer_num,
-                 args.agol_centroid_feature_service,
-                 args.agol_centroid_layer_num,
-                 args.agol_aoi_feature_service,
-                 args.agol_aoi_layer_num]
+                 args.agol_feature_service
+                 ]
 
     if any([agol_args]):
         if not args.agol_user:
             print('Missing AGOL username. Skipping AGOL push.')
-            return outputs
+            return False
         elif not args.agol_password:
             print('Missing AGOL password. Skipping AGOL push.')
-            return outputs
-        elif not args.agol_dmg_feature_service:
+            return False
+        elif not args.agol_feature_service:
             print('Missing AGOL damage feature service ID. Skipping AGOL push.')
-            return outputs
-        elif not args.agol_dmg_layer_num:
-            print('Missing AGOL damage layer. Skipping AGOL push.')
-            return outputs
-        else:
-            outputs['dmg'] = True
+            return False
     else:
         return False
 
-    if all([args.agol_aoi_feature_service, args.agol_aoi_layer_num]):
-        outputs['aoi'] = True
-
-    if all([args.agol_centroid_feature_service, args.agol_centroid_layer_num]):
-        outputs['centroids'] = True
-
-    return outputs
+    # If everything is in place...
+    return True
 
 
 def create_polys(in_files):
