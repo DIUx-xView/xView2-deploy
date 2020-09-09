@@ -19,7 +19,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def reproject(in_file, dest_file, in_crs, dest_crs='EPSG:4326'):
+def reproject(in_file, dest_file, in_crs, dest_crs):
 
     """
     Re-project images
