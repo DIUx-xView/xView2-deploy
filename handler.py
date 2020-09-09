@@ -563,11 +563,11 @@ def main():
                                      1)
         result = to_agol.agol_append(gis,
                                      aoi_poly,
-                                     args.agol_aoi_feature_service,
+                                     args.agol_feature_service,
                                      2)
         result = to_agol.agol_append(gis,
                                      centroids,
-                                     args.agol_centroid_feature_service,
+                                     args.agol_feature_service,
                                      0)
 
     # Complete
