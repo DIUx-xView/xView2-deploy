@@ -1,4 +1,3 @@
-from itertools import product
 import random
 import string
 import subprocess
@@ -14,7 +13,7 @@ from rasterio import windows
 from rasterio.features import shapes
 from shapely.geometry import shape, mapping
 from shapely.geometry.polygon import Polygon
-from shapely.ops import cascaded_union
+from itertools import product
 from osgeo import gdal
 from tqdm import tqdm
 from pathlib import Path
@@ -250,7 +249,3 @@ def create_shapefile(in_files, out_shapefile, dest_crs):
                 'geometry': mapping(polygon),
                 'properties': {'dmg': int(px_val)}
             })
-
-
-    ####
-
