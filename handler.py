@@ -9,6 +9,7 @@ import sys
 import resource
 import numpy as np
 import raster_processing
+import to_agol
 import rasterio.warp
 import torch
 #import ray
@@ -25,9 +26,6 @@ from tqdm import tqdm
 
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
-
-# TODO: Clean up directory structure
-# TODO: gather input and output files from folders --> create pre and post mosaic --> create intersection --> get chips from intersection for pre/post --> extract geotransform per chip --> hand off to inference --> georef outputs
 
 import functools
 import logging
@@ -292,9 +290,19 @@ def main():
     parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
-
+    parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
+    parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
+    parser.add_argument('--agol_dmg_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
+    parser.add_argument('--agol_dmg_layer_num', default=None, help='Layer number in ArcGIS feature service to append damage polygons.')
+    parser.add_argument('--agol_centroid_feature_service', default=None, help='ArcGIS online feature service to append damage centroids.')
+    parser.add_argument('--agol_centroid_layer_num', default=None, help='Layer number in ArcGIS feature service to append damage centroids.')
+    parser.add_argument('--agol_aoi_feature_service', default=None, help='ArcGIS online feature service to append bounds polygon.')
+    parser.add_argument('--agol_aoi_layer_num', default=None, help='Layer number in ArcGIS feature service to append bounds polygon.')
 
     args = parser.parse_args()
+
+    # Determine what, if any, items we are pushing to AGOL
+    agol_push = to_agol.agol_arg_check(args)
 
     make_staging_structure(args.staging_directory)
     make_output_structure(args.output_directory)
@@ -535,12 +543,45 @@ def main():
         overlay_files = [x for x in overlay_files]
         overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
+    # Get files for creating shapefile and/or pushing to AGOL
+    if args.create_shapefile or agol_push.get('dmg'):
+        dmg_files = get_files(Path(args.output_directory) / 'dmg')
+
     if args.create_shapefile:
         print('Creating shapefile')
-        files = get_files(Path(args.output_directory) / 'dmg')
-        raster_processing.create_shapefile(files,
+        raster_processing.create_shapefile(dmg_files,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
+
+    if agol_push.get('dmg'):
+
+        gis = to_agol.connect_gis(username=args.agol_user, password=args.agol_password)
+
+        agol_polys = to_agol.create_polys(dmg_files)
+        dmg_polys = to_agol.create_damage_polys(agol_polys)
+
+        result = to_agol.agol_append(gis,
+                                       dmg_polys,
+                                       args.agol_dmg_feature_service,
+                                       args.agol_dmg_layer_num)
+
+    if agol_push.get('aoi'):
+
+        aoi_poly = to_agol.create_aoi_poly(agol_polys)
+
+        result = to_agol.agol_append(gis,
+                                       aoi_poly,
+                                       args.agol_aoi_feature_service,
+                                       args.agol_aoi_layer_num)
+
+    if agol_push.get('centroids'):
+
+        centroids = to_agol.create_centroids(agol_polys)
+
+        result = to_agol.agol_append(gis,
+                                       centroids,
+                                       args.agol_centroid_feature_service,
+                                       args.agol_centroid_layer_num)
 
     # Complete
     print('Run complete!')
