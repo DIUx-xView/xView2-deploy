@@ -267,6 +267,16 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     else:
         return_dict[f'{model_wrapper.model_size}{mode}'] = results_list
 
+
+def check_data(images):
+    for image in images:
+        with rasterio.open(image) as src:
+            layer = src.read(1)
+            if layer.sum() == 0:
+                return False
+
+    return True
+
 def main():
     
     t0 = timeit.default_timer()
@@ -350,6 +360,9 @@ def main():
     # Defining dataset and dataloader
     pairs = []
     for idx, (pre, post) in enumerate(zip(pre_chips, post_chips)):
+        if not check_data([pre, post]):
+            continue
+
         pairs.append(Files(
             pre.stem,
             args.pre_directory,
