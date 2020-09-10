@@ -60,9 +60,8 @@ def create_polys(in_files):
 
 def create_aoi_poly(features):
     aoi_polys = [geom for geom, val in features]
-    polys = MultiPolygon(aoi_polys)
-    box = shapely.geometry.box(*polys.bounds)
-    shape = arcgis.geometry.Geometry.from_shapely(box)
+    min_rect = MultiPolygon(aoi_polys).minimum_rotated_rectangle
+    shape = arcgis.geometry.Geometry.from_shapely(min_rect)
     poly = arcgis.features.Feature(shape, attributes={'status': 'complete'})
 
     aoi_poly = [poly]
