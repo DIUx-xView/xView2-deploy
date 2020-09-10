@@ -1,7 +1,7 @@
 import arcgis
 import rasterio
 import shapely.geometry
-
+from tqdm import tqdm
 from rasterio.features import shapes
 from shapely.geometry import Polygon, shape, MultiPolygon
 
@@ -60,8 +60,8 @@ def create_polys(in_files):
 
 def create_aoi_poly(features):
     aoi_polys = [geom for geom, val in features]
-    min_rect = MultiPolygon(aoi_polys).minimum_rotated_rectangle
-    shape = arcgis.geometry.Geometry.from_shapely(min_rect)
+    hull = MultiPolygon(aoi_polys).convex_hull
+    shape = arcgis.geometry.Geometry.from_shapely(hull)
     poly = arcgis.features.Feature(shape, attributes={'status': 'complete'})
 
     aoi_poly = [poly]
@@ -95,8 +95,17 @@ def connect_gis(username, password):
 
 def agol_append(gis, src_feats, dest_fs, layer):
 
+    def batch_gen(iterable, n=1):
+        l = len(iterable)
+        for idx in range(0, l, n):
+            yield iterable[idx:min(idx + n, l)]
+
+
+    print('Attempting to append features to ArcGIS')
     layer = gis.content.get(dest_fs).layers[int(layer)]
-    result = layer.edit_features(adds=src_feats, rollback_on_failure=True)
-    print(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
+    for batch in tqdm(batch_gen(src_feats, 1000)):
+        result = layer.edit_features(adds=batch, rollback_on_failure=True)
+
+    #print(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
     return True
