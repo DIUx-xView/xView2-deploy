@@ -222,6 +222,14 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
 
 def create_shapefile(in_files, out_shapefile, dest_crs):
 
+    """
+    Create shapefiles from input dmg files
+    :param in_files: Files to process for shapefile.
+    :param out_shapefile: File to write shapefile.
+    :param dest_crs: Destination crs.
+    :return: None
+    """
+
     polygons = []
     for idx, f in enumerate(in_files):
         src = rasterio.open(f)

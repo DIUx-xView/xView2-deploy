@@ -17,6 +17,12 @@ arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 def agol_arg_check(args):
 
+    """
+    Checks that AGOL parameters are present for proper operation.
+    :param args: Arguments
+    :return: True if arguments are present to accomplish AGOL push. False if not.
+    """
+
     agol_args = [args.agol_user,
                  args.agol_password,
                  args.agol_feature_service
@@ -40,6 +46,12 @@ def agol_arg_check(args):
 
 
 def create_polys(in_files):
+    # TODO: Combine this with raster_processing.create_shapefile polygon creation.
+    """
+    Create palygons to use for feature creation.
+    :param in_files: DMG files to create polygons from.
+    :return: Polygons from dmg files.
+    """
 
     polygons = []
     for idx, f in enumerate(in_files):
@@ -59,6 +71,13 @@ def create_polys(in_files):
 
 
 def create_aoi_poly(features):
+
+    """
+    Create convex hull polygon encompassing damage polygons.
+    :param features: Polygons to create hull around.
+    :return: ARCGIS polygon.
+    """
+
     aoi_polys = [geom for geom, val in features]
     hull = MultiPolygon(aoi_polys).convex_hull
     shape = arcgis.geometry.Geometry.from_shapely(hull)
@@ -70,6 +89,13 @@ def create_aoi_poly(features):
 
 
 def create_centroids(features):
+
+    """
+    Create centroids from polygon features.
+    :param features: Polygon features to create centroids from.
+    :return: List of ARCGIS point features.
+    """
+
     centroids = []
     for geom, val in features:
         esri_shape = arcgis.geometry.Geometry.from_shapely(geom.centroid)
@@ -80,6 +106,13 @@ def create_centroids(features):
 
 
 def create_damage_polys(polys):
+
+    """
+    Create ARCGIS polygon features.
+    :param polys: Polygons to create ARCGIS features from.
+    :return: List of ARCGIS polygon features.
+    """
+
     polygons = []
     for geom, val in polys:
         esri_shape = arcgis.geometry.Geometry.from_shapely(geom)
@@ -90,10 +123,27 @@ def create_damage_polys(polys):
 
 
 def connect_gis(username, password):
+
+    """
+    Create a ArcGIS connection
+    :param username: AGOL username.
+    :param password: AGOL password.
+    :return: AGOL GIS object.
+    """
+
     return arcgis.gis.GIS(username=username, password=password)
 
 
 def agol_append(gis, src_feats, dest_fs, layer):
+
+    """
+    Add features to AGOL feature service.
+    :param gis: AGOL connection.
+    :param src_feats: Features to add.
+    :param dest_fs: Destination feature service ID.
+    :param layer: Layer number to append.
+    :return: True if successful.
+    """
 
     def batch_gen(iterable, n=1):
         l = len(iterable)
