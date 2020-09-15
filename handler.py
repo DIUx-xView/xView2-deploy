@@ -556,7 +556,7 @@ def main():
         overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    if args.create_shapefile or agol_push.get('dmg'):
+    if args.create_shapefile or agol_push:
         dmg_files = get_files(Path(args.output_directory) / 'dmg')
 
     if args.create_shapefile:
