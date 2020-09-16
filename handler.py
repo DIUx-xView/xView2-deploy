@@ -83,10 +83,8 @@ def make_staging_structure(staging_path):
     :return: True if successful
     """
 
-    # TODO: Does this method of making directories work on windows or do we need to use .joinpath?
     Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-
 
     return True
 
@@ -125,8 +123,8 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     files = [path.resolve() for path in files]
 
     match = [f for f in files if f.suffix in extensions]
-    return match
 
+    return match
 
 
 def reproject_helper(args, raster_tuple, procnum, return_dict):
@@ -267,6 +265,22 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     else:
         return_dict[f'{model_wrapper.model_size}{mode}'] = results_list
 
+
+def check_data(images):
+    """
+    Check that our image pairs contain useful data. Note: This only check the first band of each file.
+    :param images: Images to check for data
+    :return: True if both images contain useful data. False if either contains no useful date.
+    """
+    for image in images:
+        with rasterio.open(image) as src:
+            layer = src.read(1)
+            if layer.sum() == 0:
+                return False
+
+    return True
+
+
 def main():
     
     t0 = timeit.default_timer()
@@ -350,6 +364,9 @@ def main():
     # Defining dataset and dataloader
     pairs = []
     for idx, (pre, post) in enumerate(zip(pre_chips, post_chips)):
+        if not check_data([pre, post]):
+            continue
+
         pairs.append(Files(
             pre.stem,
             args.pre_directory,
@@ -539,7 +556,7 @@ def main():
         overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    if args.create_shapefile or agol_push.get('dmg'):
+    if args.create_shapefile or agol_push:
         dmg_files = get_files(Path(args.output_directory) / 'dmg')
 
     if args.create_shapefile:
