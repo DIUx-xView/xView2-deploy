@@ -1,8 +1,8 @@
-import unittest
+from unittest import TestCase
 import handler
 
 
-class TestGetFiles(unittest.TestCase):
+class TestGetFiles(TestCase):
 
     def test_get_files(self):
         self.path = 'data/input/pre'
@@ -10,17 +10,17 @@ class TestGetFiles(unittest.TestCase):
         self.assertEqual(4, len(self.result))
 
 
-class TestReprojectionHelper(unittest.TestCase):
+class TestReprojectionHelper(TestCase):
 
     pass
 
 
-class TestPostprocessAndWrite(unittest.TestCase):
+class TestPostprocessAndWrite(TestCase):
 
     pass
 
 
-class TestFilesClass(unittest.TestCase):
+class TestFilesClass(TestCase):
 
     pass
 

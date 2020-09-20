@@ -1,4 +1,4 @@
-import unittest
+from unittest import TestCase
 import os
 import rasterio
 from pathlib import Path
@@ -7,7 +7,7 @@ import raster_processing
 import handler
 
 
-class TestReproject(unittest.TestCase):
+class TestReproject(TestCase):
 
     def test_reproject(self):
         self.in_file = Path('data/input/pre/tile_337-10160.tif')
@@ -17,7 +17,7 @@ class TestReproject(unittest.TestCase):
         self.assertEqual('EPSG:4326', self.test)
 
 
-class TestCreateMosaic(unittest.TestCase):
+class TestCreateMosaic(TestCase):
 
     def setUp(self):
         self.files = handler.get_files(Path('data/input/pre'))
@@ -41,7 +41,7 @@ class TestCreateMosaic(unittest.TestCase):
         self.assertEqual((366642.60000000003, 4104511.1999999997), self.src.transform * (0, 0))
 
 
-class TestGetIntersect(unittest.TestCase):
+class TestGetIntersect(TestCase):
 
     def test_intersect_extent(self):
         self.test = raster_processing.get_intersect(
@@ -69,10 +69,7 @@ class TestGetIntersect(unittest.TestCase):
 #         self.result = raster_processing.get_intersect_win(self.mosaic, self.intersect)
 #         self.assertEqual(self.test, self.result)
 
-class TestCreateShapefile(unittest.TestCase):
 
-    pass
-
-class TestCheckDims(unittest.TestCase):
+class TestCheckDims(TestCase):
 
     pass

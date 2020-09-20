@@ -1,9 +1,9 @@
-import unittest
+from unittest import TestCase
 
 import inference
 
 
-class TestInference(unittest.TestCase):
+class TestInference(TestCase):
 
     def setUp(self):
         self.opts = inference.Options('sample_data/input/pre')
