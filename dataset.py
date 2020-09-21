@@ -5,6 +5,7 @@ import tifffile
 import torch
 from torch.utils.data import Dataset
 from utils import utils
+import numpy as np
 
 class XViewDataset(Dataset):
     "Dataset for xView"
