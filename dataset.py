@@ -4,7 +4,7 @@ from skimage.io import imread
 import tifffile
 import torch
 from torch.utils.data import Dataset
-from utils import *
+from utils import utils
 
 class XViewDataset(Dataset):
     "Dataset for xView"
@@ -34,7 +34,7 @@ class XViewDataset(Dataset):
         else:
             raise ValueError('Incorrect mode!  Must be cls or loc')
             
-        img = preprocess_inputs(img)
+        img = utils.preprocess_inputs(img)
 
         inp = []
         inp.append(img)
