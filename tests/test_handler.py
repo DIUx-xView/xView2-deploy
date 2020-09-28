@@ -1,26 +1,23 @@
-from unittest import TestCase
 import handler
 
 
-class TestGetFiles(TestCase):
-
-    def test_get_files(self):
-        self.path = 'data/input/pre'
-        self.result = handler.get_files(self.path)
-        self.assertEqual(4, len(self.result))
+def test_get_files():
+    path = 'data/input/pre'
+    result = handler.get_files(path)
+    assert len(result) == 4
 
 
-class TestReprojectionHelper(TestCase):
+def test_reprojection_helper():
 
     pass
 
 
-class TestPostprocessAndWrite(TestCase):
+def test_post_process_and_write():
 
     pass
 
 
-class TestFilesClass(TestCase):
+def test_files_class():
 
     pass
 
