@@ -1,4 +1,5 @@
 import rasterio
+import pytest
 from pathlib import Path
 
 from utils import raster_processing
@@ -33,6 +34,16 @@ def test_reproject_no_crs_set(tmp_path):
     with rasterio.open(result) as src:
         test = src.crs
     assert test == 'EPSG:4326'
+
+
+def test_reproject_no_crs(tmp_path):
+    # Test file with no CRS set or passed
+
+    in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
+    dest_file = tmp_path / 'resample.tif'
+    with pytest.raises(ValueError):
+        result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
+
 
 
 def test_check_dims():
