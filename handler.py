@@ -5,8 +5,7 @@ import os
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
-import raster_processing
-from utils import to_shapefile
+from utils import to_shapefile, raster_processing
 from utils import to_agol
 from utils import features
 import rasterio.warp
