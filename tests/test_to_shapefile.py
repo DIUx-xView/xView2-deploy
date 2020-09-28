@@ -5,9 +5,11 @@ from handler import get_files
 from pathlib import Path
 
 
-class Test(TestCase):
+def test_create_shapefile(tmp_path):
 
-    def test_create_shapefile(self):
-        self.files = get_files(Path('data/output/dmg'))
-        self.polys = create_polys(self.files)
-        self.shapefile = to_shapefile(self.polys, Path('~/Downloads'), 'EPSG:4326')
+    files = get_files(Path('data/output/dmg'))
+    polys = create_polys(files)
+    out_path = tmp_path / 'shapes'
+    out_path.mkdir()
+    shapefile = to_shapefile.create_shapefile(polys, out_path / 'shapes.shp', 'EPSG:4326')
+    assert Path.is_file(shapefile)

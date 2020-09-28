@@ -24,3 +24,5 @@ def create_shapefile(polygons, out_shapefile, dest_crs):
                 'geometry': mapping(polygon),
                 'properties': {'dmg': int(px_val)}
             })
+
+    return out_shapefile
