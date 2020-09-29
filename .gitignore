@@ -3,8 +3,6 @@ __pycache__/
 weights/
 .idea/
 x_post.ph
-tests/data/input/staging/
-tests/data/output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

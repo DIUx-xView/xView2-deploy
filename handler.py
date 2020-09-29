@@ -1,25 +1,20 @@
 import cv2
 import timeit
-import glob
 import argparse
 import os
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
-import sys
-import resource
 import numpy as np
-import raster_processing
-import to_agol
+from utils import to_shapefile, raster_processing
+from utils import to_agol
+from utils import features
 import rasterio.warp
 import torch
 #import ray
 from collections import defaultdict
 from os import makedirs, path
-from functools import partial
 from pathlib import Path
-from shapely.geometry import mapping
 from torch.utils.data import DataLoader
-from yacs.config import CfgNode
 from skimage.morphology import square, dilation
 from tqdm import tqdm
 
@@ -27,10 +22,7 @@ from tqdm import tqdm
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 
-import functools
 import logging
-import struct
-import sys
 
 logger = logging.getLogger()
 
@@ -558,10 +550,11 @@ def main():
     # Get files for creating shapefile and/or pushing to AGOL
     if args.create_shapefile or agol_push:
         dmg_files = get_files(Path(args.output_directory) / 'dmg')
+        polygons = features.create_polys(dmg_files)
 
     if args.create_shapefile:
         print('Creating shapefile')
-        raster_processing.create_shapefile(dmg_files,
+        to_shapefile.create_shapefile(polygons,
                          Path(args.output_directory).joinpath('shapes') / 'damage.shp',
                          args.destination_crs)
 
