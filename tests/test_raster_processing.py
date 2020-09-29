@@ -14,41 +14,55 @@ def test_get_intersect():
     assert (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346) == test
 
 
-def test_reproject_crs_set(tmp_path):
-    # Test file with input having CRS set
+class TestReproject:
 
-    in_file = Path('data/input/pre/tile_337-10160.tif')
-    dest_file = tmp_path / 'resample.tif'
-    result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
-    with rasterio.open(result) as src:
-        test = src.crs
-    assert test == 'EPSG:4326'
+    def test_reproject_crs_set(self, tmp_path):
+        # Test file with input having CRS set
 
-
-def test_reproject_no_crs_set(tmp_path):
-    # Test file with input file having no CRS set
-
-    in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
-    dest_file = tmp_path / 'resample.tif'
-    result = raster_processing.reproject(in_file, dest_file, 'EPSG:26915', 'EPSG:4326')
-    with rasterio.open(result) as src:
-        test = src.crs
-    assert test == 'EPSG:4326'
-
-
-def test_reproject_no_crs(tmp_path):
-    # Test file with no CRS set or passed
-
-    in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
-    dest_file = tmp_path / 'resample.tif'
-    with pytest.raises(ValueError):
+        in_file = Path('data/input/pre/tile_337-10160.tif')
+        dest_file = tmp_path / 'resample.tif'
         result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
+        with rasterio.open(result) as src:
+            test = src.crs
+        assert test == 'EPSG:4326'
+
+
+    def test_reproject_no_crs_set(self, tmp_path):
+        # Test file with input file having no CRS set
+
+        in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
+        dest_file = tmp_path / 'resample.tif'
+        result = raster_processing.reproject(in_file, dest_file, 'EPSG:26915', 'EPSG:4326')
+        with rasterio.open(result) as src:
+            test = src.crs
+        assert test == 'EPSG:4326'
+
+
+    def test_reproject_no_crs(self, tmp_path):
+        # Test file with no CRS set or passed
+
+        in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
+        dest_file = tmp_path / 'resample.tif'
+        with pytest.raises(ValueError):
+            result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
 
 
 
-def test_check_dims():
-    pass
+class TestCheckDims:
 
+    def test_check_dims_full_size(self):
+        with rasterio.open(Path('data/output/chips/post/0_post.tif')) as src:
+            arr = src.read()
+        result = raster_processing.check_dims(arr, 1024, 1024)
+        assert result.shape[1] == 1024
+        assert result.shape[1] == 1024
+
+    def test_check_dims_with_pad(self):
+        with rasterio.open(Path('data/output/chips/post/0_post.tif')) as src:
+            arr = src.read()
+        result = raster_processing.check_dims(arr, 1500, 1500)
+        assert result.shape[1] == 1500
+        assert result.shape[1] == 1500
 
 def test_create_mosaic(tmp_path):
 
