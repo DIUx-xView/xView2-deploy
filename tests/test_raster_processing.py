@@ -11,7 +11,7 @@ class TestReprojRes:
     def test_res(self):
         file = 'data/input/pre/tile_337-9136.tif'
         file2 = 'data/misc/no_crs/may24C350000e4102500n.jpg'
-        test = raster_processing.get_reproj_res(file1, file2)
+        test = raster_processing.get_reproj_res(file, file2)
         assert test == (0.6, 0.6)
 
 
