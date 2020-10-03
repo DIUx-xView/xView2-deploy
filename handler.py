@@ -127,7 +127,7 @@ def reproject_helper(args, raster_tuple, procnum, return_dict, resolution):
     basename = raster_file.stem
     dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
     try:
-        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs))
+        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs, resolution))
     except ValueError:
         return None
 
