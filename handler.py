@@ -312,7 +312,7 @@ def main():
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
 
-    reproj_res = raster_processing.get_reproj_res(post_files, pre_files)
+    reproj_res = raster_processing.get_reproj_res(post_files[0], pre_files[1])
 
     print(f'Re-projecting. Resolution {reproj_res}')
 
