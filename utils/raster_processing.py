@@ -19,7 +19,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def get_reproj_res(*args):
+def get_reproj_res(args):
 
     res = []
     for arg in args:
