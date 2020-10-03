@@ -562,7 +562,7 @@ def main():
 
         gis = to_agol.connect_gis(username=args.agol_user, password=args.agol_password)
 
-        agol_polys = to_agol.create_polys(dmg_files)
+        agol_polys = features.create_polys(dmg_files)
         dmg_polys = to_agol.create_damage_polys(agol_polys)
         aoi_poly = to_agol.create_aoi_poly(agol_polys)
         centroids = to_agol.create_centroids(agol_polys)
