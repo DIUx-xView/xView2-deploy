@@ -23,8 +23,11 @@ def get_reproj_res(*args):
 
     res = []
     for arg in args:
-        with rasterio.open(arg) as src:
-            res.append(src.res)
+        try:
+            with rasterio.open(arg) as src:
+                res.append(src.res)
+        except TypeError:
+            continue
 
     return (max([sublist[0] for sublist in res]),
             max([sublist[1] for sublist in res]))
