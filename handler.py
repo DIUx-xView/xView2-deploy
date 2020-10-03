@@ -119,7 +119,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     return match
 
 
-def reproject_helper(args, raster_tuple, procnum, return_dict):
+def reproject_helper(args, raster_tuple, procnum, return_dict, resolution):
     """
     Helper function for reprojection
     """
@@ -312,7 +312,9 @@ def main():
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
 
-    print('Re-projecting...')
+    reproj_res = raster_processing.get_reproj_res(post_files, pre_files)
+
+    print(f'Re-projecting. Resolution {reproj_res}')
 
     # Run reprojection in parallel processes
     manager = mp.Manager()
@@ -326,7 +328,7 @@ def main():
 
     # Launch multiprocessing jobs for reprojection
     for idx, f in enumerate(files):
-        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict))
+        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict, reproj_res))
         jobs.append(p)
         p.start()
     for proc in jobs:

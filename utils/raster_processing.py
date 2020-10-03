@@ -19,7 +19,18 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def reproject(in_file, dest_file, in_crs, dest_crs):
+def get_reproj_res(*args):
+
+    res = []
+    for arg in args:
+        with rasterio.open(arg) as src:
+            res.append(src.res)
+
+    return (max([sublist[0] for sublist in res]),
+            max([sublist[1] for sublist in res]))
+
+
+def reproject(in_file, dest_file, in_crs, dest_crs, res):
 
     """
     Re-project images
@@ -39,7 +50,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs):
         raise ValueError('No CRS set')
 
     # TODO: Change the resolution based on the lowest resolution in the inputs
-    gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=6e-06, yRes=6e-06)
+    gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=res[0], yRes=res[1])
 
     return Path(dest_file).resolve()
 
