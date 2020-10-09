@@ -3,7 +3,6 @@ from tqdm import tqdm
 from shapely.geometry import MultiPolygon
 
 
-
 # Enable .from_shapely for building AGOL features from shapely features.
 @classmethod
 def from_shapely(cls, shapely_geometry):
@@ -22,7 +21,7 @@ def agol_arg_check(user, password, fs_id):
 
     # Check that all parameters have been passed to args.
     if any((user, password, fs_id)) and not all((user, password, fs_id)):
-        logging.warning('Missing required AGOL parameters. Skipping AGOL push.')
+        print('Missing required AGOL parameters. Skipping AGOL push.')
 
     # Test the AGOL connection
 
@@ -32,9 +31,9 @@ def agol_arg_check(user, password, fs_id):
         if layer:
             return True
         else:
-            logging.warning(f'AGOL layer \'{fs_id}\' not found.')
+            print(f'AGOL layer \'{fs_id}\' not found.')
     else:
-        logging.warning('Attempt to connect to AGOL failed. Check the arguments and try again.')
+        print('Attempt to connect to AGOL failed. Check the arguments and try again.')
 
 
 def create_aoi_poly(features):
