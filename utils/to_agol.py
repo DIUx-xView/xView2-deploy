@@ -22,6 +22,7 @@ def agol_arg_check(user, password, fs_id):
     # Check that all parameters have been passed to args.
     if any((user, password, fs_id)) and not all((user, password, fs_id)):
         print('Missing required AGOL parameters. Skipping AGOL push.')
+        return False
 
     # Test the AGOL connection
 
@@ -32,8 +33,10 @@ def agol_arg_check(user, password, fs_id):
             return True
         else:
             print(f'AGOL layer \'{fs_id}\' not found.')
+            return False
     else:
         print('Attempt to connect to AGOL failed. Check the arguments and try again.')
+        return False
 
 
 def create_aoi_poly(features):
