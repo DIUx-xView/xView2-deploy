@@ -3,7 +3,6 @@ from tqdm import tqdm
 from shapely.geometry import MultiPolygon
 
 
-
 # Enable .from_shapely for building AGOL features from shapely features.
 @classmethod
 def from_shapely(cls, shapely_geometry):
@@ -12,7 +11,7 @@ def from_shapely(cls, shapely_geometry):
 arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 
-def agol_arg_check(args):
+def agol_arg_check(user, password, fs_id):
 
     """
     Checks that AGOL parameters are present for proper operation.
@@ -20,26 +19,24 @@ def agol_arg_check(args):
     :return: True if arguments are present to accomplish AGOL push. False if not.
     """
 
-    agol_args = [args.agol_user,
-                 args.agol_password,
-                 args.agol_feature_service
-                 ]
-
-    if any([agol_args]):
-        if not args.agol_user:
-            print('Missing AGOL username. Skipping AGOL push.')
-            return False
-        elif not args.agol_password:
-            print('Missing AGOL password. Skipping AGOL push.')
-            return False
-        elif not args.agol_feature_service:
-            print('Missing AGOL damage feature service ID. Skipping AGOL push.')
-            return False
-    else:
+    # Check that all parameters have been passed to args.
+    if any((user, password, fs_id)) and not all((user, password, fs_id)):
+        print('Missing required AGOL parameters. Skipping AGOL push.')
         return False
 
-    # If everything is in place...
-    return True
+    # Test the AGOL connection
+
+    gis = connect_gis(user, password)
+    if gis:
+        layer = gis.content.get(fs_id)
+        if layer:
+            return True
+        else:
+            print(f'AGOL layer \'{fs_id}\' not found.')
+            return False
+    else:
+        print('Attempt to connect to AGOL failed. Check the arguments and try again.')
+        return False
 
 
 def create_aoi_poly(features):
