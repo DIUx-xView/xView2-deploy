@@ -6,8 +6,8 @@ def create_polys(in_files):
 
     """
     Create palygons to use for feature creation.
-    :param in_files: DMG files to create polygons from.
-    :return: Polygons from dmg files.
+    :param in_files: List of DMG files to create polygons from.
+    :return: Shapely polygons.
     """
 
     polygons = []
