@@ -7,6 +7,7 @@ import rasterio
 import rasterio.merge
 import rasterio.warp
 import rasterio.plot
+import rasterio.crs
 import handler
 import os
 from rasterio import windows
@@ -19,19 +20,51 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def get_reproj_res(args):
+def get_reproj_res(pre_files, post_files, args):
+
+    def get_res(file, in_crs, dst_crs):
+
+        with rasterio.open(file) as src:
+
+            # See if the CRS is set in the file, else use the passed argument
+            if src.crs:
+                pre_crs = src.crs
+            else:
+                pre_crs = rasterio.crs.CRS({'init': in_crs})
+
+            # Get our transform
+            transform = rasterio.warp.calculate_default_transform(
+                pre_crs,
+                rasterio.crs.CRS({'init': dst_crs}),
+                width=src.width, height=src.height,
+                left=src.bounds.left,
+                bottom=src.bounds.bottom,
+                right=src.bounds.right,
+                top=src.bounds.top,
+                dst_width=src.width, dst_height=src.height
+            )
+
+            # Append resolution from the affine transform.
+        return (transform[0][0], -transform[0][4])
 
     res = []
-    for arg in args:
+
+    for file in pre_files:
+        # Try to skip non-geospatial images
         try:
-            with rasterio.open(arg) as src:
-                res.append(src.res)
-        except TypeError:
-            continue
+            res.append(get_res(file, args.pre_crs, args.destination_crs))
+        except AttributeError:
+            pass
+
+    for file in post_files:
+        # Try to skip non-geospatial images
+        try:
+            res.append(get_res(file, args.post_crs, args.destination_crs))
+        except AttributeError:
+            pass
 
     return (max([sublist[0] for sublist in res]),
             max([sublist[1] for sublist in res]))
-
 
 def reproject(in_file, dest_file, in_crs, dest_crs, res):
 
