@@ -303,7 +303,8 @@ def main():
     args = parser.parse_args()
 
     # Determine what, if any, items we are pushing to AGOL
-    agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
+    if any([args.agol_user, args.agol_password, args.feature_service]):
+        agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
     make_staging_structure(args.staging_directory)
     make_output_structure(args.output_directory)
