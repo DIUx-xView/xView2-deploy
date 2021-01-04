@@ -47,3 +47,11 @@ class TestAOIPolys:
         polys = features.create_polys([file])
         test = to_agol.create_aoi_poly(polys)
         assert test[0].geometry_type == 'Polygon'
+
+class TestCentroids:
+
+    def test_centroids(self):
+        file = Path('data/output/dmg/0_pre.tif')
+        polys = features.create_polys([file])
+        test = to_agol.create_centroids(polys)
+        assert len(test) == 264
