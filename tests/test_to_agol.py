@@ -8,6 +8,9 @@ from .settings import *
 
 class TestAGOLArgCheck:
 
+    def test_no_params(self):
+        assert not to_agol.agol_arg_check(None, None, None)
+
     def test_no_user(self):
         assert not to_agol.agol_arg_check(None, 'test', 'test')
 
