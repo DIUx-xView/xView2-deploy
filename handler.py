@@ -564,7 +564,7 @@ def main():
 
         agol_polys = features.create_polys(dmg_files)
         dmg_polys = to_agol.create_damage_polys(agol_polys)
-        aoi_poly = to_agol.create_aoi_poly(agol_polys)
+        aoi_poly = to_agol.create_aoi_poly(agol_polys) # TODO: Should this be included in the shapefile?
         centroids = to_agol.create_centroids(agol_polys)
 
         result = to_agol.agol_append(gis,

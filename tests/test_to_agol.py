@@ -39,3 +39,11 @@ class TestCreateDamagePolys:
         polys = features.create_polys([file])
         test = to_agol.create_damage_polys(polys)
         assert len(test) == 264
+
+class TestAOIPolys:
+
+    def test_aoi_polys(self):
+        file = Path('data/output/dmg/0_pre.tif')
+        polys = features.create_polys([file])
+        test = to_agol.create_aoi_poly(polys)
+        assert test[0].geometry_type == 'Polygon'
