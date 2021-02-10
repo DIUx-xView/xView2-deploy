@@ -73,34 +73,38 @@ class TestCheckDims:
         assert result.shape[1] == 1500
         assert result.shape[1] == 1500
 
-def test_create_mosaic(tmp_path):
+
+class TestCreateMosaic:
+
+    def test_create_mosaic(self, tmp_path):
+
+        files = handler.get_files(Path('data/input/pre'))
+        out_file = tmp_path / 'mosaic.tif'
+
+        result = raster_processing.create_mosaic(files, out_file=out_file)
+
+        # Test that we exported a file
+        assert result.is_file()
+
+        with rasterio.open(result) as src:
+            # Test that the resolution is correct
+            assert src.res == (0.6, 0.6)
+            # Test that the extent is correct
+            assert src.transform * (0, 0) == (366642.60000000003, 4104511.1999999997)
 
 
-    files = handler.get_files(Path('data/input/pre'))
-    out_file = tmp_path / 'mosaic.tif'
+class TestCreatChips:
 
-    result = raster_processing.create_mosaic(files, out_file=out_file)
+    def test_create_chips(self, tmp_path):
 
-    # Test that we exported a file
-    assert result.is_file()
+        print(tmp_path)
+        out_dir = tmp_path / 'chips'
+        out_dir.mkdir()
+        in_mosaic = Path('data/output/mosaics/pre.tif')
+        intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
+        chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
 
-    with rasterio.open(result) as src:
-        # Test that the resolution is correct
-        assert src.res == (0.6, 0.6)
-        # Test that the extent is correct
-        assert src.transform * (0, 0) == (366642.60000000003, 4104511.1999999997)
-
-
-def test_create_chips(tmp_path):
-
-    print(tmp_path)
-    out_dir = tmp_path / 'chips'
-    out_dir.mkdir()
-    in_mosaic = Path('data/output/mosaics/pre.tif')
-    intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
-    chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
-
-    assert len(list(out_dir.iterdir())) == 6
-    with rasterio.open(list(out_dir.iterdir())[0]) as src:
-        assert src.height == 1024
-        assert src.width == 1024
+        assert len(list(out_dir.iterdir())) == 6
+        with rasterio.open(list(out_dir.iterdir())[0]) as src:
+            assert src.height == 1024
+            assert src.width == 1024
