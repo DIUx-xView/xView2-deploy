@@ -6,12 +6,21 @@ from utils import raster_processing
 import handler
 
 
-def test_get_intersect():
-    test = raster_processing.get_intersect(
-        Path('data/output/mosaics/pre.tif'),
-        Path('data/output/mosaics/post.tif')
-    )
-    assert (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346) == test
+class TestGetIntersect:
+
+    def test_get_intersect(self):
+        test = raster_processing.get_intersect(
+            Path('data/output/mosaics/pre.tif'),
+            Path('data/output/mosaics/post.tif')
+        )
+
+        assert test == (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
+
+    def test_dont_intersect(self):
+        one = Path('data/input/post/tile_31500-5137.tif')
+        two = Path('data/input/post/tile_32524-5137.tif')
+        with pytest.raises(AssertionError):
+            assert raster_processing.get_intersect(one, two)
 
 
 class TestReproject:
