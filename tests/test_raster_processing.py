@@ -1,7 +1,6 @@
 import rasterio
 import pytest
 from pathlib import Path
-
 from utils import raster_processing
 import handler
 

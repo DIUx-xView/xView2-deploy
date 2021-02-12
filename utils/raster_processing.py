@@ -106,7 +106,8 @@ def get_intersect(pre_mosaic, post_mosaic):
 
     """
     Computes intersect of input two rasters.
-    :param args: list of files to compute
+    :param pre_mosaic: pre mosaic
+    :param post_mosaic: post mosaic
     :return: tuple of intersect in (left, bottom, right, top)
     """
 
