@@ -292,6 +292,7 @@ def main():
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
+    parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
     parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
@@ -313,7 +314,12 @@ def main():
     pre_files = get_files(args.pre_directory)
     post_files = get_files(args.post_directory)
 
-    reproj_res = raster_processing.get_reproj_res(pre_files, post_files, args)
+    # Todo: test for overridden resolution and log a warning with calculated resolution.
+    if not args.output_resolution:
+        reproj_res = raster_processing.get_reproj_res(pre_files, post_files, args)
+    else:
+        # Create tuple from passed resolution
+        reproj_res = (args.output_resolution, args.output_resolution)
 
     print(f'Re-projecting. Resolution (x, y): {reproj_res}')
 
