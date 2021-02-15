@@ -149,31 +149,26 @@ def create_mosaic(in_files, out_file):
     return Path(out_file).resolve()
 
 
-def get_intersect(*args):
+def get_intersect(pre_mosaic, post_mosaic):
 
     """
-    Computes intersect of input rasters.
-    :param args: list of files to compute
+    Computes intersect of input two rasters.
+    :param pre_mosaic: pre mosaic
+    :param post_mosaic: post mosaic
     :return: tuple of intersect in (left, bottom, right, top)
     """
 
-    # TODO: Calculate real intersection.
+    with rasterio.open(pre_mosaic) as pre:
+        pre_win = rasterio.windows.Window(0, 0, pre.width, pre.height)
+        pre_bounds = pre.window_bounds(pre_win)
 
-    left = []
-    bottom = []
-    right = []
-    top = []
+    with rasterio.open(post_mosaic) as post:
+        post_win = rasterio.windows.Window(0, 0, post.width, post.height)
+        pre_win_bounds = post.window(*pre_bounds)
+        assert rasterio.windows.intersect(pre_win_bounds, post_win)
+        intersect_win = post_win.intersection(pre_win_bounds)
 
-    for arg in args:
-        raster = rasterio.open(arg)
-        left.append(raster.bounds[0])
-        bottom.append(raster.bounds[1])
-        right.append(raster.bounds[2])
-        top.append(raster.bounds[3])
-
-    intersect = (max(left), max(bottom), min(right), min(top))
-
-    return intersect
+        return post.window_bounds(intersect_win)
 
 
 def check_dims(arr, w, h):

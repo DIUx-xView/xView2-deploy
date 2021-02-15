@@ -1,7 +1,6 @@
 import rasterio
 import pytest
 from pathlib import Path
-
 from utils import raster_processing
 import handler
 
@@ -37,12 +36,21 @@ class TestGetReprojRes:
             test = raster_processing.get_reproj_res(pre, post, args)
 
 
-def test_get_intersect():
-    test = raster_processing.get_intersect(
-        Path('data/output/mosaics/pre.tif'),
-        Path('data/output/mosaics/post.tif')
-    )
-    assert (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346) == test
+class TestGetIntersect:
+
+    def test_get_intersect(self):
+        test = raster_processing.get_intersect(
+            Path('data/output/mosaics/pre.tif'),
+            Path('data/output/mosaics/post.tif')
+        )
+
+        assert test == (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
+
+    def test_dont_intersect(self):
+        one = Path('data/input/post/tile_31500-5137.tif')
+        two = Path('data/input/post/tile_32524-5137.tif')
+        with pytest.raises(AssertionError):
+            assert raster_processing.get_intersect(one, two)
 
 
 class TestReproject:
@@ -95,34 +103,38 @@ class TestCheckDims:
         assert result.shape[1] == 1500
         assert result.shape[1] == 1500
 
-def test_create_mosaic(tmp_path):
+
+class TestCreateMosaic:
+
+    def test_create_mosaic(self, tmp_path):
+
+        files = handler.get_files(Path('data/input/pre'))
+        out_file = tmp_path / 'mosaic.tif'
+
+        result = raster_processing.create_mosaic(files, out_file=out_file)
+
+        # Test that we exported a file
+        assert result.is_file()
+
+        with rasterio.open(result) as src:
+            # Test that the resolution is correct
+            assert src.res == (0.6, 0.6)
+            # Test that the extent is correct
+            assert src.transform * (0, 0) == (366642.60000000003, 4104511.1999999997)
 
 
-    files = handler.get_files(Path('data/input/pre'))
-    out_file = tmp_path / 'mosaic.tif'
+class TestCreatChips:
 
-    result = raster_processing.create_mosaic(files, out_file=out_file)
+    def test_create_chips(self, tmp_path):
 
-    # Test that we exported a file
-    assert result.is_file()
+        print(tmp_path)
+        out_dir = tmp_path / 'chips'
+        out_dir.mkdir()
+        in_mosaic = Path('data/output/mosaics/pre.tif')
+        intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
+        chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
 
-    with rasterio.open(result) as src:
-        # Test that the resolution is correct
-        assert src.res == (0.6, 0.6)
-        # Test that the extent is correct
-        assert src.transform * (0, 0) == (366642.60000000003, 4104511.1999999997)
-
-
-def test_create_chips(tmp_path):
-
-    print(tmp_path)
-    out_dir = tmp_path / 'chips'
-    out_dir.mkdir()
-    in_mosaic = Path('data/output/mosaics/pre.tif')
-    intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
-    chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
-
-    assert len(list(out_dir.iterdir())) == 6
-    with rasterio.open(list(out_dir.iterdir())[0]) as src:
-        assert src.height == 1024
-        assert src.width == 1024
+        assert len(list(out_dir.iterdir())) == 6
+        with rasterio.open(list(out_dir.iterdir())[0]) as src:
+            assert src.height == 1024
+            assert src.width == 1024
