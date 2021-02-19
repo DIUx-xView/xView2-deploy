@@ -20,11 +20,12 @@ def agol_arg_check(user, password, fs_id):
     """
 
     # Check that all parameters have been passed to args.
-    if any((user, password, fs_id)) and not all((user, password, fs_id)):
+    if not any((user, password, fs_id)):
+        return False
+    elif any((user, password, fs_id)) and not all((user, password, fs_id)):
         print('Missing required AGOL parameters. Skipping AGOL push.')
         return False
-    elif not any((user, password, fs_id)):
-        return False
+
 
     # Test the AGOL connection
 
