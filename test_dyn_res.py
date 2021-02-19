@@ -30,5 +30,5 @@ for r in res:
               f'--dp_mode ' \
               f'--create_shapefiles'\
         .split()
-    raise Exception('Remove me, Dummy')
+    #raise Exception('Remove me, Dummy')
     subprocess.call(command, stdout=True)
