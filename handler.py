@@ -297,9 +297,9 @@ def main():
     parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
-    parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
-    parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
-    parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
+    parser.add_argument('--agol_user', default=False, help='ArcGIS online username')
+    parser.add_argument('--agol_password', default=False, help='ArcGIS online password')
+    parser.add_argument('--agol_feature_service', default=False, help='ArcGIS online feature service to append damage polygons.')
 
     args = parser.parse_args()
 
