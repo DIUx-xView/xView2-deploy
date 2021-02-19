@@ -1,24 +1,26 @@
 import subprocess
-from sys import exit
+from pathlib import Path
 
-res = [0.3, 0.6, 0.9]
-cuda = 'CUDA_VISIBLE_DEVICES=0,1'
-pre_dir = 'pre_dir'
-post_dir = 'post_dir'
-out_dir = 'out_dir'
-stage_dir = 'stage_dir'
+res = ['3e-6', '6e-6', '9e-6']
+cuda = 'CUDA_VISIBLE_DEVICES=0,1,2,3'
+pre_dir = Path('~/data/joplin tornado/input/pre')
+post_dir = Path('~/data/joplin tornado/input/post')
+out_dir = Path('~/data/dyn_res')
+stage_dir = Path('~data/dyn_res/')
 n_procs = 64
 batch_size = 4
-workers = 6
+workers = 16
 
 
 for r in res:
+    out_dir_res = out_dir / r / 'output'
+    stage_dir_res = stage_dir / r / 'staging'
     command = f'{cuda} python ' \
               f'handler.py ' \
               f'--pre_directory {pre_dir} ' \
               f'--post_directory {post_dir} ' \
-              f'--output_directory {out_dir} ' \
-              f'--staging_directory {stage_dir} ' \
+              f'--output_directory {out_dir_res} ' \
+              f'--staging_directory {stage_dir_res} ' \
               f'--destination_crs EPSG:4326 ' \
               f'--post_crs EPSG:26915 ' \
               f'--output_resolution {r} ' \
