@@ -66,6 +66,8 @@ def get_reproj_res(pre_files, post_files, args):
     return (max([sublist[0] for sublist in res]),
             max([sublist[1] for sublist in res]))
 
+
+# Todo: This should be able to be skipped by passing the res to reproject.
 def reproject(in_file, dest_file, in_crs, dest_crs, res):
 
     """
