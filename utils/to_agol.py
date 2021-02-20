@@ -37,7 +37,7 @@ def agol_arg_check(user, password, fs_id):
             print(f'AGOL layer \'{fs_id}\' not found.')
             return False
     else:
-        print('Attempt to connect to AGOL failed. Check the arguments and try again.')
+        print('Attempt to connect to AGOL failed. AGOL push skipped.')
         return False
 
 
