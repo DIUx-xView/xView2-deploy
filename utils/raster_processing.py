@@ -167,7 +167,7 @@ def get_intersect(pre_mosaic, post_mosaic):
     with rasterio.open(post_mosaic) as post:
         post_win = rasterio.windows.Window(0, 0, post.width, post.height)
         pre_win_bounds = post.window(*pre_bounds)
-        assert rasterio.windows.intersect(pre_win_bounds, post_win)
+        assert rasterio.windows.intersect(pre_win_bounds, post_win), 'Raster inputs do not intersect.'
         intersect_win = post_win.intersection(pre_win_bounds)
 
         return post.window_bounds(intersect_win)
