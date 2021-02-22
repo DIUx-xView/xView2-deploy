@@ -1,6 +1,6 @@
 # System setup
-xView2 inference requires a tremendous amount of computing power. Currently CPU inference is wildly 
-impractical. To that end, unless you have a dedicated workstation with ample GPU power such as a Nvidia DGX station,
+xView2 inference requires a tremendous amount of computing power. Currently, CPU inference is wildly 
+impractical. To that end, unless you have a dedicated workstation with ample GPU power such as an Nvidia DGX station,
 we recommend a cloud based solution such as AWS or Google Cloud Compute utilizing a GPU optimized instance. Prices vary
 on instance type and area to be inferred. Example instances:
 1. AWS EC2
