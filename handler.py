@@ -293,7 +293,6 @@ def main():
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
-    parser.add_argument('--skip_shapefile', default=True, action='store_false', help='Skip creation of shapefile from damage overlay')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
@@ -548,15 +547,14 @@ def main():
         overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    if not args.skip_shapefile or agol_push:
-        dmg_files = get_files(Path(args.output_directory) / 'dmg')
-        polygons = features.create_polys(dmg_files)
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
 
-    if not args.skip_shapefile:
-        print('Creating shapefile')
-        to_shapefile.create_shapefile(polygons,
-                         Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                         args.destination_crs)
+    # Create shapefile
+    print('Creating shapefile')
+    to_shapefile.create_shapefile(polygons,
+                     Path(args.output_directory).joinpath('shapes') / 'damage.shp',
+                     args.destination_crs)
 
     if agol_push:
 
