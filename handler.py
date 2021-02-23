@@ -199,6 +199,10 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 2] = (229, 255, 50)
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
+        # Go from (x, y, bands) to (bands, x, y)
+        mask_map_img = np.flipud(mask_map_img)
+        mask_map_img = np.rot90(mask_map_img, 3)
+        mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
 
         with rasterio.open(sample_result_dict['in_pre_path']) as pre:
             pre_image = pre.read()
@@ -209,10 +213,6 @@ def postprocess_and_write(result_dict):
         
         out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
         with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-            # Go from (x, y, bands) to (bands, x, y)
-            mask_map_img = np.flipud(mask_map_img)
-            mask_map_img = np.rot90(mask_map_img, 3)
-            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
             dst.write(compare_img)
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
