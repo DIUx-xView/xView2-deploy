@@ -181,6 +181,10 @@ def postprocess_and_write(result_dict):
 
     with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
+
+    #  Todo: Debug
+    logger.debug(sample_result_dict)
+    logger.debug(result_dict)
         
     if sample_result_dict['is_vis']:
         #TODO: Make sure this works with First Place code!
@@ -189,7 +193,7 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 2] = (229, 255, 50)
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
-        compare_img = np.concatenate((result_dict['pre_image'], mask_map_img, result_dict['post_image']), axis=1)
+        compare_img = np.concatenate((result_dict['pre_image'], mask_map_img), axis=1)
 
         # debug
         # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
