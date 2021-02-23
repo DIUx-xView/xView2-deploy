@@ -17,6 +17,7 @@ from itertools import product
 from osgeo import gdal
 from tqdm import tqdm
 from pathlib import Path
+from loguru import logger
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs):
@@ -60,12 +61,17 @@ def create_mosaic(in_files, out_file):
         import resource
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if len(in_files) >= soft:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
+            new_limit = len(in_files) * 2
+            resource.setrlimit(resource.RLIMIT_NOFILE, (new_limit, hard))
+            logger.debug(f'Hard limit changed from: {hard} to {new_limit}')
+            logger.debug(f'Soft limit: {soft}')
     elif os.name == 'nt':
         import win32file
         soft = win32file._getmaxstdio()
         if len(in_files) >= soft:
-            win32file._setmaxstdio(len(in_files) * 2)
+            new_limit = len(in_files) * 2
+            win32file._setmaxstdio(new_limit)
+            logger.debug(f'Limit changed from {soft} to {new_limit}')
 
     file_objs = []
 
@@ -86,18 +92,21 @@ def create_mosaic(in_files, out_file):
 
     with rasterio.open(out_file, "w", **out_meta) as dest:
         dest.write(mosaic)
+        logger.debug(f'Mosaic created at {out_file} with resolution: {dest.res}')
 
     # Reset soft limit
     if os.name == 'posix':
         import resource
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if len(in_files) >= soft:
+            # Todo: this doesn't seem correct
             resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
     elif os.name == 'nt':
         import win32file
         soft = win32file._getmaxstdio()
         if len(in_files) >= soft:
             win32file._setmaxstdio(len(in_files) * 2)
+    # Todo: log limit reset
 
     return Path(out_file).resolve()
 
@@ -114,14 +123,18 @@ def get_intersect(pre_mosaic, post_mosaic):
     with rasterio.open(pre_mosaic) as pre:
         pre_win = rasterio.windows.Window(0, 0, pre.width, pre.height)
         pre_bounds = pre.window_bounds(pre_win)
+        logger.debug(f'Pre bounds: {pre_bounds}')
 
     with rasterio.open(post_mosaic) as post:
         post_win = rasterio.windows.Window(0, 0, post.width, post.height)
         pre_win_bounds = post.window(*pre_bounds)
-        assert rasterio.windows.intersect(pre_win_bounds, post_win)
+        logger.debug(f'Post bounds: {post.window_bounds(post_win)}')
+        assert rasterio.windows.intersect(pre_win_bounds, post_win), logger.error('Input rasters do not intersect')
         intersect_win = post_win.intersection(pre_win_bounds)
+        intersect = post.window_bounds(intersect_win)
+        logger.debug(f'Calculated intersect: {intersect}')
 
-        return post.window_bounds(intersect_win)
+        return intersect
 
 
 def check_dims(arr, w, h):
@@ -205,8 +218,8 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
             with rasterio.open(outpath, 'w', **meta) as outds:
                 chip_arr = inds.read(window=window)
                 out_arr = check_dims(chip_arr, tile_width, tile_height)
-                assert(out_arr.shape[1] == tile_width)
-                assert(out_arr.shape[2] == tile_height)
+                assert(out_arr.shape[1] == tile_width), logger.error('Tile dimensions not correct')
+                assert(out_arr.shape[2] == tile_height), logger.error('Tile dimensions not correct')
 
                 outds.write(out_arr)
 
