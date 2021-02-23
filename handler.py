@@ -176,15 +176,19 @@ def postprocess_and_write(result_dict):
     sample_result_dict = result_dict['34loc']
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
+    #  Todo: Debug
+    logger.debug(sample_result_dict)
+    logger.debug(result_dict)
+    import time
+    time.sleep(10)
+
     with rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(loc, 1)
 
     with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
 
-    #  Todo: Debug
-    logger.debug(sample_result_dict)
-    logger.debug(result_dict)
+
         
     if sample_result_dict['is_vis']:
         #TODO: Make sure this works with First Place code!
