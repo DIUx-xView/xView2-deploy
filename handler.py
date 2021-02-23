@@ -196,8 +196,8 @@ def postprocess_and_write(result_dict):
         compare_img = np.concatenate((pre_image, mask_map_img), axis=1)
 
         # debug
-        np.save(args.out_directory / 'over' / 'mask_arr.npy', mask_map_img)
-        np.save(args.out_directory / 'over' / 'img_arr.npy', pre_image)
+        np.save(args.output_directory / 'over' / 'mask_arr.npy', mask_map_img)
+        np.save(args.output_directory / 'over' / 'img_arr.npy', pre_image)
 
         # debug
         # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
