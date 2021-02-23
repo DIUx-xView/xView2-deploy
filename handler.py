@@ -177,6 +177,7 @@ def postprocess_and_write(result_dict):
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
     #  Todo: Debug
+    logger.debug('Writing dict results')
     logger.debug(f'sample_result_dict: {sample_result_dict}')
     logger.debug(f'result_dict: {result_dict}')
     import time
