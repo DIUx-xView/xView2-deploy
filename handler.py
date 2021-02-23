@@ -192,6 +192,7 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 2] = (229, 255, 50)
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
+        compare_img = np.concatenate((result_dict['pre_image'], mask_map_img, result_dict['post_image']), axis=1)
 
         # debug
         # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
@@ -202,7 +203,7 @@ def postprocess_and_write(result_dict):
             mask_map_img = np.flipud(mask_map_img)
             mask_map_img = np.rot90(mask_map_img, 3)
             mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
-            dst.write(mask_map_img)
+            dst.write(compare_img)
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
     results = defaultdict(list)
