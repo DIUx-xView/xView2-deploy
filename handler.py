@@ -176,14 +176,6 @@ def postprocess_and_write(result_dict):
     sample_result_dict = result_dict['34loc']
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
-    #  Todo: Debug
-    logger.debug('Writing dict results')
-
-    logger.debug(f'sample_result_dict: {sample_result_dict}')
-    logger.debug(f'result_dict: {result_dict}')
-    import time
-    time.sleep(10)
-
     with rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(loc, 1)
 
@@ -191,7 +183,6 @@ def postprocess_and_write(result_dict):
         dst.write(cls, 1)
 
 
-        
     if sample_result_dict['is_vis']:
         #TODO: Make sure this works with First Place code!
         mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
@@ -199,20 +190,19 @@ def postprocess_and_write(result_dict):
         mask_map_img[cls == 2] = (229, 255, 50)
         mask_map_img[cls == 3] = (255, 159, 0)
         mask_map_img[cls == 4] = (255, 0, 0)
-        # Go from (x, y, bands) to (bands, x, y)
-        mask_map_img = np.flipud(mask_map_img)
-        mask_map_img = np.rot90(mask_map_img, 3)
-        mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
-
-        with rasterio.open(sample_result_dict['in_pre_path']) as pre:
-            pre_image = pre.read()
-        compare_img = np.concatenate((pre_image, mask_map_img), axis=1)
 
         # debug
         # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
         
         out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
         with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
+            # Go from (x, y, bands) to (bands, x, y)
+            mask_map_img = np.flipud(mask_map_img)
+            mask_map_img = np.rot90(mask_map_img, 3)
+            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
+            with rasterio.open(sample_result_dict['in_pre_path']) as pre:
+                pre_image = pre.read()
+            compare_img = np.concatenate((pre_image, mask_map_img), axis=1)
             dst.write(compare_img)
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
