@@ -21,6 +21,7 @@ from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 from loguru import logger
 from sys import stderr
+from PIL import Image
 
 
 class Options(object):
@@ -184,32 +185,12 @@ def postprocess_and_write(result_dict):
 
 
     if sample_result_dict['is_vis']:
-        #TODO: Make sure this works with First Place code!
-        mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
-        mask_map_img[cls == 1] = (255, 255, 255)
-        mask_map_img[cls == 2] = (229, 255, 50)
-        mask_map_img[cls == 3] = (255, 159, 0)
-        mask_map_img[cls == 4] = (255, 0, 0)
-        mask_map_img = np.moveaxis(mask_map_img, [2, 0, 1], [0, 1, 2])
-        with rasterio.open(sample_result_dict['in_pre_path']) as pre:
-            pre_image = pre.read()
-        compare_img = np.concatenate((pre_image, mask_map_img), axis=1)
+        raster_processing.create_composite(sample_result_dict['in_pre_path'],
+                                           cls,
+                                           sample_result_dict['out_overlay_path'],
+                                           sample_result_dict['geo_profile'],
+                                           )
 
-        # debug
-        np.save('mask_arr.npy', mask_map_img)
-        np.save('img_arr.npy', pre_image)
-
-        # debug
-        # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
-        
-        out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
-        with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-            # Go from (x, y, bands) to (bands, x, y)
-            mask_map_img = np.flipud(mask_map_img)
-            mask_map_img = np.rot90(mask_map_img, 3)
-            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
-
-            dst.write(compare_img)
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
     results = defaultdict(list)
@@ -295,7 +276,6 @@ def parse_args():
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
-    parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
@@ -550,12 +530,12 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
     
-    if args.create_overlay_mosaic:
-        logger.info("Creating overlay mosaic")
-        p = Path(args.output_directory) / "over"
-        overlay_files = get_files(p)
-        overlay_files = [x for x in overlay_files]
-        overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+
+    logger.info("Creating overlay mosaic")
+    p = Path(args.output_directory) / "over"
+    overlay_files = get_files(p)
+    overlay_files = [x for x in overlay_files]
+    overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
     dmg_files = get_files(Path(args.output_directory) / 'dmg')
@@ -609,6 +589,7 @@ if __name__ == '__main__':
         ],
     )
     logger.opt(exception=True)
+    logger.info('Starting...')
 
     # Scrub args of AGOL username and password
     clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}

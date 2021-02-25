@@ -3,6 +3,7 @@ import pytest
 from pathlib import Path
 from utils import raster_processing
 import handler
+import numpy as np
 
 
 class TestGetIntersect:
@@ -107,3 +108,14 @@ class TestCreatChips:
         with rasterio.open(list(out_dir.iterdir())[0]) as src:
             assert src.height == 1024
             assert src.width == 1024
+
+
+class TestCreateComposite:
+
+    def test_create_composite(self, tmp_path):
+        in_file = 'data/output/chips/pre/0_pre.tif'
+        with rasterio.open(in_file) as src:
+            transforms = src.profile
+        out_file = tmp_path / 'composite.tif'
+        dmg_arr = np.load(open('data/misc/damage_arr/cls_0.npy', 'rb'))
+        assert raster_processing.create_composite(in_file, dmg_arr, out_file, transforms) == out_file

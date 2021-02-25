@@ -18,6 +18,7 @@ from osgeo import gdal
 from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
+from PIL import Image
 
 
 def reproject(in_file, dest_file, in_crs, dest_crs):
@@ -226,3 +227,40 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
             chips.append(outpath.resolve())
 
     return chips
+
+
+def create_composite(base, overlay, out_file, transforms, alpha=.6):
+    """
+    Creates alpha composite on an image from a numpy array.
+    :param base: Base image file
+    :param overlay: Numpy array to overlay
+    :param out_file: Destination file
+    :param transforms: Geo profile
+    :param alpha: Desired alpha
+    :return: Path object to overlay
+    """
+
+    # Todo: This seems pretty inefficient...would be a good candidate for refactoring.
+    mask_map_img = np.zeros((overlay.shape[0], overlay.shape[1], 4), dtype=np.uint8)
+    mask_map_img[overlay == 1] = (255, 255, 255, 255 * alpha)
+    mask_map_img[overlay == 2] = (229, 255, 50, 255 * alpha)
+    mask_map_img[overlay == 3] = (255, 159, 0, 255 * alpha)
+    mask_map_img[overlay == 4] = (255, 0, 0, 255 * alpha)
+
+    over_img = Image.fromarray(mask_map_img)
+    pre_img = Image.open(base)
+    pre_img.putalpha(255)
+
+    comp = Image.alpha_composite(pre_img, over_img)
+    comp_arr = np.asarray(comp)
+    no_alpha = comp_arr[:,:,:3]
+
+    with rasterio.open(out_file, 'w', **transforms) as dst:
+        # Go from (x, y, bands) to (bands, x, y)
+        no_alpha = np.flipud(no_alpha)
+        no_alpha = np.rot90(no_alpha, 3)
+        no_alpha = np.moveaxis(no_alpha, [0, 1, 2], [2, 1, 0])
+
+        dst.write(no_alpha)
+
+    return Path(out_file)
