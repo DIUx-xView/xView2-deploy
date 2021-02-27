@@ -19,9 +19,4 @@ def create_polys(in_files):
         bnd = src.read(1)
         polys = list(shapes(bnd, transform=transform))
 
-        for geom, val in polys:
-            if val == 0:
-                continue
-            polygons.append((Polygon(shape(geom)), val))
-
-    return polygons
+    return [(Polygon(shape(geom)), val) for geom, val in polys if val > 0]

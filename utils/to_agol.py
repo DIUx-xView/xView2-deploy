@@ -42,6 +42,27 @@ def agol_arg_check(user, password, fs_id):
         return False
 
 
+def agol_helper(args, polys):
+    gis = connect_gis(username=args.agol_user, password=args.agol_password)
+
+    dmg_polys = create_damage_polys(polys)
+    aoi_poly = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
+    centroids = create_centroids(polys)
+
+    result = agol_append(gis,
+                         dmg_polys,
+                         args.agol_feature_service,
+                         1)
+    result = agol_append(gis,
+                         aoi_poly,
+                         args.agol_feature_service,
+                         2)
+    result = agol_append(gis,
+                         centroids,
+                         args.agol_feature_service,
+                         0)
+
+
 def create_aoi_poly(features):
 
     """
@@ -49,7 +70,7 @@ def create_aoi_poly(features):
     :param features: Polygons to create hull around.
     :return: ARCGIS polygon.
     """
-
+    # Todo: This should be a rectangle of the intersect.
     aoi_polys = [geom for geom, val in features]
     hull = MultiPolygon(aoi_polys).convex_hull
     shape = arcgis.geometry.Geometry.from_shapely(hull)

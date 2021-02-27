@@ -53,7 +53,7 @@ class TestReproject:
         in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
         dest_file = tmp_path / 'resample.tif'
         with pytest.raises(ValueError):
-            result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
+            _ = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
 
 
 

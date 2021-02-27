@@ -549,27 +549,7 @@ def main():
                      args.destination_crs)
 
     if agol_push:
-
-        gis = to_agol.connect_gis(username=args.agol_user, password=args.agol_password)
-
-        # Todo: Isn't this line already completed in line 551?
-        agol_polys = features.create_polys(dmg_files)
-        dmg_polys = to_agol.create_damage_polys(agol_polys)
-        aoi_poly = to_agol.create_aoi_poly(agol_polys) # TODO: Should this be included in the shapefile?
-        centroids = to_agol.create_centroids(agol_polys)
-
-        result = to_agol.agol_append(gis,
-                                     dmg_polys,
-                                     args.agol_feature_service,
-                                     1)
-        result = to_agol.agol_append(gis,
-                                     aoi_poly,
-                                     args.agol_feature_service,
-                                     2)
-        result = to_agol.agol_append(gis,
-                                     centroids,
-                                     args.agol_feature_service,
-                                     0)
+        to_agol.agol_helper(args, polygons)
 
     # Complete
     elapsed = timeit.default_timer() - t0
@@ -591,7 +571,7 @@ if __name__ == '__main__':
     logger.opt(exception=True)
     logger.info('Starting...')
 
-    # Scrub args of AGOL username and password
+    # Scrub args of AGOL username and password and log them for debugging
     clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
     logger.debug(f'Run from:{__file__} \nArguments:{clean_args}')
 
