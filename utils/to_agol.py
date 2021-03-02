@@ -1,6 +1,7 @@
 import arcgis
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon
+from loguru import logger
 
 
 # Enable .from_shapely for building AGOL features from shapely features.
@@ -21,7 +22,7 @@ def agol_arg_check(user, password, fs_id):
 
     # Check that all parameters have been passed to args.
     if any((user, password, fs_id)) and not all((user, password, fs_id)):
-        print('Missing required AGOL parameters. Skipping AGOL push.')
+        logger.warning('Missing required AGOL parameters. Skipping AGOL push.')
         return False
     elif not any((user, password, fs_id)):
         return False
@@ -34,10 +35,10 @@ def agol_arg_check(user, password, fs_id):
         if layer:
             return True
         else:
-            print(f'AGOL layer \'{fs_id}\' not found.')
+            logger.warning(f'AGOL layer \'{fs_id}\' not found.')
             return False
     else:
-        print('Attempt to connect to AGOL failed. AGOL push skipped.')
+        logger.warning('Attempt to connect to AGOL failed. Check the arguments and try again.')
         return False
 
 
@@ -48,7 +49,7 @@ def create_aoi_poly(features):
     :param features: Polygons to create hull around.
     :return: ARCGIS polygon.
     """
-
+    # Todo: This should be a rectangle of the intersect.
     aoi_polys = [geom for geom, val in features]
     hull = MultiPolygon(aoi_polys).convex_hull
     shape = arcgis.geometry.Geometry.from_shapely(hull)
@@ -122,11 +123,11 @@ def agol_append(gis, src_feats, dest_fs, layer):
             yield iterable[idx:min(idx + n, l)]
 
 
-    print('Attempting to append features to ArcGIS')
+    logger.info('Attempting to append features to ArcGIS')
     layer = gis.content.get(dest_fs).layers[int(layer)]
     for batch in tqdm(batch_gen(src_feats, 1000)):
         result = layer.edit_features(adds=batch, rollback_on_failure=True)
 
-    #print(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
+    logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
     return True

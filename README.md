@@ -1,8 +1,29 @@
-# For damage assessment invocation purposes
-On 2 GPUs: `CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --staging_directory <staging dir>  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6 --create_shapefiles`
+# System setup
+xView2 inference requires a tremendous amount of computing power. Currently, CPU inference is wildly 
+impractical. To that end, unless you have a dedicated workstation with ample GPU power such as an Nvidia DGX station,
+we recommend a cloud based solution such as AWS or Google Cloud Compute utilizing a GPU optimized instance. Prices vary
+on instance type and area to be inferred. Example instances:
+1. AWS EC2
+    1. P4d.24xlarge
+    2. P3.16xlarge
+2. G Cloud
+    1. Todo!
+
+# Installation
+Todo!
+
+# Usage
+xView2 has the following options:
+Todo!
+
+# Example invocation for damage assessment
+On 2 GPUs: `CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --staging_directory <staging dir>  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6`
+
+# Notes:
+   - CRS may not be mixed within each type of imagery (pre/post). However, pre and post imagery are not required to share the same CRS.
 
 
-d# xview2 1st place solution
+# xView2 1st place solution
 1st place solution for "xView2: Assess Building Damage" challenge. https://www.xview2.org
 
 # Introduction to Solution
