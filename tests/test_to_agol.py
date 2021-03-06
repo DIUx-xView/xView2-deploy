@@ -21,18 +21,16 @@ class TestAGOLArgCheck:
     def test_no_fs(self):
         assert not to_agol.agol_arg_check('test', 'test', None)
 
-    def test_gis(self):
-        # Mock a GIS object
+    def test_good_gis(self):
+        # Mock a GIS object...this will also mock the gis.content.get method
         arcgis.gis.GIS = Mock()
         assert to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_creds(self):
-        arcgis.gis.GIS = Mock(return_value=Exception)
-        test = to_agol.agol_arg_check('test', 'test', 'test')
-        # Todo: this fails and I'm not sure why...should still return False
-        assert not to_agol.agol_arg_check('test', 'test', 'test')
+        arcgis.gis.GIS = Mock(side_effect=Exception)
         with pytest.raises(Exception):
             assert to_agol.agol_arg_check('test', 'test', 'test')
+            assert not to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_layer(self):
         arcgis.gis.GIS = Mock()
@@ -40,6 +38,9 @@ class TestAGOLArgCheck:
         gis.content.get.return_value = None
         assert not to_agol.agol_arg_check('test', 'test', 'test')
 
+    # Todo: Test connection timeout
+    def test_timeout(self):
+        pass
 
 class TestCreateDamagePolys:
 

@@ -9,6 +9,7 @@ from loguru import logger
 def from_shapely(cls, shapely_geometry):
     return cls(shapely_geometry.__geo_interface__)
 
+
 arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 
@@ -21,22 +22,30 @@ def agol_arg_check(user, password, fs_id):
     """
 
     # Check that all parameters have been passed to args.
-    if any((user, password, fs_id)) and not all((user, password, fs_id)):
-        logger.warning('Missing required AGOL parameters. Skipping AGOL push.')
-        return False
-    elif not any((user, password, fs_id)):
-        return False
+    if any((user, password, fs_id)):
+        # Return false if all arguments were not passed
+        if not all((user, password, fs_id)):
+            logger.warning('Missing required AGOL parameters. Skipping AGOL push.')
+            return False
 
-    # Test the AGOL connection
+        # Test the AGOL connection
+        try:
+            gis = connect_gis(user, password)
+        # Todo: Also need to catch instance of nothing returned (ie. no internet connection)
+        except Exception as ex:  # Incorrect user/pass raises an exception
+            # Todo: this message is not entirely accurate. Check for connection
+            logger.warning(f'Unable to connect to AGOL. Check username and password. Skipping AGOL push {ex}')
+            return False
 
-    gis = connect_gis(user, password)
-    if gis:
+        # Test that we can get the passed layer
         layer = gis.content.get(fs_id)
         if layer:
             return True
         else:
             logger.warning(f'AGOL layer \'{fs_id}\' not found.')
             return False
+
+    # Return false if no arguments were passed
     else:
         logger.warning('Attempt to connect to AGOL failed. Check the arguments and try again.')
         return False
