@@ -3,9 +3,10 @@ from utils import features
 from pathlib import Path
 import pytest
 import arcgis
-from .settings import *
+from unittest.mock import Mock
 
 
+# Todo: parameterize this entire class
 class TestAGOLArgCheck:
 
     def test_no_params(self):
@@ -21,15 +22,23 @@ class TestAGOLArgCheck:
         assert not to_agol.agol_arg_check('test', 'test', None)
 
     def test_gis(self):
-        assert to_agol.agol_arg_check(agol_user, agol_pass, agol_fs)
+        # Mock a GIS object
+        arcgis.gis.GIS = Mock()
+        assert to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_creds(self):
-        # arcgis package passes generic exception if connection is not made.
+        arcgis.gis.GIS = Mock(return_value=Exception)
+        test = to_agol.agol_arg_check('test', 'test', 'test')
+        # Todo: this fails and I'm not sure why...should still return False
+        assert not to_agol.agol_arg_check('test', 'test', 'test')
         with pytest.raises(Exception):
-            assert to_agol.agol_arg_check(agol_user[:-1], agol_pass, agol_fs)
+            assert to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_layer(self):
-        assert not to_agol.agol_arg_check(agol_user, agol_pass, agol_fs[:-1])
+        arcgis.gis.GIS = Mock()
+        gis = arcgis.gis.GIS()
+        gis.content.get.return_value = None
+        assert not to_agol.agol_arg_check('test', 'test', 'test')
 
 
 class TestCreateDamagePolys:
