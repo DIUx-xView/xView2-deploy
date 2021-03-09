@@ -1,12 +1,14 @@
 import arcgis
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon
+from loguru import logger
 
 
 # Enable .from_shapely for building AGOL features from shapely features.
 @classmethod
 def from_shapely(cls, shapely_geometry):
     return cls(shapely_geometry.__geo_interface__)
+
 
 arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
@@ -20,25 +22,54 @@ def agol_arg_check(user, password, fs_id):
     """
 
     # Check that all parameters have been passed to args.
-    if any((user, password, fs_id)) and not all((user, password, fs_id)):
-        print('Missing required AGOL parameters. Skipping AGOL push.')
-        return False
-    elif not any((user, password, fs_id)):
-        return False
+    if any((user, password, fs_id)):
+        # Return false if all arguments were not passed
+        if not all((user, password, fs_id)):
+            logger.warning('Missing required AGOL parameters. Skipping AGOL push.')
+            return False
 
-    # Test the AGOL connection
+        # Test the AGOL connection
+        try:
+            gis = connect_gis(user, password)
+        # Todo: Also need to catch instance of nothing returned (ie. no internet connection)
+        except Exception as ex:  # Incorrect user/pass raises an exception
+            # Todo: this message is not entirely accurate. Check for connection
+            logger.warning(f'Unable to connect to AGOL. Check username and password. Skipping AGOL push {ex}')
+            return False
 
-    gis = connect_gis(user, password)
-    if gis:
+        # Test that we can get the passed layer
         layer = gis.content.get(fs_id)
         if layer:
             return True
         else:
-            print(f'AGOL layer \'{fs_id}\' not found.')
+            logger.warning(f'AGOL layer \'{fs_id}\' not found.')
             return False
+
+    # Return false if no arguments were passed
     else:
-        print('Attempt to connect to AGOL failed. Check the arguments and try again.')
+        logger.warning('Attempt to connect to AGOL failed. Check the arguments and try again.')
         return False
+
+
+def agol_helper(args, polys):
+    gis = connect_gis(username=args.agol_user, password=args.agol_password)
+
+    dmg_polys = create_damage_polys(polys)
+    aoi_poly = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
+    centroids = create_centroids(polys)
+
+    result = agol_append(gis,
+                         dmg_polys,
+                         args.agol_feature_service,
+                         1)
+    result = agol_append(gis,
+                         aoi_poly,
+                         args.agol_feature_service,
+                         2)
+    result = agol_append(gis,
+                         centroids,
+                         args.agol_feature_service,
+                         0)
 
 
 def create_aoi_poly(features):
@@ -48,7 +79,7 @@ def create_aoi_poly(features):
     :param features: Polygons to create hull around.
     :return: ARCGIS polygon.
     """
-
+    # Todo: This should be a rectangle of the intersect.
     aoi_polys = [geom for geom, val in features]
     hull = MultiPolygon(aoi_polys).convex_hull
     shape = arcgis.geometry.Geometry.from_shapely(hull)
@@ -122,11 +153,11 @@ def agol_append(gis, src_feats, dest_fs, layer):
             yield iterable[idx:min(idx + n, l)]
 
 
-    print('Attempting to append features to ArcGIS')
+    logger.info('Attempting to append features to ArcGIS')
     layer = gis.content.get(dest_fs).layers[int(layer)]
     for batch in tqdm(batch_gen(src_feats, 1000)):
         result = layer.edit_features(adds=batch, rollback_on_failure=True)
 
-    #print(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
+    logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
     return True

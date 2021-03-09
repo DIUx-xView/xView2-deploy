@@ -3,9 +3,10 @@ from utils import features
 from pathlib import Path
 import pytest
 import arcgis
-from .settings import *
+from unittest.mock import Mock
 
 
+# Todo: parameterize this entire class
 class TestAGOLArgCheck:
 
     def test_no_params(self):
@@ -20,17 +21,26 @@ class TestAGOLArgCheck:
     def test_no_fs(self):
         assert not to_agol.agol_arg_check('test', 'test', None)
 
-    def test_gis(self):
-        assert to_agol.agol_arg_check(agol_user, agol_pass, agol_fs)
+    def test_good_gis(self):
+        # Mock a GIS object...this will also mock the gis.content.get method
+        arcgis.gis.GIS = Mock()
+        assert to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_creds(self):
-        # arcgis package passes generic exception if connection is not made.
+        arcgis.gis.GIS = Mock(side_effect=Exception)
         with pytest.raises(Exception):
-            assert to_agol.agol_arg_check(agol_user[:-1], agol_pass, agol_fs)
+            assert to_agol.agol_arg_check('test', 'test', 'test')
+            assert not to_agol.agol_arg_check('test', 'test', 'test')
 
     def test_bad_layer(self):
-        assert not to_agol.agol_arg_check(agol_user, agol_pass, agol_fs[:-1])
+        arcgis.gis.GIS = Mock()
+        gis = arcgis.gis.GIS()
+        gis.content.get.return_value = None
+        assert not to_agol.agol_arg_check('test', 'test', 'test')
 
+    # Todo: Test connection timeout
+    def test_timeout(self):
+        pass
 
 class TestCreateDamagePolys:
 

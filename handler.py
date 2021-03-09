@@ -17,14 +17,12 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 from skimage.morphology import square, dilation
 from tqdm import tqdm
-
-
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
+from loguru import logger
+from sys import stderr
+from PIL import Image
 
-import logging
-
-logger = logging.getLogger()
 
 class Options(object):
 
@@ -184,25 +182,15 @@ def postprocess_and_write(result_dict):
 
     with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
-        
-    if sample_result_dict['is_vis']:
-        #TODO: Make sure this works with First Place code!
-        mask_map_img = np.zeros((cls.shape[0], cls.shape[1], 3), dtype=np.uint8)
-        mask_map_img[cls == 1] = (255, 255, 255)
-        mask_map_img[cls == 2] = (229, 255, 50)
-        mask_map_img[cls == 3] = (255, 159, 0)
-        mask_map_img[cls == 4] = (255, 0, 0)
 
-        # debug
-        # cv2.imwrite('test_map.png',mask_map_img,[cv2.IMWRITE_PNG_COMPRESSION, 9])
-        
-        out_dir = os.path.dirname(sample_result_dict['out_overlay_path'])
-        with rasterio.open(sample_result_dict['out_overlay_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-            # Go from (x, y, bands) to (bands, x, y)
-            mask_map_img = np.flipud(mask_map_img)
-            mask_map_img = np.rot90(mask_map_img, 3)
-            mask_map_img = np.moveaxis(mask_map_img, [0, 1, 2], [2, 1, 0])
-            dst.write(mask_map_img)
+
+    if sample_result_dict['is_vis']:
+        raster_processing.create_composite(sample_result_dict['in_pre_path'],
+                                           cls,
+                                           sample_result_dict['out_overlay_path'],
+                                           sample_result_dict['geo_profile'],
+                                           )
+
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
     results = defaultdict(list)
@@ -238,7 +226,7 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     if write_output:
-        print('Writing results...')
+        logger.info('Writing results...')
         makedirs(pred_folder, exist_ok=True)
         for result in tqdm(results_list, total=len(results_list)):
             # TODO: Multithread this to make it more efficient/maybe eliminate it from workflow
@@ -272,11 +260,7 @@ def check_data(images):
 
     return True
 
-
-def main():
-    
-    t0 = timeit.default_timer()
-
+def parse_args():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True)
@@ -292,15 +276,19 @@ def main():
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
-    parser.add_argument('--create_overlay_mosaic', default=False, action='store_true', help='True/False to create a mosaic out of the overlays')
-    parser.add_argument('--create_shapefile', default=False, action='store_true', help='True/False to create shapefile from damage overlay')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
     parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+@logger.catch()
+def main():
+    
+    t0 = timeit.default_timer()
 
     # Determine what, if any, items we are pushing to AGOL
     agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
@@ -308,11 +296,13 @@ def main():
     make_staging_structure(args.staging_directory)
     make_output_structure(args.output_directory)
 
-    print('Retrieving files...')
+    logger.info('Retrieving files...')
     pre_files = get_files(args.pre_directory)
+    logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
+    logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
 
-    print('Re-projecting...')
+    logger.info('Re-projecting...')
 
     # Run reprojection in parallel processes
     manager = mp.Manager()
@@ -336,22 +326,22 @@ def main():
     pre_reproj = [x[1] for x in reproj if x[0] == "pre"]
     post_reproj = [x[1] for x in reproj if x[0] == "post"]
 
-    print("Creating pre mosaic...")
+    logger.info("Creating pre mosaic...")
     pre_mosaic = raster_processing.create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
-    print("Creating post mosaic...")
+    logger.info("Creating post mosaic...")
     post_mosaic = raster_processing.create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
 
     extent = raster_processing.get_intersect(pre_mosaic, post_mosaic)
 
-    print('Chipping...')
+    logger.info('Chipping...')
+    # Todo: fix the use of logging with tqdm (doc pages for loguru)
     pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    logger.debug(f'Num pre chips: {len(pre_chips)}')
     post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
+    logger.debug(f'Num post chips: {len(post_chips)}')
 
+    assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch')
     # debug
-    #pre_chips =  [bb for bb in pre_chips if '116' in str(bb)]
-    #post_chips =  [bb for bb in post_chips if '116' in str(bb)]
-    
-    assert len(pre_chips) == len(post_chips)
 
     # Defining dataset and dataloader
     pairs = []
@@ -387,7 +377,7 @@ def main():
         results_dict = {}
         
         for sz in ['34', '50', '92', '154']:
-            print(f'Running models of size {sz}...')
+            logger.info(f'Running models of size {sz}...')
             return_dict = {}
             loc_wrapper = XViewFirstPlaceLocModel(sz, dp_mode=args.dp_mode)
             
@@ -429,15 +419,15 @@ def main():
         results_dict = {}
         
         # Running inference
-        print('Running inference...')
+        logger.info('Running inference...')
         
         for sz in loc_gpus.keys():
-            print(f'Running models of size {sz}...')
+            logger.info(f'Running models of size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
 
             # Running inference
-            print('Running inference...')
+            logger.info('Running inference...')
 
             # Run inference in parallel processes
             manager = mp.Manager()
@@ -488,7 +478,7 @@ def main():
         jobs = []
         
         for sz in loc_gpus.keys():
-            print(f'Adding jobs for size {sz}...')
+            logger.info(f'Adding jobs for size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
             
@@ -517,7 +507,7 @@ def main():
                                 return_dict))
                             )
 
-        print('Running inference...')
+        logger.info('Running inference...')
 
         for proc in jobs:
             proc.start()
@@ -531,7 +521,7 @@ def main():
        
     # Quick check to make sure the samples in cls and loc are in teh same orer
     #assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
-    
+
     results_list = [{k:v[i] for k,v in results_dict.items()} for i in range(len(results_dict['34cls'])) ]
 
     # Running postprocessing
@@ -540,52 +530,51 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
     
-    if args.create_overlay_mosaic:
-        print("Creating overlay mosaic")
-        p = Path(args.output_directory) / "over"
-        overlay_files = get_files(p)
-        overlay_files = [x for x in overlay_files]
-        overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+
+    logger.info("Creating overlay mosaic")
+    p = Path(args.output_directory) / "over"
+    overlay_files = get_files(p)
+    overlay_files = [x for x in overlay_files]
+    overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    if args.create_shapefile or agol_push:
-        dmg_files = get_files(Path(args.output_directory) / 'dmg')
-        polygons = features.create_polys(dmg_files)
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
+    logger.debug(f'Polygons created: {len(polygons)}')
 
-    if args.create_shapefile:
-        print('Creating shapefile')
-        to_shapefile.create_shapefile(polygons,
-                         Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                         args.destination_crs)
+    # Create shapefile
+    logger.info('Creating shapefile')
+    to_shapefile.create_shapefile(polygons,
+                     Path(args.output_directory).joinpath('shapes') / 'damage.shp',
+                     args.destination_crs)
 
     if agol_push:
-
-        gis = to_agol.connect_gis(username=args.agol_user, password=args.agol_password)
-
-        agol_polys = features.create_polys(dmg_files)
-        dmg_polys = to_agol.create_damage_polys(agol_polys)
-        aoi_poly = to_agol.create_aoi_poly(agol_polys) # TODO: Should this be included in the shapefile?
-        centroids = to_agol.create_centroids(agol_polys)
-
-        result = to_agol.agol_append(gis,
-                                     dmg_polys,
-                                     args.agol_feature_service,
-                                     1)
-        result = to_agol.agol_append(gis,
-                                     aoi_poly,
-                                     args.agol_feature_service,
-                                     2)
-        result = to_agol.agol_append(gis,
-                                     centroids,
-                                     args.agol_feature_service,
-                                     0)
+        to_agol.agol_helper(args, polygons)
 
     # Complete
-    print('Run complete!')
     elapsed = timeit.default_timer() - t0
-    print('Time: {:.3f} min'.format(elapsed / 60))
+    logger.success(f'Run complete in {elapsed / 60:.3f} min')
 
 if __name__ == '__main__':
+
+    args = parse_args()
+
+    # Configure our logger and push our inputs
+    # Todo: Capture sys info (gpu, procs, etc)
+    logger.remove()
+    logger.configure(
+        handlers=[
+            dict(sink=stderr, format="[{level}] {message}", level='INFO'),
+            dict(sink=args.output_directory / 'log'/ f'xv2.log', enqueue=True, level='DEBUG', backtrace=True),
+        ],
+    )
+    logger.opt(exception=True)
+    logger.info('Starting...')
+
+    # Scrub args of AGOL username and password and log them for debugging
+    clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
+    logger.debug(f'Run from:{__file__} \nArguments:{clean_args}')
+
     if os.name == 'nt':
         from multiprocessing import freeze_support
         freeze_support()
