@@ -13,11 +13,26 @@ on instance type and area to be inferred. Example instances:
 Todo!
 
 # Usage
-xView2 has the following options:
-Todo!
+|Argument|Required|Default|Help
+|---|---|---|---|
+|--pre-directory|Yes|None|Directory containing pre-disaster imagery. This is searched recursively.|
+|--post-directory|Yes|None|Directory containing post-disaster imagery. This is searched recursively.|
+|--is_use_gpu|Sort of (CPU inference is wildly impractical|False|If True, use GPUs|
+|--num_procs|Yes|4|Number of processors for multiprocessing|
+|--batch_size|Yes|16|Number of chips to run inference on at once|
+|--num_workers|Yes|8|Number of workers loading data into RAM. Recommend 4 * num_gpu|
+|--pre_crs|No|None|The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.|
+|--post_crs|No|None|The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.|
+|--destination_crs|No|EPSG:4326|The Coordinate Reference System (CRS) for the output overlays.|
+|--dp_mode|No|False|Run models serially, but using DataParallel|
+|--save_intermediates|No|False|Store intermediate runfiles|
+|--agol_user|No|None|ArcGIS online username|
+|--agol_password|No|None|ArcGIS online password|
+|--agol_feature_service|No|None|ArcGIS online feature service to append damage polygons.|
 
 # Example invocation for damage assessment
-On 2 GPUs: `CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --staging_directory <staging dir>  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6`
+On 2 GPUs:
+`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --staging_directory <staging dir>  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6`
 
 # Notes:
    - CRS may not be mixed within each type of imagery (pre/post). However, pre and post imagery are not required to share the same CRS.
