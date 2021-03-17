@@ -263,21 +263,24 @@ def check_data(images):
 def parse_args():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
-    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True)
-    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True)
-    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True)
-    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True)
+    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
+    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
+    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True, help='Directory to store intermediate working files. This will be created if it does not exist. Existing files may be overwritten.')
+    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
+    # Not needed for first place model. Kept for testing on fifth place model
     parser.add_argument('--model_weight_path', metavar='/path/to/model/weights', type=Path)
+    # Not needed for first place model. Kept for testing on fifth place model
     parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
+    # Todo: CPU inference is wildly impractical on first place model. Change for this to be true.
     parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
     parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
-    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery.')
-    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery.')
+    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.')
+    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
-    parser.add_argument('--dp_mode', default=False, action='store_true', help='True/False to run models serially, but using DataParallel')
-    parser.add_argument('--save_intermediates', default=False, action='store_true', help='True/False to store intermediate runfiles')
+    parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
+    parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
     parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
