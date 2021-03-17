@@ -17,7 +17,7 @@ Todo!
 |---|---|---|---|
 |--pre-directory|Yes|None|Directory containing pre-disaster imagery. This is searched recursively.|
 |--post-directory|Yes|None|Directory containing post-disaster imagery. This is searched recursively.|
-|--is_use_gpu|Sort of (CPU inference is wildly impractical|False|If True, use GPUs|
+|--is_use_gpu|Sort of (CPU inference is wildly impractical)|False|If True, use GPUs|
 |--num_procs|Yes|4|Number of processors for multiprocessing|
 |--batch_size|Yes|16|Number of chips to run inference on at once|
 |--num_workers|Yes|8|Number of workers loading data into RAM. Recommend 4 * num_gpu|
