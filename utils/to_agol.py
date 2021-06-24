@@ -51,27 +51,6 @@ def agol_arg_check(user, password, fs_id):
         return False
 
 
-def agol_helper(args, polys):
-    gis = connect_gis(username=args.agol_user, password=args.agol_password)
-
-    dmg_polys = create_damage_polys(polys)
-    aoi_poly = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
-    centroids = create_centroids(polys)
-
-    result = agol_append(gis,
-                         dmg_polys,
-                         args.agol_feature_service,
-                         1)
-    result = agol_append(gis,
-                         aoi_poly,
-                         args.agol_feature_service,
-                         2)
-    result = agol_append(gis,
-                         centroids,
-                         args.agol_feature_service,
-                         0)
-
-
 def create_aoi_poly(features):
 
     """

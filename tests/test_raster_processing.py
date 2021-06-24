@@ -5,6 +5,37 @@ from utils import raster_processing
 import handler
 import numpy as np
 
+class Args():
+
+    def __init__(self, pre_crs=None, post_crs=None, dst_crs=None):
+        self.pre_crs = pre_crs
+        self.post_crs = post_crs
+        self.destination_crs = dst_crs
+
+
+class TestGetReprojRes:
+
+    def test_res(self):
+        pre = ['data/input/pre/tile_337-9136.tif']
+        post = ['data/input/post/tile_31500-5137.tif']
+        args = Args(dst_crs='EPSG:4326')
+        test = raster_processing.get_reproj_res(pre, post, args)
+        assert test == pytest.approx((6.85483930959213e-06, 6.000000000002531e-06))
+
+    def test_res_with_arg_crs(self):
+        pre = ['data/input/pre/tile_337-9136.tif']
+        post = ['data/misc/no_crs/may24C350000e4102500n.jpg']
+        args = Args(post_crs='EPSG:26915', dst_crs='EPSG:4326')
+        test = raster_processing.get_reproj_res(pre, post, args)
+        assert test == pytest.approx((6.85483930959213e-06, 5.494657033999985e-06))
+
+    def test_res_no_crs(self):
+        with pytest.raises(AttributeError):
+            pre = ['data/input/pre/tile_337-9136.tif']
+            post = ['data/misc/no_crs/may24C350000e4102500n.jpg']
+            args = Args(dst_crs='EPSG:4326')
+            test = raster_processing.get_reproj_res(pre, post, args)
+
 
 class TestGetIntersect:
 

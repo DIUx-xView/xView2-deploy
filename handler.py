@@ -117,7 +117,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
     return match
 
 
-def reproject_helper(args, raster_tuple, procnum, return_dict):
+def reproject_helper(args, raster_tuple, procnum, return_dict, resolution):
     """
     Helper function for reprojection
     """
@@ -125,7 +125,7 @@ def reproject_helper(args, raster_tuple, procnum, return_dict):
     basename = raster_file.stem
     dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
     try:
-        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs))
+        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs, resolution))
     except ValueError:
         return None
 
@@ -182,7 +182,6 @@ def postprocess_and_write(result_dict):
 
     with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
         dst.write(cls, 1)
-
 
     if sample_result_dict['is_vis']:
         raster_processing.create_composite(sample_result_dict['in_pre_path'],
@@ -280,6 +279,7 @@ def parse_args():
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.')
     parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
     parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
+    parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
@@ -290,10 +290,10 @@ def parse_args():
 
 @logger.catch()
 def main():
-    
+
     t0 = timeit.default_timer()
 
-    # Determine what, if any, items we are pushing to AGOL
+    # Determine if items are being pushed to AGOL
     agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
     make_staging_structure(args.staging_directory)
@@ -306,6 +306,14 @@ def main():
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
 
     logger.info('Re-projecting...')
+    # Todo: test for overridden resolution and log a warning with calculated resolution.
+    if not args.output_resolution:
+        reproj_res = raster_processing.get_reproj_res(pre_files, post_files, args)
+    else:
+        # Create tuple from passed resolution
+        reproj_res = (args.output_resolution, args.output_resolution)
+
+    print(f'Re-projecting. Resolution (x, y): {reproj_res}')
 
     # Run reprojection in parallel processes
     manager = mp.Manager()
@@ -319,7 +327,7 @@ def main():
 
     # Launch multiprocessing jobs for reprojection
     for idx, f in enumerate(files):
-        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict))
+        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict, reproj_res))
         jobs.append(p)
         p.start()
     for proc in jobs:
@@ -344,7 +352,6 @@ def main():
     logger.debug(f'Num post chips: {len(post_chips)}')
 
     assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch')
-    # debug
 
     # Defining dataset and dataloader
     pairs = []
@@ -522,7 +529,7 @@ def main():
     else:
         raise ValueError('Must use either 2 or 8 GPUs')
        
-    # Quick check to make sure the samples in cls and loc are in teh same orer
+    # Quick check to make sure the samples in cls and loc are in the same order
     #assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
 
     results_list = [{k:v[i] for k,v in results_dict.items()} for i in range(len(results_dict['34cls'])) ]
