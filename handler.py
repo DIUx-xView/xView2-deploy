@@ -353,8 +353,6 @@ def main():
 
     assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch')
 
-    logger.debug(f'Starting inference at {timeit.default_timer() - t0 / 60:.3f} min')
-
     # Defining dataset and dataloader
     pairs = []
     for idx, (pre, post) in enumerate(zip(pre_chips, post_chips)):
