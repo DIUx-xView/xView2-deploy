@@ -39,7 +39,8 @@ class MockArgs:
                  save_intermediates=False,
                  agol_user='',
                  agol_password='',
-                 agol_feature_service=''
+                 agol_feature_service='',
+                 dp_mode=True
                  ):
 
         self.output_directory = output_path
@@ -59,6 +60,7 @@ class MockArgs:
         self.agol_user = agol_user
         self.agol_password = agol_password
         self.agol_feature_service = agol_feature_service
+        self.dp_mode = dp_mode
 
 
 class MockLocModel:
@@ -110,6 +112,7 @@ class TestGood:
 
         # Mock CUDA devices
         self.monkeypatch.setattr('torch.cuda.device_count', lambda: 2)
+        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
 
         # Mock classes to mock inference
         self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)

@@ -584,13 +584,20 @@ def init():
     for k, v in clean_args.items():
         logger.debug(f'{k}: {v}')
 
-    # Todo: Before we exit, let's log some CUDA data for debugging
-    if torch.cuda.device_count() == 0:
+    # Log CUDA device info
+    cuda_dev_num = torch.cuda.device_count()
+    logger.debug(f'CUDA devices avail: {cuda_dev_num}')
+    for i in range(0, cuda_dev_num):
+        logger.debug(f'CUDA properties for device {i}: {torch.cuda.get_device_properties(i)}')
+
+
+    if cuda_dev_num == 0:
         raise ValueError('No GPU devices found. GPU required for inference.')
 
     if os.name == 'nt':
         from multiprocessing import freeze_support
         freeze_support()
+
     main()
 
 
