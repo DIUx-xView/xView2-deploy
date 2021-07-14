@@ -1,10 +1,19 @@
+import pytest
+
 import handler
 
 
-def test_get_files():
-    path = 'data/input/pre'
-    result = handler.get_files(path)
-    assert len(result) == 4
+class TestGetFiles:
+
+    def test_get_files(self):
+        path = 'tests/data/input/pre'
+        result = handler.get_files(path)
+        assert len(result) == 4
+
+    def test_no_files(self):
+        with pytest.raises(AssertionError):
+            result = handler.get_files('tests/data/empty_test_dir')
+            pass
 
 
 def test_reprojection_helper():

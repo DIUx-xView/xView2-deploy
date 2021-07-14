@@ -1,0 +1,175 @@
+import pickle
+from dataclasses import dataclass
+from pathlib import Path
+import pytest
+import handler
+import torch
+from pytest import MonkeyPatch
+
+# Todo: Return appropriate tensor for each image
+# Todo: Have args point at tests/data for tensors and use tmp_path for output/staging
+# Todo: How do we test results (mosaics) (mean/sum of array?)
+
+
+@pytest.fixture(scope='class', autouse=True)
+def output_path(tmp_path_factory):
+    return tmp_path_factory.mktemp('output')
+
+
+@pytest.fixture(scope='class', autouse=True)
+def staging_path(tmp_path_factory):
+    return tmp_path_factory.mktemp('staging')
+
+
+# Todo: may be able to make this a dataclass
+class MockArgs:
+
+    def __init__(self,
+                 staging_path,
+                 output_path,
+                 pre_directory='tests/data/input/pre',
+                 post_directory='tests/data/input/post',
+                 n_procs=4,
+                 batch_size=1,
+                 num_workers=8,
+                 pre_crs='',
+                 post_crs='',
+                 destination_crs='EPSG:4326',
+                 output_resolution=None,
+                 save_intermediates=False,
+                 agol_user='',
+                 agol_password='',
+                 agol_feature_service=''
+                 ):
+
+        self.output_directory = output_path
+        self.staging_directory = staging_path
+        self.staging_directory = staging_path
+        self.output_directory = output_path
+        self.pre_directory = Path(pre_directory)
+        self.post_directory = Path(post_directory)
+        self.n_procs = n_procs
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.pre_crs = pre_crs
+        self.post_crs = post_crs
+        self.destination_crs = destination_crs
+        self.output_resolution = output_resolution
+        self.save_intermediates = save_intermediates
+        self.agol_user = agol_user
+        self.agol_password = agol_password
+        self.agol_feature_service = agol_feature_service
+
+
+class MockLocModel:
+
+    def __init__(self, *args, **kwargs):
+        self.model_size = args[0]
+
+    # Todo: this should return the correct tensor based on the image input. Currently returns the same tensor.
+    # Mock inference results
+    @staticmethod
+    def forward(*args, **kwargs):
+        arr = torch.load('tests/data/inference_tensors/0_loc')
+        return arr
+
+
+class MockClsModel:
+
+    def __init__(self, *args, **kwargs):
+        self.model_size = args[0]
+
+    # Todo: this should return the correct tensor based on the image input. Currently returns the same tensor.
+    # Mock inference results
+    @staticmethod
+    def forward(*args, **kwargs):
+        arr = torch.load('tests/data/inference_tensors/0_cls')
+        return arr
+
+
+@pytest.fixture(scope="class", autouse=True)
+def monkeypatch_for_class(request):
+    """
+    Allows for the use of MonkeyPatch inside our test classes
+    :param request:
+    :return:
+    """
+    request.cls.monkeypatch = MonkeyPatch()
+
+
+class TestGood:
+
+    @pytest.fixture(scope='class', autouse=True)
+    def setup(self, staging_path, output_path):
+        # Pass args to handler
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+            staging_path=staging_path,
+            output_path=output_path
+        )
+                                 ),
+
+        # Mock CUDA devices
+        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 2)
+
+        # Mock classes to mock inference
+        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
+        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
+
+        # Call the handler
+        handler.init()
+
+    def test_input(self):
+        """
+        This is to ensure our inputs are correct. No code is tested here. If these fail expect that the input test
+        data is incorrect and expect almost everything else to fail.
+        Todo: We may want to move this to a class and expand the tests
+        :return:
+        """
+        assert len(list(Path('tests/data/input/pre').glob('**/*'))) == 4
+        assert len(list(Path('tests/data/input/post').glob('**/*'))) == 6
+
+
+    def test_pre_mosaic(self, staging_path, output_path):
+        assert output_path.joinpath('mosaics/pre.tif').is_file()
+
+    def test_post_mosaic(self, staging_path, output_path):
+        assert output_path.joinpath('mosaics/post.tif').is_file()
+
+    def test_overlay_mosaic(self, staging_path, output_path):
+        assert output_path.joinpath('mosaics/overlay.tif').is_file()
+
+    # Todo: currently fails although the app still works. Should still be fixed at some point
+    @pytest.mark.xfail
+    def test_pre_reproj(self, staging_path, output_path):
+        assert len(list(staging_path.joinpath('pre').glob('**/*'))) == 4
+
+    # Todo: currently fails although the app still works. Should still be fixed at some point
+    @pytest.mark.xfail
+    def test_post_reproj(self, staging_path, output_path):
+        assert len(list(staging_path.joinpath('post').glob('**/*'))) == 6
+
+    def test_overlay(self, staging_path, output_path):
+        assert len(list(output_path.joinpath('over').glob('**/*'))) == 4
+
+    def test_out_shapefile(self, staging_path, output_path):
+        assert output_path.joinpath('shapes/damage.shp').is_file()
+
+    def test_log(self, staging_path, output_path):
+        assert output_path.joinpath('log/xv2.log').is_file()
+
+    def test_chips_pre(self, staging_path, output_path):
+        assert len(list(output_path.joinpath('chips/pre').glob('**/*'))) == 4
+
+    def test_chips_post(self, staging_path, output_path):
+        assert len(list(output_path.joinpath('chips/post').glob('**/*'))) == 4
+
+    def test_loc_out(self, staging_path, output_path):
+        assert len(list(output_path.joinpath('loc').glob('**/*'))) == 4
+
+    def test_dmg_out(self, staging_path, output_path):
+        assert len(list(output_path.joinpath('dmg').glob('**/*'))) == 4
+
+class Test:
+    def test_test(self):
+        print(output_path)
+        assert output_path == 0

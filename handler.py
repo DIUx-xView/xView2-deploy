@@ -66,6 +66,7 @@ class Files(object):
         with rasterio.open(self.pre) as src:
             return src.profile
 
+
 def make_staging_structure(staging_path):
     """
     Creates directory structure for staging.
@@ -110,9 +111,7 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
     files = dir_path.glob('**/*')
 
-    files = [path.resolve() for path in files]
-
-    match = [f for f in files if f.suffix in extensions]
+    match = [path.resolve() for path in files if path.suffix in extensions]
 
     return match
 
@@ -144,7 +143,7 @@ def postprocess_and_write(result_dict):
     for k,v in result_dict.items():
         if 'cls' in k:
             _i += 1
-            # I think the below can just be replaced by v['cls'] -- shoul dcheck
+            # Todo: I think the below can just be replaced by v['cls'] -- should check
             msk = v['cls'].numpy()
             preds.append(msk * pred_coefs[_i])
     
@@ -193,7 +192,6 @@ def postprocess_and_write(result_dict):
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
     results = defaultdict(list)
-    pred_folder = model_wrapper.pred_folder
     with torch.no_grad(): # This is really important to not explode memory with gradients!
         for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
             #print(result_dict['in_pre_path'])
@@ -225,6 +223,7 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     if write_output:
+        pred_folder = model_wrapper.pred_folder
         logger.info('Writing results...')
         makedirs(pred_folder, exist_ok=True)
         for result in tqdm(results_list, total=len(results_list)):
@@ -266,12 +265,6 @@ def parse_args():
     parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
     parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True, help='Directory to store intermediate working files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
-    # Not needed for first place model. Kept for testing on fifth place model
-    parser.add_argument('--model_weight_path', metavar='/path/to/model/weights', type=Path)
-    # Not needed for first place model. Kept for testing on fifth place model
-    parser.add_argument('--model_config_path', metavar='/path/to/model/config', type=Path)
-    # Todo: CPU inference is wildly impractical on first place model. Change for this to be true.
-    parser.add_argument('--is_use_gpu', action='store_true', help="If True, use GPUs")
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
     parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
@@ -304,6 +297,7 @@ def main():
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
+    assert ((len(pre_files) > 0) & (len(post_files) > 0))
 
     logger.info('Re-projecting...')
     # Todo: test for overridden resolution and log a warning with calculated resolution.
@@ -381,40 +375,40 @@ def main():
                                      num_workers=args.num_workers,
                                      shuffle=False,
                                      pin_memory=True)
-    
-    
+
+
     if args.dp_mode:
         results_dict = {}
-        
+
         for sz in ['34', '50', '92', '154']:
             logger.info(f'Running models of size {sz}...')
             return_dict = {}
             loc_wrapper = XViewFirstPlaceLocModel(sz, dp_mode=args.dp_mode)
-            
+
             run_inference(eval_loc_dataloader,
                                 loc_wrapper,
                                 args.save_intermediates,
                                 'loc',
                                 return_dict)
-            
+
             del loc_wrapper
-            
+
             cls_wrapper = XViewFirstPlaceClsModel(sz, dp_mode=args.dp_mode)
-            
+
             run_inference(eval_cls_dataloader,
                                 cls_wrapper,
                                 args.save_intermediates,
                                 'cls',
                                 return_dict)
-            
+
             del cls_wrapper
-            
+
             results_dict.update({k:v for k,v in return_dict.items()})
-        
-        
+
+
     elif torch.cuda.device_count() == 2:
         # For 2-GPU machines [TESTED]
-        
+
         # Loading model
         loc_gpus = {'34':[0,0,0],
                     '50':[1,1,1],
@@ -427,10 +421,10 @@ def main():
                     '154':[0,0,0]}
 
         results_dict = {}
-        
+
         # Running inference
         logger.info('Running inference...')
-        
+
         for sz in loc_gpus.keys():
             logger.info(f'Running models of size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
@@ -465,11 +459,11 @@ def main():
                 proc.join()
 
             results_dict.update({k:v for k,v in return_dict.items()})
-            
+
     elif torch.cuda.device_count() == 8:
         # For 8-GPU machines
         # TODO: Test!
-        
+
         # Loading model
         loc_gpus = {'34':[0,0,0],
                     '50':[1,1,1],
@@ -486,19 +480,19 @@ def main():
         manager = mp.Manager()
         return_dict = manager.dict()
         jobs = []
-        
+
         for sz in loc_gpus.keys():
             logger.info(f'Adding jobs for size {sz}...')
             loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
-            
+
             # DEBUG
             #run_inference(eval_loc_dataloader,
             #                    loc_wrapper,
             #                    True, # Don't write intermediate outputs
             #                    'loc',
             #                    return_dict)
-            
+
             #import ipdb; ipdb.set_trace()
 
             # Launch multiprocessing jobs for different pytorch jobs
@@ -525,7 +519,7 @@ def main():
             proc.join()
 
         results_dict.update({k:v for k,v in return_dict.items()})
-    
+
     else:
         raise ValueError('Must use either 2 or 8 GPUs')
        
@@ -565,8 +559,11 @@ def main():
     elapsed = timeit.default_timer() - t0
     logger.success(f'Run complete in {elapsed / 60:.3f} min')
 
-if __name__ == '__main__':
 
+def init():
+
+    # Todo: Fix this at some point
+    global args
     args = parse_args()
 
     # Configure our logger and push our inputs
@@ -583,9 +580,20 @@ if __name__ == '__main__':
 
     # Scrub args of AGOL username and password and log them for debugging
     clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
-    logger.debug(f'Run from:{__file__} \nArguments:{clean_args}')
+    logger.debug(f'Run from:{__file__}')
+    for k, v in clean_args.items():
+        logger.debug(f'{k}: {v}')
+
+    # Todo: Before we exit, let's log some CUDA data for debugging
+    if torch.cuda.device_count() == 0:
+        raise ValueError('No GPU devices found. GPU required for inference.')
 
     if os.name == 'nt':
         from multiprocessing import freeze_support
         freeze_support()
     main()
+
+
+if __name__ == '__main__':
+
+    init()
