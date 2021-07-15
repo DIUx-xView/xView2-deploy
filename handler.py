@@ -113,6 +113,8 @@ def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
 
     match = [path.resolve() for path in files if path.suffix in extensions]
 
+    assert len(match) > 0, logger.critical(f'No image files found in {dir_path.resolve()}')
+
     return match
 
 
@@ -297,7 +299,6 @@ def main():
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
-    assert ((len(pre_files) > 0) & (len(post_files) > 0))
 
     logger.info('Re-projecting...')
     # Todo: test for overridden resolution and log a warning with calculated resolution.

@@ -7,7 +7,7 @@ from pathlib import Path
 
 def test_create_shapefile(tmp_path):
 
-    files = get_files(Path('data/output/dmg'))
+    files = get_files(Path('tests/data/output/dmg'))
     polys = create_polys(files)
     out_path = tmp_path / 'shapes'
     out_path.mkdir()

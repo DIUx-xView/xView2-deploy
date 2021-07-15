@@ -30,26 +30,27 @@ class TestGetReprojRes:
         assert test == pytest.approx((6.85483930959213e-06, 5.494657033999985e-06))
 
     def test_res_no_crs(self):
+        pre = ['tests/data/input/pre/tile_337-9136.tif']
+        post = ['tests/data/misc/no_crs/may24C350000e4102500n.jpg']
+        args = Args(dst_crs='EPSG:4326')
+
         with pytest.raises(AttributeError):
-            pre = ['tests/data/input/pre/tile_337-9136.tif']
-            post = ['tests/data/misc/no_crs/may24C350000e4102500n.jpg']
-            args = Args(dst_crs='EPSG:4326')
-            test = raster_processing.get_reproj_res(pre, post, args)
+            raster_processing.get_reproj_res(pre, post, args)
 
 
 class TestGetIntersect:
 
     def test_get_intersect(self):
         test = raster_processing.get_intersect(
-            Path('data/output/mosaics/pre.tif'),
-            Path('data/output/mosaics/post.tif')
+            Path('tests/data/output/mosaics/pre.tif'),
+            Path('tests/data/output/mosaics/post.tif')
         )
 
         assert test == (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
 
     def test_dont_intersect(self):
-        one = Path('data/input/post/tile_31500-5137.tif')
-        two = Path('data/input/post/tile_32524-5137.tif')
+        one = Path('tests/data/input/post/tile_31500-5137.tif')
+        two = Path('tests/data/input/post/tile_32524-5137.tif')
         with pytest.raises(AssertionError):
             assert raster_processing.get_intersect(one, two)
 
@@ -58,47 +59,49 @@ class TestReproject:
 
     def test_reproject_crs_set(self, tmp_path):
         # Test file with input having CRS set
-
-        in_file = Path('data/input/pre/tile_337-10160.tif')
+        in_file = Path('tests/data/input/pre/tile_337-10160.tif')
         dest_file = tmp_path / 'resample.tif'
-        result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
+        result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326', (0.6, 0.6))
         with rasterio.open(result) as src:
             test = src.crs
         assert test == 'EPSG:4326'
-
 
     def test_reproject_no_crs_set(self, tmp_path):
         # Test file with input file having no CRS set
-
-        in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
+        in_file = Path('tests/data/misc/no_crs/may24C350000e4102500n.jpg')
         dest_file = tmp_path / 'resample.tif'
-        result = raster_processing.reproject(in_file, dest_file, 'EPSG:26915', 'EPSG:4326')
+        result = raster_processing.reproject(in_file, dest_file, 'EPSG:26915', 'EPSG:4326', (0.6, 0.6))
         with rasterio.open(result) as src:
             test = src.crs
         assert test == 'EPSG:4326'
 
-
     def test_reproject_no_crs(self, tmp_path):
         # Test file with no CRS set or passed
-
-        in_file = Path('data/misc/no_crs/may24C350000e4102500n.jpg')
+        in_file = Path('tests/data/misc/no_crs/may24C350000e4102500n.jpg')
         dest_file = tmp_path / 'resample.tif'
         with pytest.raises(ValueError):
-            _ = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326')
+            _ = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326', (0.6, 0.6))
 
+    def test_correct_res(self, tmp_path):
+        in_file = Path('tests/data/input/pre/tile_337-10160.tif')
+        dest_file = tmp_path / 'resample.tif'
+        result = raster_processing.reproject(in_file, dest_file, None, 'EPSG:4326', (0.6, 0.6))
+        with rasterio.open(result) as src:
+            test = src.src
+        assert test == (0.6, 0.6)
 
 
 class TestCheckDims:
 
     def test_check_dims_full_size(self):
-        with rasterio.open(Path('data/output/chips/post/0_post.tif')) as src:
+        with rasterio.open(Path('tests/data/output/chips/post/0_post.tif')) as src:
             arr = src.read()
         result = raster_processing.check_dims(arr, 1024, 1024)
         assert result.shape[1] == 1024
         assert result.shape[1] == 1024
 
     def test_check_dims_with_pad(self):
-        with rasterio.open(Path('data/output/chips/post/0_post.tif')) as src:
+        with rasterio.open(Path('tests/data/output/chips/post/0_post.tif')) as src:
             arr = src.read()
         result = raster_processing.check_dims(arr, 1500, 1500)
         assert result.shape[1] == 1500
@@ -109,7 +112,7 @@ class TestCreateMosaic:
 
     def test_create_mosaic(self, tmp_path):
 
-        files = handler.get_files(Path('data/input/pre'))
+        files = handler.get_files(Path('tests/data/input/pre'))
         out_file = tmp_path / 'mosaic.tif'
 
         result = raster_processing.create_mosaic(files, out_file=out_file)
@@ -131,7 +134,7 @@ class TestCreatChips:
         print(tmp_path)
         out_dir = tmp_path / 'chips'
         out_dir.mkdir()
-        in_mosaic = Path('data/output/mosaics/pre.tif')
+        in_mosaic = Path('tests/data/output/mosaics/pre.tif')
         intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
         chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
 
@@ -144,9 +147,9 @@ class TestCreatChips:
 class TestCreateComposite:
 
     def test_create_composite(self, tmp_path):
-        in_file = 'data/output/chips/pre/0_pre.tif'
+        in_file = 'tests/data/output/chips/pre/0_pre.tif'
         with rasterio.open(in_file) as src:
             transforms = src.profile
         out_file = tmp_path / 'composite.tif'
-        dmg_arr = np.load(open('data/misc/damage_arr/cls_0.npy', 'rb'))
+        dmg_arr = np.load(open('tests/data/misc/damage_arr/cls_0.npy', 'rb'))
         assert raster_processing.create_composite(in_file, dmg_arr, out_file, transforms) == out_file

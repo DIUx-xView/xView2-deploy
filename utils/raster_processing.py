@@ -78,6 +78,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs, res):
     :param dest_file: path to write re-projected image
     :param in_crs: crs of input file -- only valid if image does not contain crs in metadata
     :param dest_crs: destination crs
+    :param res: tuple -- output resolution
     :return: path to re-projected image
     """
 
