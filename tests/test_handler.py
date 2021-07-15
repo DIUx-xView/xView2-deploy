@@ -12,8 +12,7 @@ class TestGetFiles:
 
     def test_no_files(self):
         with pytest.raises(AssertionError):
-            result = handler.get_files('tests/data/empty_test_dir')
-            pass
+            handler.get_files('tests/data/empty_test_dir')
 
 
 def test_reprojection_helper():

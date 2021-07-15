@@ -99,6 +99,18 @@ def monkeypatch_for_class(request):
     request.cls.monkeypatch = MonkeyPatch()
 
 
+class TestInput:
+
+    def test_input(self):
+        """
+        This is to ensure our inputs are correct. No code is tested here. If these fail expect that the input test
+        data is incorrect and expect almost everything else to fail.
+        :return:
+        """
+        assert len(list(Path('tests/data/input/pre').glob('**/*'))) == 4
+        assert len(list(Path('tests/data/input/post').glob('**/*'))) == 6
+
+
 class TestGood:
 
     @pytest.fixture(scope='class', autouse=True)
@@ -120,17 +132,6 @@ class TestGood:
 
         # Call the handler
         handler.init()
-
-    def test_input(self):
-        """
-        This is to ensure our inputs are correct. No code is tested here. If these fail expect that the input test
-        data is incorrect and expect almost everything else to fail.
-        Todo: We may want to move this to a class and expand the tests
-        :return:
-        """
-        assert len(list(Path('tests/data/input/pre').glob('**/*'))) == 4
-        assert len(list(Path('tests/data/input/post').glob('**/*'))) == 6
-
 
     def test_pre_mosaic(self, staging_path, output_path):
         assert output_path.joinpath('mosaics/pre.tif').is_file()
@@ -172,7 +173,30 @@ class TestGood:
     def test_dmg_out(self, staging_path, output_path):
         assert len(list(output_path.joinpath('dmg').glob('**/*'))) == 4
 
-class Test:
-    def test_test(self):
-        print(output_path)
-        assert output_path == 0
+
+class TestNoCUDA:
+
+    @pytest.fixture(scope='class', autouse=True)
+    def setup(self, staging_path, output_path):
+        # Pass args to handler
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+            staging_path=staging_path,
+            output_path=output_path
+        )
+                                 ),
+
+        # Mock CUDA devices
+        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 0)
+        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
+
+        # Mock classes to mock inference
+        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
+        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
+
+    def test_pass(self):
+        # Call the handler
+        with pytest.raises(ValueError):
+            handler.init()
+
+    def test_log(self, output_path):
+        assert (output_path / 'log' / 'xv2.log').is_file()

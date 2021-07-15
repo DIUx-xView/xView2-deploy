@@ -78,6 +78,7 @@ def reproject(in_file, dest_file, in_crs, dest_crs, res):
     :param dest_file: path to write re-projected image
     :param in_crs: crs of input file -- only valid if image does not contain crs in metadata
     :param dest_crs: destination crs
+    :param res: tuple -- output resolution
     :return: path to re-projected image
     """
 
@@ -89,7 +90,6 @@ def reproject(in_file, dest_file, in_crs, dest_crs, res):
     if in_crs is None:
         raise ValueError('No CRS set')
 
-    # TODO: Change the resolution based on the lowest resolution in the inputs
     gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=res[0], yRes=res[1])
 
     return Path(dest_file).resolve()
