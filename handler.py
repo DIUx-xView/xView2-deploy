@@ -23,6 +23,7 @@ from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 from loguru import logger
 from osgeo import gdal
+import shapely
 from PIL import Image
 
 
@@ -592,6 +593,7 @@ def init():
     logger.debug(f'Torch: {torch.__version__}')
     logger.debug(f'GDAL: {gdal.__version__}')
     logger.debug(f'Rasterio: {rasterio.__version__}')
+    logger.debug(f'Shapely: {shapely.__version__}')
 
     # Log CUDA device info
     cuda_dev_num = torch.cuda.device_count()

@@ -2,6 +2,15 @@ import rasterio
 from rasterio.features import shapes
 from shapely.geometry import Polygon, shape
 
+
+def make_valid(ob):
+    # This is a hack until shapely is updated with shapely.validation.make_valid
+    if ob.is_valid:
+        return ob
+    else:
+        return ob.buffer(0)
+
+
 def create_polys(in_files):
 
     """
@@ -19,4 +28,4 @@ def create_polys(in_files):
         bnd = src.read(1)
         polygons += list(shapes(bnd, transform=transform))
 
-    return [(Polygon(shape(geom)), val) for geom, val in polygons if val > 0]
+    return [(make_valid(Polygon(shape(geom))), val) for geom, val in polygons if val > 0]
