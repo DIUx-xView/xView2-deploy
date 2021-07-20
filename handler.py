@@ -1,7 +1,9 @@
+import platform
 import cv2
 import timeit
 import argparse
 import os
+import sys
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
@@ -20,7 +22,7 @@ from tqdm import tqdm
 from dataset import XViewDataset
 from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 from loguru import logger
-from sys import stderr
+from osgeo import gdal
 from PIL import Image
 
 
@@ -572,12 +574,11 @@ def init():
     logger.remove()
     logger.configure(
         handlers=[
-            dict(sink=stderr, format="[{level}] {message}", level='INFO'),
+            dict(sink=sys.stderr, format="[{level}] {message}", level='INFO'),
             dict(sink=args.output_directory / 'log'/ f'xv2.log', enqueue=True, level='DEBUG', backtrace=True),
         ],
     )
     logger.opt(exception=True)
-    logger.info('Starting...')
 
     # Scrub args of AGOL username and password and log them for debugging
     clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
@@ -585,15 +586,23 @@ def init():
     for k, v in clean_args.items():
         logger.debug(f'{k}: {v}')
 
+    # Add system info to log
+    logger.debug(f'System: {platform.platform()}')
+    logger.debug(f'Python: {sys.version}')
+    logger.debug(f'Torch: {torch.__version__}')
+    logger.debug(f'GDAL: {gdal.__version__}')
+    logger.debug(f'Rasterio: {rasterio.__version__}')
+
     # Log CUDA device info
     cuda_dev_num = torch.cuda.device_count()
     logger.debug(f'CUDA devices avail: {cuda_dev_num}')
     for i in range(0, cuda_dev_num):
         logger.debug(f'CUDA properties for device {i}: {torch.cuda.get_device_properties(i)}')
 
-
     if cuda_dev_num == 0:
         raise ValueError('No GPU devices found. GPU required for inference.')
+
+    logger.info('Starting...')
 
     if os.name == 'nt':
         from multiprocessing import freeze_support

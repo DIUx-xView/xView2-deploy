@@ -7,7 +7,6 @@ import torch
 from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
-# Todo: Have args point at tests/data for tensors and use tmp_path for output/staging
 # Todo: How do we test results (mosaics) (mean/sum of array?)
 
 
