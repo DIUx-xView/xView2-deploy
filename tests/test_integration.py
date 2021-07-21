@@ -1,9 +1,8 @@
-import pickle
-from dataclasses import dataclass
 from pathlib import Path
 import pytest
 import handler
 import torch
+import fiona
 from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
@@ -172,6 +171,13 @@ class TestGood:
 
     def test_dmg_out(self, staging_path, output_path):
         assert len(list(output_path.joinpath('dmg').glob('**/*'))) == 4
+
+    def test_dmg_mosaic(self, output_path):
+        assert output_path.joinpath('mosaics/damage.tif').is_file()
+
+    def test_out_shapes(self, output_path):
+        shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
+        assert len(shapes) == 2040
 
 
 class TestNoCUDA:

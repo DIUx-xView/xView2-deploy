@@ -381,6 +381,7 @@ def main():
                                      pin_memory=True)
 
 
+    # Todo: If on a one GPU machine (or other unsupported GPU count), force DP mode
     if args.dp_mode:
         results_dict = {}
 
@@ -410,6 +411,7 @@ def main():
             results_dict.update({k:v for k,v in return_dict.items()})
 
 
+    # Todo: Make GPU partition for four GPU machines
     elif torch.cuda.device_count() == 2:
         # For 2-GPU machines [TESTED]
 
@@ -537,17 +539,20 @@ def main():
     #postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
-    
+
+    # Create damage mosaic
+    logger.info("Creating damage mosaic")
+    dmg_path = Path(args.output_directory) / 'dmg'
+    damage_files = [x for x in get_files(dmg_path)]
+    damage_mosaic = raster_processing.create_mosaic(damage_files, Path(f"{args.output_directory}/mosaics/damage.tif"))
 
     logger.info("Creating overlay mosaic")
     p = Path(args.output_directory) / "over"
-    overlay_files = get_files(p)
-    overlay_files = [x for x in overlay_files]
+    overlay_files = [x for x in get_files(p)]
     overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    dmg_files = get_files(Path(args.output_directory) / 'dmg')
-    polygons = features.create_polys(dmg_files)
+    polygons = features.create_polys([damage_mosaic])
     logger.debug(f'Polygons created: {len(polygons)}')
 
     # Create shapefile

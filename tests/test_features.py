@@ -1,6 +1,7 @@
 from pathlib import Path
 from utils import features
 
+
 class TestCreatePolys:
 
     def test_damage_poly(self):
