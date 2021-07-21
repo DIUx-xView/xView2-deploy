@@ -8,6 +8,7 @@ from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
 # Todo: How do we test results (mosaics) (mean/sum of array?)
+# Todo: Class out our monkeypatches
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -199,3 +200,35 @@ class TestNoCUDA:
 
     def test_log(self, output_path):
         assert (output_path / 'log' / 'xv2.log').is_file()
+
+
+@pytest.mark.skip
+class TestExperiment:
+    """
+    Experiment class to run the handler and view the output path for A/B testing etc.
+    Skip mark should be set when not in use.
+    """
+
+    @pytest.fixture(scope='class', autouse=True)
+    def setup(self, staging_path, output_path):
+        # Pass args to handler
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+            staging_path=staging_path,
+            output_path=output_path
+        )
+                                 ),
+
+        # Mock CUDA devices
+        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 2)
+        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
+
+        # Mock classes to mock inference
+        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
+        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
+
+        # Call the handler
+        handler.init()
+
+    def test_experiment(self, output_path):
+        # Fail the test so we can view the output path
+        assert output_path == 0
