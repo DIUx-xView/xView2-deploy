@@ -3,6 +3,7 @@ import pytest
 import handler
 import torch
 import fiona
+import rasterio.crs
 from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
@@ -33,7 +34,7 @@ class MockArgs:
                  num_workers=8,
                  pre_crs='',
                  post_crs='',
-                 destination_crs='EPSG:4326',
+                 destination_crs='+proj=webmerc +datum=WGS84',
                  output_resolution=None,
                  save_intermediates=False,
                  agol_user='',
@@ -68,10 +69,11 @@ class MockLocModel:
         self.model_size = args[0]
 
     # Todo: this should return the correct tensor based on the image input. Currently returns the same tensor.
+    # Todo: Ideally we store these with a CRS so we cas reproject based on the mock args...some day
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/inference_tensors/0_loc')
+        arr = torch.load('tests/data/old_inference_tensors/0_loc')
         return arr
 
 
@@ -84,7 +86,7 @@ class MockClsModel:
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/inference_tensors/0_cls')
+        arr = torch.load('tests/data/old_inference_tensors/0_cls')
         return arr
 
 
@@ -177,7 +179,7 @@ class TestGood:
 
     def test_out_shapes(self, output_path):
         shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
-        assert len(shapes) == 2040
+        assert len(shapes) == 2044
 
 
 class TestNoCUDA:

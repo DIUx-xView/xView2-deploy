@@ -37,7 +37,7 @@ def get_reproj_res(pre_files, post_files, args):
             # Get our transform
             transform = rasterio.warp.calculate_default_transform(
                 pre_crs,
-                rasterio.crs.CRS({'init': dst_crs}),
+                args.destination_crs,
                 width=src.width, height=src.height,
                 left=src.bounds.left,
                 bottom=src.bounds.bottom,
