@@ -325,6 +325,7 @@ def main():
         in_centroid = raster_processing.get_lat_lon_centroid(pre_files[0], args)
         epsg = raster_processing.get_utm_epsg(*in_centroid)
         args.destination_crs = rasterio.crs.CRS.from_epsg(epsg)
+        logger.info(f'Using calculated destination CRS of EPSG:{epsg}')
 
     logger.info('Re-projecting...')
     # Todo: test for overridden resolution and log a warning with calculated resolution.
