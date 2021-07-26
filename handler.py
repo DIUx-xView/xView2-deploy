@@ -284,7 +284,7 @@ def parse_args():
     parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
-    parser.add_argument('--destination_crs', default='EPSG:3857', help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
+    parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
     parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
@@ -311,6 +311,20 @@ def main():
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
+
+    # Create CRS object from our pre/post inputs
+    if args.pre_crs:
+        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
+    if args.post_crs:
+        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
+
+    # Create CRS object from argument, else determine UTM zone and create CRS object
+    if args.destination_crs:
+        args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
+    else:
+        in_centroid = raster_processing.get_lat_lon_centroid(pre_files[0], args)
+        epsg = raster_processing.get_utm_epsg(*in_centroid)
+        args.destination_crs = rasterio.crs.CRS.from_epsg(epsg)
 
     logger.info('Re-projecting...')
     # Todo: test for overridden resolution and log a warning with calculated resolution.
@@ -580,14 +594,9 @@ def main():
 
 def init():
 
-    # Todo: Fix this at some point
+    # Todo: Fix this global at some point
     global args
     args = parse_args()
-    args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
-    if args.pre_crs:
-        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
-    if args.post_crs:
-        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
 
     # Configure our logger and push our inputs
     # Todo: Capture sys info (gpu, procs, etc)

@@ -32,9 +32,9 @@ class MockArgs:
                  n_procs=4,
                  batch_size=1,
                  num_workers=8,
-                 pre_crs='',
-                 post_crs='',
-                 destination_crs='+proj=webmerc +datum=WGS84',
+                 pre_crs=None,
+                 post_crs=None,
+                 destination_crs=None,
                  output_resolution=None,
                  save_intermediates=False,
                  agol_user='',
@@ -180,6 +180,10 @@ class TestGood:
     def test_out_shapes(self, output_path):
         shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
         assert len(shapes) == 2044
+
+    def test_out_epsg(self, output_path):
+        with rasterio.open(output_path.joinpath('mosaics/overlay.tif')) as src:
+            assert src.crs.to_epsg() == 32615
 
 
 class TestNoCUDA:

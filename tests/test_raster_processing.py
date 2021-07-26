@@ -1,3 +1,4 @@
+import osr
 import rasterio
 import pytest
 from pathlib import Path
@@ -145,3 +146,38 @@ class TestCreateComposite:
         out_file = tmp_path / 'composite.tif'
         dmg_arr = np.load(open('tests/data/misc/damage_arr/cls_0.npy', 'rb'))
         assert raster_processing.create_composite(in_file, dmg_arr, out_file, transforms) == out_file
+
+
+class TestGetUTMESPG:
+
+    @pytest.mark.parametrize('lat,lon,expected', [
+        # Gothenburg, Sweden
+        (11.974560, 57.708870, 32632),
+        # New York, USA
+        (-74.00597, 40.71435, 32618),
+        # Capetown, South Africa (northen)
+        (18.42406, -33.92487, 32734),
+        # Torres de Paine, Patagonia, Chile
+        (-73.120029, -50.972823, 32718)
+    ])
+    def test_utm_espg(self, lat, lon, expected):
+        assert raster_processing.get_utm_epsg(lat, lon) == expected
+
+
+class TestGetLatLonCentroid:
+
+    def test_get_centroid(self):
+        file = 'tests/data/input/pre/tile_337-9136.tif'
+        assert raster_processing.get_lat_lon_centroid(file, None) == (-94.49676281104423, 37.07467068951649)
+
+    def test_crs_and_passed_arg(self):
+        # Should use image CRS
+        assert 0
+
+    def test_no_crs(self):
+        # Should pass crs argument
+        assert 0
+
+    def test_no_crs_no_post_crs_arg(self):
+        # Should return attribute error
+        assert 0
