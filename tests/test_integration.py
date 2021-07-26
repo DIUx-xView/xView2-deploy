@@ -73,7 +73,7 @@ class MockLocModel:
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/old_inference_tensors/0_loc')
+        arr = torch.load('tests/data/output/preds/preds_loc_0.pt')
         return arr
 
 
@@ -86,7 +86,7 @@ class MockClsModel:
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/old_inference_tensors/0_cls')
+        arr = torch.load('tests/data/output/preds/preds_cls_0.pt')
         return arr
 
 
@@ -179,7 +179,7 @@ class TestGood:
 
     def test_out_shapes(self, output_path):
         shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
-        assert len(shapes) == 2044
+        assert len(shapes) == 872
 
     def test_out_epsg(self, output_path):
         with rasterio.open(output_path.joinpath('mosaics/overlay.tif')) as src:
