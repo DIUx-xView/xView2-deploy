@@ -45,10 +45,10 @@ class TestAGOLArgCheck:
 class TestCreateDamagePolys:
 
     def test_damage_polys(self):
-        file = Path('tests/data/output/mosaics/damage.tif')
-        polys = features.create_polys([file], threshold=0)
+        file = Path('tests/data/output/dmg/0_pre.tif')
+        polys = features.create_polys([file])
         test = to_agol.create_damage_polys(polys)
-        assert len(test) == 640
+        assert len(test) == 264
 
 class TestAOIPolys:
 
@@ -62,6 +62,6 @@ class TestCentroids:
 
     def test_centroids(self):
         file = Path('tests/data/output/dmg/0_pre.tif')
-        polys = features.create_polys([file], threshold=0)
+        polys = features.create_polys([file])
         test = to_agol.create_centroids(polys)
-        assert len(test) == 281
+        assert len(test) == 264

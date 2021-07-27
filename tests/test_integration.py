@@ -3,7 +3,6 @@ import pytest
 import handler
 import torch
 import fiona
-import rasterio.crs
 from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
@@ -32,9 +31,9 @@ class MockArgs:
                  n_procs=4,
                  batch_size=1,
                  num_workers=8,
-                 pre_crs=None,
-                 post_crs=None,
-                 destination_crs=None,
+                 pre_crs='',
+                 post_crs='',
+                 destination_crs='EPSG:4326',
                  output_resolution=None,
                  save_intermediates=False,
                  agol_user='',
@@ -69,11 +68,10 @@ class MockLocModel:
         self.model_size = args[0]
 
     # Todo: this should return the correct tensor based on the image input. Currently returns the same tensor.
-    # Todo: Ideally we store these with a CRS so we cas reproject based on the mock args...some day
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/output/preds/preds_loc_0.pt')
+        arr = torch.load('tests/data/inference_tensors/0_loc')
         return arr
 
 
@@ -86,7 +84,7 @@ class MockClsModel:
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
-        arr = torch.load('tests/data/output/preds/preds_cls_0.pt')
+        arr = torch.load('tests/data/inference_tensors/0_cls')
         return arr
 
 
@@ -179,11 +177,7 @@ class TestGood:
 
     def test_out_shapes(self, output_path):
         shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
-        assert len(shapes) == 872
-
-    def test_out_epsg(self, output_path):
-        with rasterio.open(output_path.joinpath('mosaics/overlay.tif')) as src:
-            assert src.crs.to_epsg() == 32615
+        assert len(shapes) == 2040
 
 
 class TestNoCUDA:

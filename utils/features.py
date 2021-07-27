@@ -11,8 +11,7 @@ def make_valid(ob):
         return ob.buffer(0)
 
 
-
-def create_polys(in_files, threshold=30):
+def create_polys(in_files):
 
     """
     Create palygons to use for feature creation.
@@ -29,6 +28,4 @@ def create_polys(in_files, threshold=30):
         bnd = src.read(1)
         polygons += list(shapes(bnd, transform=transform))
 
-    features = [(make_valid(Polygon(shape(geom))), val) for geom, val in polygons if val > 0]
-
-    return [feature for feature in features if feature[0].area > threshold]
+    return [(make_valid(Polygon(shape(geom))), val) for geom, val in polygons if val > 0]
