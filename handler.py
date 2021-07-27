@@ -182,11 +182,13 @@ def postprocess_and_write(result_dict):
     sample_result_dict = result_dict['34loc']
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
-    with rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-        dst.write(loc, 1)
+    dst = rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile'])
+    dst.write(loc, 1)
+    dst.close()
 
-    with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-        dst.write(cls, 1)
+    dst = rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile'])
+    dst.write(cls, 1)
+    dst.close()
 
     if sample_result_dict['is_vis']:
         raster_processing.create_composite(sample_result_dict['in_pre_path'],
@@ -265,10 +267,11 @@ def check_data(images):
     :return: True if both images contain useful data. False if either contains no useful date.
     """
     for image in images:
-        with rasterio.open(image) as src:
-            layer = src.read(1)
-            if layer.sum() == 0:
-                return False
+        src = rasterio.open(image)
+        layer = src.read(1)
+        src.close()
+        if layer.sum() == 0:
+            return False
 
     return True
 
