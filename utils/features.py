@@ -12,7 +12,7 @@ def make_valid(ob):
 
 
 
-def create_polys(in_files):
+def create_polys(in_files, threshold=30):
 
     """
     Create palygons to use for feature creation.
