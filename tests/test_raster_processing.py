@@ -1,4 +1,3 @@
-import osr
 import rasterio
 import pytest
 from pathlib import Path
@@ -39,7 +38,7 @@ class TestGetIntersect:
             Path('tests/data/output/mosaics/post.tif')
         )
 
-        assert test == (366676.6736748844, 4103281.8940772624, 367871.4000008028, 4104256.849355083)
+        assert test == (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
 
     def test_dont_intersect(self):
         one = Path('tests/data/input/post/tile_31500-5137.tif')
@@ -128,10 +127,10 @@ class TestCreatChips:
         out_dir = tmp_path / 'chips'
         out_dir.mkdir()
         in_mosaic = Path('tests/data/output/mosaics/pre.tif')
-        intersect = (366676.6736748844, 4103281.8940772624, 367871.4000008028, 4104256.849355083)
+        intersect = (-94.49960529516346, 37.06631597942802, -94.48623559881267, 37.07511383680346)
         chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
 
-        assert len(list(out_dir.iterdir())) == 4
+        assert len(list(out_dir.iterdir())) == 6
         with rasterio.open(list(out_dir.iterdir())[0]) as src:
             assert src.height == 1024
             assert src.width == 1024
@@ -146,38 +145,3 @@ class TestCreateComposite:
         out_file = tmp_path / 'composite.tif'
         dmg_arr = np.load(open('tests/data/misc/damage_arr/cls_0.npy', 'rb'))
         assert raster_processing.create_composite(in_file, dmg_arr, out_file, transforms) == out_file
-
-
-class TestGetUTMESPG:
-
-    @pytest.mark.parametrize('lat,lon,expected', [
-        # Gothenburg, Sweden
-        pytest.param(11.974560, 57.708870, 32632, id='get_utm_sweden'),
-        # New York, USA
-        pytest.param(-74.00597, 40.71435, 32618, id='get_utm_usa'),
-        # Capetown, South Africa (northen)
-        pytest.param(18.42406, -33.92487, 32734, id='get_utm_south_africa'),
-        # Torres de Paine, Patagonia, Chile
-        pytest.param(-73.120029, -50.972823, 32718, id='get_utm_chile')
-    ])
-    def test_utm_espg(self, lat, lon, expected):
-        assert raster_processing.get_utm_epsg(lat, lon) == expected
-
-
-class TestGetLatLonCentroid:
-
-    def test_get_centroid(self):
-        file = 'tests/data/input/pre/tile_337-9136.tif'
-        assert raster_processing.get_lat_lon_centroid(file, None) == (-94.49676281104423, 37.07467068951649)
-
-    def test_crs_and_passed_arg(self):
-        # Should use image CRS
-        pass
-
-    def test_no_crs(self):
-        # Should pass crs argument
-        pass
-
-    def test_no_crs_no_post_crs_arg(self):
-        # Should return attribute error
-        pass
