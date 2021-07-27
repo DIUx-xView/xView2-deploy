@@ -1,5 +1,7 @@
 import fiona
+import fiona.crs
 from shapely.geometry import mapping
+
 
 def create_shapefile(polygons, out_shapefile, dest_crs):
 
@@ -18,7 +20,7 @@ def create_shapefile(polygons, out_shapefile, dest_crs):
 
     # Write out all the multipolygons to the same file
     with fiona.open(out_shapefile, 'w', 'ESRI Shapefile', shp_schema,
-                    dest_crs) as shp:
+                    crs_wkt=dest_crs.wkt) as shp:
         for polygon, px_val in polygons:
             shp.write({
                 'geometry': mapping(polygon),

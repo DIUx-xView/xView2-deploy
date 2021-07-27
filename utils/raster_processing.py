@@ -15,11 +15,46 @@ from rasterio.features import shapes
 from shapely.geometry import shape, mapping
 from shapely.geometry.polygon import Polygon
 from itertools import product
-from osgeo import gdal
+from osgeo import gdal, osr, ogr
 from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 from PIL import Image
+
+
+def get_utm_epsg(lon, lat):
+    # Todo: Introduce some error checking.
+    """Return UTM EPSG code of respective lon/lat.
+    The EPSG is:
+        32600+zone for positive latitudes
+        32700+zone for negatives latitudes
+    """
+    zone = int(round((183 + lon) / 6, 0))
+    epsg = int(32700 - round((45 + lat) / 90, 0) * 100) + zone
+
+    return epsg
+
+
+def get_lat_lon_centroid(in_file, args):
+
+    with rasterio.open(in_file) as src:
+        cent = src.xy(src.width / 2, src.height / 2)
+        src_crs = osr.SpatialReference()
+        if src.crs:
+            src_crs.ImportFromWkt(src.crs.to_wkt())
+        elif args.pre_crs:
+            src_crs.ImportFromWkt(args.pre_crs.to_wkt())
+        else:
+            raise AttributeError(logger.critical('No CRS to determine centriod from. Ensure all image files in pre folder are geoferefenced or appropriate "pre_crs" argument is passed.'))
+
+    dst_crs = osr.SpatialReference()
+    dst_crs.ImportFromEPSG(4326)
+    transform = osr.CoordinateTransformation(src_crs, dst_crs)
+
+    point = ogr.CreateGeometryFromWkt(f"POINT ({cent[0]} {cent[1]})")
+    point.Transform(transform)
+
+    return (point.GetY(), point.GetX())
 
 
 def get_reproj_res(pre_files, post_files, args):
@@ -37,7 +72,7 @@ def get_reproj_res(pre_files, post_files, args):
             # Get our transform
             transform = rasterio.warp.calculate_default_transform(
                 pre_crs,
-                rasterio.crs.CRS({'init': dst_crs}),
+                args.destination_crs,
                 width=src.width, height=src.height,
                 left=src.bounds.left,
                 bottom=src.bounds.bottom,
