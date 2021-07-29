@@ -11,7 +11,6 @@ def make_valid(ob):
         return ob.buffer(0)
 
 
-
 def create_polys(in_files, threshold=30):
 
     """

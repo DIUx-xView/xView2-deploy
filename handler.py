@@ -182,11 +182,13 @@ def postprocess_and_write(result_dict):
     sample_result_dict = result_dict['34loc']
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
-    with rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-        dst.write(loc, 1)
+    dst = rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile'])
+    dst.write(loc, 1)
+    dst.close()
 
-    with rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']) as dst:
-        dst.write(cls, 1)
+    dst = rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile'])
+    dst.write(cls, 1)
+    dst.close()
 
     if sample_result_dict['is_vis']:
         raster_processing.create_composite(sample_result_dict['in_pre_path'],
@@ -576,7 +578,8 @@ def main():
     overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
     # Get files for creating shapefile and/or pushing to AGOL
-    polygons = features.create_polys([damage_mosaic])
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
     logger.debug(f'Polygons created: {len(polygons)}')
 
     # Create shapefile
