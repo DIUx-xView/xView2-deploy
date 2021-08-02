@@ -20,11 +20,18 @@ class TestCreatePolys:
         file1 = Path('tests/data/output/dmg/0_pre.tif')
         file2 = Path('tests/data/output/dmg/1_pre.tif')
         polys = features.create_polys([file1, file2], threshold=0)
-        assert len(polys) == 353
+        polys.to_file('/Users/lb/Downloads/dataframe.shp')
+        assert len(polys) == 344
+
+    def test_combine_poly_with_thresh(self):
+        file1 = Path('tests/data/output/dmg/0_pre.tif')
+        file2 = Path('tests/data/output/dmg/1_pre.tif')
+        polys = features.create_polys([file1, file2])
+        assert len(polys) == 244
 
     def test_geom_valid(self):
         # Test for bug #43
-        file = Path('tests/data/output/mosaics/damage.tif')
-        polys = features.create_polys([file], threshold=0)
-        shapes = [x[0].is_valid for x in polys]
-        assert all(shapes)
+        file1 = Path('tests/data/output/dmg/0_pre.tif')
+        file2 = Path('tests/data/output/dmg/1_pre.tif')
+        polys = features.create_polys([file1, file2], threshold=0)
+        assert all(polys.geometry.is_valid)

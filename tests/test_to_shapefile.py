@@ -12,6 +12,5 @@ def test_create_shapefile(tmp_path):
     polys = create_polys(files)
     out_path = tmp_path / 'shapes'
     out_path.mkdir()
-    out_crs = rasterio.crs.CRS.from_epsg(4326)
-    shapefile = to_shapefile.create_shapefile(polys, out_path / 'shapes.shp', out_crs)
+    shapefile = to_shapefile.create_shapefile(polys, out_path / 'shapes.shp')
     assert Path.is_file(shapefile)

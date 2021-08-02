@@ -1,16 +1,10 @@
+import json
+
 import arcgis
+import geopandas
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon
 from loguru import logger
-
-
-# Enable .from_shapely for building AGOL features from shapely features.
-@classmethod
-def from_shapely(cls, shapely_geometry):
-    return cls(shapely_geometry.__geo_interface__)
-
-
-arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 
 def agol_arg_check(user, password, fs_id):
@@ -51,6 +45,29 @@ def agol_arg_check(user, password, fs_id):
         return False
 
 
+def agol_helper(args, polys):
+    gis = connect_gis(username=args.agol_user, password=args.agol_password)
+
+    dmg_df = polys.to_json()
+    aoi = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
+    centroid_df = create_centroids(polys)
+
+    result = agol_append(gis,
+                         dmg_df,
+                         args.agol_feature_service,
+                         1)
+    result = agol_append(gis,
+                         aoi,
+                         args.agol_feature_service,
+                         2)
+    result = agol_append(gis,
+                         centroid_df,
+                         args.agol_feature_service,
+                         0)
+
+
+
+
 def create_aoi_poly(features):
 
     """
@@ -58,15 +75,9 @@ def create_aoi_poly(features):
     :param features: Polygons to create hull around.
     :return: ARCGIS polygon.
     """
-    # Todo: This should be a rectangle of the intersect.
-    aoi_polys = [geom for geom, val in features]
-    hull = MultiPolygon(aoi_polys).convex_hull
-    shape = arcgis.geometry.Geometry.from_shapely(hull)
-    poly = arcgis.features.Feature(shape, attributes={'status': 'complete'})
-
-    aoi_poly = [poly]
-
-    return aoi_poly
+    hull = features.dissolve().convex_hull.to_json()
+    hull_json = json.loads(hull)
+    return hull_json['features']
 
 
 def create_centroids(features):
@@ -77,13 +88,11 @@ def create_centroids(features):
     :return: List of ARCGIS point features.
     """
 
-    centroids = []
-    for geom, val in features:
-        esri_shape = arcgis.geometry.Geometry.from_shapely(geom.centroid)
-        new_cent = arcgis.features.Feature(esri_shape, attributes={'dmg': val})
-        centroids.append(new_cent)
-
-    return centroids
+    cent_df = geopandas.GeoDataFrame.from_features(features.centroid)
+    cent_df['dmg'] = features.dmg
+    cent_json = cent_df.to_json(drop_id=True)
+    cent_dict = json.loads(cent_json)
+    return cent_dict['features']
 
 
 def create_damage_polys(polys):
@@ -94,13 +103,9 @@ def create_damage_polys(polys):
     :return: List of ARCGIS polygon features.
     """
 
-    polygons = []
-    for geom, val in polys:
-        esri_shape = arcgis.geometry.Geometry.from_shapely(geom)
-        feature = arcgis.features.Feature(esri_shape, attributes={'dmg': val})
-        polygons.append(feature)
-
-    return polygons
+    dmg_json_str = polys[['dmg', 'geometry']].to_json(drop_id=True)
+    dmg_json = json.loads(dmg_json_str)
+    return dmg_json['features']
 
 
 def connect_gis(username, password):
@@ -135,6 +140,7 @@ def agol_append(gis, src_feats, dest_fs, layer):
     logger.info('Attempting to append features to ArcGIS')
     layer = gis.content.get(dest_fs).layers[int(layer)]
     for batch in tqdm(batch_gen(src_feats, 1000)):
+        # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
         result = layer.edit_features(adds=batch, rollback_on_failure=True)
 
     logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')

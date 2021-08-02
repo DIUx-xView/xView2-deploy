@@ -585,8 +585,8 @@ def main():
     # Create shapefile
     logger.info('Creating shapefile')
     to_shapefile.create_shapefile(polygons,
-                     Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                     args.destination_crs)
+                                  Path(args.output_directory).joinpath('shapes') / 'damage.shp'
+                                  )
 
     if agol_push:
         to_agol.agol_helper(args, polygons)

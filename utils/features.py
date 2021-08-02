@@ -1,14 +1,7 @@
 import rasterio
-from rasterio.features import shapes
+from rasterio.features import shapes, dataset_features
 from shapely.geometry import Polygon, shape
-
-
-def make_valid(ob):
-    # This is a hack until shapely is updated with shapely.validation.make_valid
-    if ob.is_valid:
-        return ob
-    else:
-        return ob.buffer(0)
+import geopandas
 
 
 def create_polys(in_files, threshold=30):
@@ -26,8 +19,21 @@ def create_polys(in_files, threshold=30):
         transform = src.transform
 
         bnd = src.read(1)
-        polygons += list(shapes(bnd, transform=transform))
+        polygons += list(dataset_features(src, 1, geographic=False))
 
-    features = [(make_valid(Polygon(shape(geom))), val) for geom, val in polygons if val > 0]
+    # Create geo dataframe
+    df = geopandas.GeoDataFrame.from_features(polygons, crs=crs)
+    df.rename(columns={'val': 'dmg'}, inplace=True)
 
-    return [feature for feature in features if feature[0].area > threshold]
+    # Drop damage of 0 (no building), dissolve by each damage level, and explode them back to single polygons
+    df = df.dissolve(by='dmg').reset_index().drop(index=0)
+    df = df.explode().reset_index(drop=True)
+
+    # Apply our threshold
+    df['area'] = df.geometry.area
+    df = df[df.area >= threshold]
+
+    # Fix geometry if not valid
+    df.loc[~df.geometry.is_valid, 'geometry'] = df[~df.geometry.is_valid].geometry.apply(lambda x: x.buffer(0))
+
+    return df.reset_index(drop=True)
