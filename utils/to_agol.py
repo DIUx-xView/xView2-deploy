@@ -1,10 +1,8 @@
-import json
-
 import arcgis
-import geopandas
 from tqdm import tqdm
-from shapely.geometry import MultiPolygon
 from loguru import logger
+
+from utils.features import create_aoi_poly, create_centroids
 
 
 def agol_arg_check(user, password, fs_id):
@@ -24,7 +22,7 @@ def agol_arg_check(user, password, fs_id):
 
         # Test the AGOL connection
         try:
-            gis = connect_gis(user, password)
+            gis = agol_connect(user, password)
         # Todo: Also need to catch instance of nothing returned (ie. no internet connection)
         except Exception as ex:  # Incorrect user/pass raises an exception
             # Todo: this message is not entirely accurate. Check for connection
@@ -46,7 +44,7 @@ def agol_arg_check(user, password, fs_id):
 
 
 def agol_helper(args, polys):
-    gis = connect_gis(username=args.agol_user, password=args.agol_password)
+    gis = agol_connect(username=args.agol_user, password=args.agol_password)
 
     dmg_df = polys.to_json()
     aoi = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
@@ -66,49 +64,7 @@ def agol_helper(args, polys):
                          0)
 
 
-
-
-def create_aoi_poly(features):
-
-    """
-    Create convex hull polygon encompassing damage polygons.
-    :param features: Polygons to create hull around.
-    :return: ARCGIS polygon.
-    """
-    hull = features.dissolve().convex_hull.to_json()
-    hull_json = json.loads(hull)
-    return hull_json['features']
-
-
-def create_centroids(features):
-
-    """
-    Create centroids from polygon features.
-    :param features: Polygon features to create centroids from.
-    :return: List of ARCGIS point features.
-    """
-
-    cent_df = geopandas.GeoDataFrame.from_features(features.centroid)
-    cent_df['dmg'] = features.dmg
-    cent_json = cent_df.to_json(drop_id=True)
-    cent_dict = json.loads(cent_json)
-    return cent_dict['features']
-
-
-def create_damage_polys(polys):
-
-    """
-    Create ARCGIS polygon features.
-    :param polys: Polygons to create ARCGIS features from.
-    :return: List of ARCGIS polygon features.
-    """
-
-    dmg_json_str = polys[['dmg', 'geometry']].to_json(drop_id=True)
-    dmg_json = json.loads(dmg_json_str)
-    return dmg_json['features']
-
-
-def connect_gis(username, password):
+def agol_connect(username, password):
 
     """
     Create a ArcGIS connection
