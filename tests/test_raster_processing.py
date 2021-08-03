@@ -170,6 +170,11 @@ class TestGetLatLonCentroid:
         file = 'tests/data/input/pre/tile_337-9136.tif'
         assert raster_processing.get_lat_lon_centroid(file, None) == (-94.49676281104423, 37.07467068951649)
 
+    def test_crs_4329(self):
+        # Test for #49
+        # Input with CRS of 4326 transposes X/Y
+        assert 0
+
     def test_crs_and_passed_arg(self):
         # Should use image CRS
         pass

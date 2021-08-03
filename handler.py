@@ -7,9 +7,7 @@ import sys
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
-from utils import to_shapefile, raster_processing
-from utils import to_agol
-from utils import features
+from utils import raster_processing, to_agol, features
 import rasterio.warp
 import rasterio.crs
 import torch
@@ -98,7 +96,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/vector").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -325,6 +323,7 @@ def main():
         args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
     else:
         in_centroid = raster_processing.get_lat_lon_centroid(pre_files[0], args)
+        logger.debug(f"Using centroid of {in_centroid} for CRS guess")
         epsg = raster_processing.get_utm_epsg(*in_centroid)
         args.destination_crs = rasterio.crs.CRS.from_epsg(epsg)
         logger.info(f'Using calculated destination CRS of EPSG:{epsg}')
@@ -577,16 +576,21 @@ def main():
     overlay_files = [x for x in get_files(p)]
     overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
-    # Get files for creating shapefile and/or pushing to AGOL
+    # Get files for creating vector file and/or pushing to AGOL
+    logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / 'dmg')
     polygons = features.create_polys(dmg_files)
-    logger.debug(f'Polygons created: {len(polygons)}')
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+    logger.info(f'Polygons created: {len(polygons)}')
+    logger.info(f"AOI hull area: {aoi[0].area}")
 
-    # Create shapefile
-    logger.info('Creating shapefile')
-    to_shapefile.create_shapefile(polygons,
-                                  Path(args.output_directory).joinpath('shapes') / 'damage.shp'
-                                  )
+    # Create output file
+    logger.info('Writing output file')
+    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
+    features.write_output(polygons, vector_out, layer='damage')
+    features.write_output(aoi, vector_out, 'aoi')
+    features.write_output(centroids, vector_out, 'centroids')
 
     if agol_push:
         to_agol.agol_helper(args, polygons)

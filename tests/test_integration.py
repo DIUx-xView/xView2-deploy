@@ -157,7 +157,7 @@ class TestGood:
         assert len(list(output_path.joinpath('over').glob('**/*'))) == 4
 
     def test_out_shapefile(self, staging_path, output_path):
-        assert output_path.joinpath('shapes/damage.shp').is_file()
+        assert output_path.joinpath('vector/damage.gpkg').is_file()
 
     def test_log(self, staging_path, output_path):
         assert output_path.joinpath('log/xv2.log').is_file()
@@ -177,9 +177,12 @@ class TestGood:
     def test_dmg_mosaic(self, output_path):
         assert output_path.joinpath('mosaics/damage.tif').is_file()
 
-    def test_out_shapes(self, output_path):
-        shapes = fiona.open(output_path.joinpath('shapes/damage.shp'))
+    def test_out_file(self, output_path):
+        shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'))
         assert len(shapes) == 872
+
+    def test_out_file_layers(self, output_path):
+        assert len(fiona.listlayers(output_path.joinpath('vector/damage.gpkg'))) == 3
 
     def test_out_epsg(self, output_path):
         with rasterio.open(output_path.joinpath('mosaics/overlay.tif')) as src:

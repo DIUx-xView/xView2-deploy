@@ -36,8 +36,12 @@ def get_utm_epsg(lon, lat):
 
 
 def get_lat_lon_centroid(in_file, args):
-
+    # Todo: Re-write me NOW!!! This is all fucked up. See bug #49
     with rasterio.open(in_file) as src:
+        # Hack to fix #49
+        if src.crs == 4326:
+            return (src.bounds.left, src.bounds.bottom)
+
         cent = src.xy(src.width / 2, src.height / 2)
         src_crs = osr.SpatialReference()
         if src.crs:

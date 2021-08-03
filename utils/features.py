@@ -1,3 +1,5 @@
+import json
+
 import rasterio
 from rasterio.features import shapes, dataset_features
 from shapely.geometry import Polygon, shape
@@ -37,3 +39,33 @@ def create_polys(in_files, threshold=30):
     df.loc[~df.geometry.is_valid, 'geometry'] = df[~df.geometry.is_valid].geometry.apply(lambda x: x.buffer(0))
 
     return df.reset_index(drop=True)
+
+
+def write_output(features, out_file, layer='features'):
+    features.to_file(out_file, driver='GPKG', layer=layer)
+
+    return out_file
+
+
+def create_aoi_poly(features):
+
+    """
+    Create convex hull polygon encompassing damage polygons.
+    :param features: Polygons to create hull around.
+    :return: ARCGIS polygon.
+    """
+    hull = features.dissolve().convex_hull
+    return hull
+
+
+def create_centroids(features):
+
+    """
+    Create centroids from polygon features.
+    :param features: Polygon features to create centroids from.
+    :return: List of ARCGIS point features.
+    """
+
+    cent_df = geopandas.GeoDataFrame.from_features(features.centroid)
+    cent_df['dmg'] = features.dmg
+    return cent_df
