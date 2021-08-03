@@ -134,13 +134,13 @@ class TestGood:
         # Call the handler
         handler.init()
 
-    def test_pre_mosaic(self, staging_path, output_path):
+    def test_pre_mosaic(self, output_path):
         assert output_path.joinpath('mosaics/pre.tif').is_file()
 
-    def test_post_mosaic(self, staging_path, output_path):
+    def test_post_mosaic(self, output_path):
         assert output_path.joinpath('mosaics/post.tif').is_file()
 
-    def test_overlay_mosaic(self, staging_path, output_path):
+    def test_overlay_mosaic(self, output_path):
         assert output_path.joinpath('mosaics/overlay.tif').is_file()
 
     # Todo: currently fails although the app still works. Should still be fixed at some point
@@ -156,7 +156,7 @@ class TestGood:
     def test_overlay(self, staging_path, output_path):
         assert len(list(output_path.joinpath('over').glob('**/*'))) == 4
 
-    def test_out_shapefile(self, staging_path, output_path):
+    def test_out_vector(self, staging_path, output_path):
         assert output_path.joinpath('vector/damage.gpkg').is_file()
 
     def test_log(self, staging_path, output_path):
@@ -180,6 +180,14 @@ class TestGood:
     def test_out_file(self, output_path):
         shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'))
         assert len(shapes) == 872
+
+    def test_out_layers(self, output_path):
+        assert fiona.listlayers(output_path.joinpath('vector/damage.gpkg')) == ['damage', 'aoi', 'centroids']
+
+    @pytest.mark.parametrize('layer', ['damage', 'aoi', 'centroids'])
+    def test_out_crs(self, output_path, layer):
+        with fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer) as src:
+            assert src.crs == {'init': 'epsg:32615'}
 
     def test_out_file_layers(self, output_path):
         assert len(fiona.listlayers(output_path.joinpath('vector/damage.gpkg'))) == 3

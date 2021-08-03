@@ -582,6 +582,7 @@ def main():
     polygons = features.create_polys(dmg_files)
     aoi = features.create_aoi_poly(polygons)
     centroids = features.create_centroids(polygons)
+    centroids.crs = polygons.crs
     logger.info(f'Polygons created: {len(polygons)}')
     logger.info(f"AOI hull area: {aoi[0].area}")
 
