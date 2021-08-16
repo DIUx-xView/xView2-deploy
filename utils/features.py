@@ -27,6 +27,9 @@ def create_polys(in_files, threshold=30):
     df = geopandas.GeoDataFrame.from_features(polygons, crs=crs)
     df.rename(columns={'val': 'dmg'}, inplace=True)
 
+    # Fix geometry if not valid
+    df.loc[~df.geometry.is_valid, 'geometry'] = df[~df.geometry.is_valid].geometry.apply(lambda x: x.buffer(0))
+
     # Drop damage of 0 (no building), dissolve by each damage level, and explode them back to single polygons
     df = df.dissolve(by='dmg').reset_index().drop(index=0)
     df = df.explode().reset_index(drop=True)
@@ -34,9 +37,6 @@ def create_polys(in_files, threshold=30):
     # Apply our threshold
     df['area'] = df.geometry.area
     df = df[df.area >= threshold]
-
-    # Fix geometry if not valid
-    df.loc[~df.geometry.is_valid, 'geometry'] = df[~df.geometry.is_valid].geometry.apply(lambda x: x.buffer(0))
 
     return df.reset_index(drop=True)
 
