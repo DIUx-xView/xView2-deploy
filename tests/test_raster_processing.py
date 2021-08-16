@@ -1,4 +1,3 @@
-import osr
 import rasterio
 import pytest
 from pathlib import Path
