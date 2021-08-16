@@ -1,3 +1,4 @@
+from tests.conftest import Args
 from pathlib import Path
 import pytest
 import handler
@@ -7,8 +8,8 @@ import rasterio.crs
 from pytest import MonkeyPatch
 
 # Todo: Return appropriate tensor for each image
-# Todo: How do we test results (mosaics) (mean/sum of array?)
 # Todo: Class out our monkeypatches
+
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -21,55 +22,13 @@ def staging_path(tmp_path_factory):
     return tmp_path_factory.mktemp('staging')
 
 
-# Todo: may be able to make this a dataclass
-class MockArgs:
-
-    def __init__(self,
-                 staging_path,
-                 output_path,
-                 pre_directory='tests/data/input/pre',
-                 post_directory='tests/data/input/post',
-                 n_procs=4,
-                 batch_size=1,
-                 num_workers=8,
-                 pre_crs=None,
-                 post_crs=None,
-                 destination_crs=None,
-                 output_resolution=None,
-                 save_intermediates=False,
-                 agol_user='',
-                 agol_password='',
-                 agol_feature_service='',
-                 dp_mode=True
-                 ):
-
-        self.output_directory = output_path
-        self.staging_directory = staging_path
-        self.staging_directory = staging_path
-        self.output_directory = output_path
-        self.pre_directory = Path(pre_directory)
-        self.post_directory = Path(post_directory)
-        self.n_procs = n_procs
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.pre_crs = pre_crs
-        self.post_crs = post_crs
-        self.destination_crs = destination_crs
-        self.output_resolution = output_resolution
-        self.save_intermediates = save_intermediates
-        self.agol_user = agol_user
-        self.agol_password = agol_password
-        self.agol_feature_service = agol_feature_service
-        self.dp_mode = dp_mode
-
-
 class MockLocModel:
 
     def __init__(self, *args, **kwargs):
         self.model_size = args[0]
 
     # Todo: this should return the correct tensor based on the image input. Currently returns the same tensor.
-    # Todo: Ideally we store these with a CRS so we cas reproject based on the mock args...some day
+    # Todo: Ideally we store these with a CRS so we can reproject based on the mock args...some day
     # Mock inference results
     @staticmethod
     def forward(*args, **kwargs):
@@ -117,7 +76,7 @@ class TestGood:
     @pytest.fixture(scope='class', autouse=True)
     def setup(self, staging_path, output_path):
         # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
             staging_path=staging_path,
             output_path=output_path
         )
@@ -134,55 +93,46 @@ class TestGood:
         # Call the handler
         handler.init()
 
-    def test_pre_mosaic(self, output_path):
-        assert output_path.joinpath('mosaics/pre.tif').is_file()
+    @pytest.mark.parametrize('file', [
+        pytest.param('mosaics/pre.tif', id='pre_mosaic_is_file'),
+        pytest.param('mosaics/post.tif', id='post_mosaic_is_file'),
+        pytest.param('mosaics/damage.tif', id='damage_mosaic_is_file'),
+        pytest.param('mosaics/overlay.tif', id='overlay_mosaic_is_file'),
+        pytest.param('vector/damage.gpkg', id='damage_vector_is_file'),
+        pytest.param('log/xv2.log', id='log_file_is_file')
+    ])
+    def test_is_files(self, output_path, file):
+        assert output_path.joinpath(file).is_file()
 
-    def test_post_mosaic(self, output_path):
-        assert output_path.joinpath('mosaics/post.tif').is_file()
-
-    def test_overlay_mosaic(self, output_path):
-        assert output_path.joinpath('mosaics/overlay.tif').is_file()
-
-    # Todo: currently fails although the app still works. Should still be fixed at some point
-    @pytest.mark.xfail
-    def test_pre_reproj(self, staging_path, output_path):
-        assert len(list(staging_path.joinpath('pre').glob('**/*'))) == 4
-
-    # Todo: currently fails although the app still works. Should still be fixed at some point
-    @pytest.mark.xfail
-    def test_post_reproj(self, staging_path, output_path):
-        assert len(list(staging_path.joinpath('post').glob('**/*'))) == 6
+    @pytest.mark.parametrize('file,expected', [
+        pytest.param('mosaics/pre.tif', 0, id='pre_mosaic_checksum'),
+        pytest.param('mosaics/post.tif', 0, id='post_mosaic_checksum'),
+        pytest.param('mosaics/damage.tif', 0, id='damage_mosaic_checksum'),
+        pytest.param('mosaics/overlay.tif', 0, id='overlay_mosaic_checksum'),
+    ])
+    def img_checksum(self, output_path, file, expected):
+        with rasterio.open(output_path.joinpath(file)) as src:
+            assert src.checksum() == expected
 
     def test_overlay(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('over').glob('**/*'))) == 4
-
-    def test_out_vector(self, staging_path, output_path):
-        assert output_path.joinpath('vector/damage.gpkg').is_file()
-
-    def test_log(self, staging_path, output_path):
-        assert output_path.joinpath('log/xv2.log').is_file()
+        assert len(list(output_path.joinpath('over').glob('**/*'))) == 6
 
     def test_chips_pre(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('chips/pre').glob('**/*'))) == 4
+        assert len(list(output_path.joinpath('chips/pre').glob('**/*'))) == 6
 
     def test_chips_post(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('chips/post').glob('**/*'))) == 4
+        assert len(list(output_path.joinpath('chips/post').glob('**/*'))) == 6
 
     def test_loc_out(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('loc').glob('**/*'))) == 4
+        assert len(list(output_path.joinpath('loc').glob('**/*'))) == 6
 
     def test_dmg_out(self, staging_path, output_path):
         assert len(list(output_path.joinpath('dmg').glob('**/*'))) == 4
 
-    def test_dmg_mosaic(self, output_path):
-        assert output_path.joinpath('mosaics/damage.tif').is_file()
-
-    def test_out_file(self, output_path):
-        shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'))
-        assert len(shapes) == 872
-
-    def test_out_layers(self, output_path):
-        assert fiona.listlayers(output_path.joinpath('vector/damage.gpkg')) == ['damage', 'aoi', 'centroids']
+    @pytest.mark.parametrize('layer, expected', [('damage', 1272), ('centroids', 872), ('aoi', 1)])
+    def test_out_file_damage(self, output_path, layer, expected):
+        shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer)
+        assert len(shapes) == expected
 
     @pytest.mark.parametrize('layer', ['damage', 'aoi', 'centroids'])
     def test_out_crs(self, output_path, layer):
@@ -202,7 +152,7 @@ class TestNoCUDA:
     @pytest.fixture(scope='class', autouse=True)
     def setup(self, staging_path, output_path):
         # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
             staging_path=staging_path,
             output_path=output_path
         )
@@ -235,7 +185,7 @@ class TestExperiment:
     @pytest.fixture(scope='class', autouse=True)
     def setup(self, staging_path, output_path):
         # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: MockArgs(
+        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
             staging_path=staging_path,
             output_path=output_path
         )

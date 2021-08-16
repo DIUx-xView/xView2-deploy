@@ -6,8 +6,9 @@ import os
 import sys
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
+import utils.dataframe
 import numpy as np
-from utils import raster_processing, to_agol, features
+from utils import raster_processing, to_agol, features, dataframe
 import rasterio.warp
 import rasterio.crs
 import torch
@@ -23,7 +24,6 @@ from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 from loguru import logger
 from osgeo import gdal
 import shapely
-from PIL import Image
 
 
 class Options(object):
@@ -69,19 +69,6 @@ class Files(object):
             return src.profile
 
 
-def make_staging_structure(staging_path):
-    """
-    Creates directory structure for staging.
-    :param staging_path: Staging path
-    :return: True if successful
-    """
-
-    Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
-    Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-
-    return True
-
-
 def make_output_structure(output_path):
 
     """
@@ -97,6 +84,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/vector").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/vrt").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -277,7 +265,6 @@ def parse_args():
 
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
     parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
-    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True, help='Directory to store intermediate working files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
@@ -303,69 +290,74 @@ def main():
     # Determine if items are being pushed to AGOL
     agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
-    make_staging_structure(args.staging_directory)
+    # Make file structure
     make_output_structure(args.output_directory)
 
+    # Create input CRS objects from our pre/post inputs
+    if args.pre_crs:
+        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
+    if args.post_crs:
+        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
+
+    # Retrieve files form input directories
     logger.info('Retrieving files...')
     pre_files = get_files(args.pre_directory)
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
 
-    # Create CRS object from our pre/post inputs
-    if args.pre_crs:
-        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
-    if args.post_crs:
-        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
+    # Create VRTs
+    pre_vrt = raster_processing.create_vrt(pre_files, args.output_directory.joinpath('vrt/pre_vrt.vrt'))
+    post_vrt = raster_processing.create_vrt(post_files, args.output_directory.joinpath('vrt/post_vrt.vrt'))
+    combined_vrt = raster_processing.create_vrt([pre_vrt, post_vrt], args.output_directory.joinpath('vrt/comb_vrt.vrt'))
+    res = raster_processing.get_res(args.output_directory.joinpath('vrt/comb_vrt.vrt'))
 
-    # Create CRS object from argument, else determine UTM zone and create CRS object
+    # Create geopandas dataframes of raster footprints
+    # Todo: make sure we have valid rasters before proceeding
+    pre_df = utils.dataframe.make_footprint_df(pre_files, crs=args.pre_crs)
+    post_df = utils.dataframe.make_footprint_df(post_files, crs=args.post_crs)
+
+    # Create destination CRS object from argument, else determine UTM zone and create CRS object
+    dest_crs = utils.dataframe.get_utm(pre_df)
+    logger.info(f'Calculated CRS: {dest_crs}')
+
     if args.destination_crs:
         args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
+        logger.info(f'Calculated CRS overridden by passed argument: {args.destination_crs}')
     else:
-        in_centroid = raster_processing.get_lat_lon_centroid(pre_files[0], args)
-        logger.debug(f"Using centroid of {in_centroid} for CRS guess")
-        epsg = raster_processing.get_utm_epsg(*in_centroid)
-        args.destination_crs = rasterio.crs.CRS.from_epsg(epsg)
-        logger.info(f'Using calculated destination CRS of EPSG:{epsg}')
+        args.destination_crs = dest_crs
 
-    logger.info('Re-projecting...')
-    # Todo: test for overridden resolution and log a warning with calculated resolution.
-    if not args.output_resolution:
-        reproj_res = raster_processing.get_reproj_res(pre_files, post_files, args)
-    else:
-        # Create tuple from passed resolution
-        reproj_res = (args.output_resolution, args.output_resolution)
+    # Process DF
+    pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
+    post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
-    print(f'Re-projecting. Resolution (x, y): {reproj_res}')
+    # Calculate the intersect extent
+    extent = utils.dataframe.get_intersect(pre_df, post_df, args)
+    logger.info(f'Calculated extent: {extent}')
 
-    # Run reprojection in parallel processes
-    manager = mp.Manager()
-    return_dict = manager.dict()
-    jobs = []
+    # Calculate destination resolution
+    res = dataframe.get_max_res(pre_df, post_df)
+    logger.info(f'Calculated resolution: {res}')
 
-    # Some data hacking to make it more efficient for multiprocessing
-    pre_files = [("pre", args.pre_crs, x) for x in pre_files]
-    post_files = [("post", args.post_crs, x) for x in post_files]
-    files = pre_files + post_files
+    if args.output_resolution:
+        res = (args.output_resolution, args.output_resolution)
+        logger.info(f'Calculated resolution overridden by passed argument: {res}')
 
-    # Launch multiprocessing jobs for reprojection
-    for idx, f in enumerate(files):
-        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict, reproj_res))
-        jobs.append(p)
-        p.start()
-    for proc in jobs:
-        proc.join()
-
-    reproj = [x for x in return_dict.values() if x[1] is not None]
-    pre_reproj = [x[1] for x in reproj if x[0] == "pre"]
-    post_reproj = [x[1] for x in reproj if x[0] == "post"]
-
+    # Todo: Do we want to create a mosaic for only the intersect or the entire input set??
     logger.info("Creating pre mosaic...")
-    pre_mosaic = raster_processing.create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
+    pre_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in pre_df.filename],
+        Path(f"{args.output_directory}/mosaics/pre.tif"),
+        args.destination_crs,
+        res
+    )
     logger.info("Creating post mosaic...")
-    post_mosaic = raster_processing.create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
-
-    extent = raster_processing.get_intersect(pre_mosaic, post_mosaic)
+    post_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in post_df.filename],
+        Path(f"{args.output_directory}/mosaics/post.tif"),
+        args.destination_crs,
+        res
+    )
 
     logger.info('Chipping...')
     # Todo: fix the use of logging with tqdm (doc pages for loguru)
@@ -565,16 +557,25 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
-    # Create damage mosaic
+    # Create damage and overlay mosaics
     logger.info("Creating damage mosaic")
     dmg_path = Path(args.output_directory) / 'dmg'
     damage_files = [x for x in get_files(dmg_path)]
-    damage_mosaic = raster_processing.create_mosaic(damage_files, Path(f"{args.output_directory}/mosaics/damage.tif"))
-
+    damage_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in damage_files],
+        str(args.output_directory.joinpath('/mosaics/damage.tif')),
+        args.destination_crs,
+        res
+    )
     logger.info("Creating overlay mosaic")
     p = Path(args.output_directory) / "over"
     overlay_files = [x for x in get_files(p)]
-    overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+    overlay_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in overlay_files],
+        str(args.output_directory.joinpath('/mosaics/overlay.tif')),
+        args.destination_crs,
+        res
+    )
 
     # Get files for creating vector file and/or pushing to AGOL
     logger.info("Generating vector data")

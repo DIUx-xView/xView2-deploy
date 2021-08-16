@@ -45,9 +45,9 @@ def agol_arg_check(user, password, fs_id):
 
 def agol_helper(args, polys):
     gis = agol_connect(username=args.agol_user, password=args.agol_password)
-
+    # Todo: this should be using the aoi and centroid shapes already created.
     dmg_df = polys.to_json()
-    aoi = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
+    aoi = create_aoi_poly(polys)
     centroid_df = create_centroids(polys)
 
     result = agol_append(gis,
