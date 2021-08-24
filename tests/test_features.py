@@ -54,7 +54,7 @@ class TestAOIPolys:
         file = Path('tests/data/output/dmg/0_pre.tif')
         polys = features.create_polys([file])
         test = utils.features.create_aoi_poly(polys)
-        assert test[0].geom_type == 'Polygon'
+        assert test.geometry[0].geom_type == 'Polygon'
         assert len(test) == 1
 
 

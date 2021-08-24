@@ -2,8 +2,6 @@ import arcgis
 from tqdm import tqdm
 from loguru import logger
 
-from utils.features import create_aoi_poly, create_centroids
-
 
 def agol_arg_check(user, password, fs_id):
 
@@ -43,25 +41,37 @@ def agol_arg_check(user, password, fs_id):
         return False
 
 
-def agol_helper(args, polys):
+def agol_helper(args, polys, aoi, centroids):
+
+    dmg_fs = arcgis.features.GeoAccessor.from_geodataframe(polys, inplace=False, column_name='SHAPE').spatial.to_featureset()
+    aoi_fs = arcgis.features.GeoAccessor.from_geodataframe(aoi, inplace=False, column_name='SHAPE').spatial.to_featureset()
+    cent_fs = arcgis.features.GeoAccessor.from_geodataframe(centroids, inplace=False, column_name='SHAPE').spatial.to_featureset()
+
     gis = agol_connect(username=args.agol_user, password=args.agol_password)
 
-    dmg_df = polys.to_json()
-    aoi = create_aoi_poly(polys)  # TODO: Should this be included in the shapefile?
-    centroid_df = create_centroids(polys)
+    # Get the correct sub-layer for appending
+    sub_layers = {layer.properties.name: layer.properties.id for layer in gis.content.get(args.agol_feature_service).layers}
+    sub_layer = {}
+    for k, v in sub_layers.items():
+        if 'damage' in k.lower():
+            sub_layer['dmg'] = v
+        elif 'cent' in k.lower():
+            sub_layer['cent'] = v
+        elif 'aoi' in k.lower():
+            sub_layer['aoi'] = v
 
     result = agol_append(gis,
-                         dmg_df,
+                         dmg_fs,
                          args.agol_feature_service,
-                         1)
+                         sub_layer.get('dmg'))
     result = agol_append(gis,
-                         aoi,
+                         cent_fs,
                          args.agol_feature_service,
-                         2)
+                         sub_layer.get('cent'))
     result = agol_append(gis,
-                         centroid_df,
+                         aoi_fs,
                          args.agol_feature_service,
-                         0)
+                         sub_layer.get('aoi'))
 
 
 def agol_connect(username, password):
@@ -94,11 +104,13 @@ def agol_append(gis, src_feats, dest_fs, layer):
 
 
     logger.info('Attempting to append features to ArcGIS')
+
     layer = gis.content.get(dest_fs).layers[int(layer)]
-    for batch in tqdm(batch_gen(src_feats, 1000)):
-        # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
-        result = layer.edit_features(adds=batch, rollback_on_failure=True)
+    feat = src_feats.features
+    for batch in tqdm(batch_gen(feat, 1000)):
+    # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
+        result = layer.edit_features(adds=src_feats, rollback_on_failure=True)
 
     logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
-    return True
+    return result
