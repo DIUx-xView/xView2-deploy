@@ -19,7 +19,7 @@ def create_vrt(in_files, out_path, resolution='lowest'):
     files = [str(file) for file in in_files]
     out_file = str(out_path)
     vrt = gdal.BuildVRT(out_file, files, resolution=resolution)
-    return vrt
+    return out_path
 
 
 def get_res(image):
@@ -27,10 +27,11 @@ def get_res(image):
         return src.res
 
 
-def create_mosaic(in_data, in_vrt, out_file, dst_crs, dst_res, src_crs):
+def create_mosaic(in_data, out_file, src_crs, dst_crs, extent, dst_res):
     # Note: gdal will not accept Path objects. They must be passed as strings
 
-    reproj = gdal.Warp(str(out_file), in_files, format='GTiff', dstSRS=dst_crs, xRes=dst_res[0], yRes=dst_res[1])
+    reproj = gdal.Warp(str(out_file), in_data, srcSRS=src_crs, format='GTiff', dstSRS=dst_crs, xRes=dst_res[0], yRes=dst_res[1], outputBounds=extent)
+
     return out_file
 
 

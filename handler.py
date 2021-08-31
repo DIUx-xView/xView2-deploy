@@ -307,10 +307,9 @@ def main():
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
 
     # Create VRTs
+    # Todo: Why are we doing this?
     pre_vrt = raster_processing.create_vrt(pre_files, args.output_directory.joinpath('vrt/pre_vrt.vrt'))
     post_vrt = raster_processing.create_vrt(post_files, args.output_directory.joinpath('vrt/post_vrt.vrt'))
-    combined_vrt = raster_processing.create_vrt([pre_vrt, post_vrt], args.output_directory.joinpath('vrt/comb_vrt.vrt'))
-    res = raster_processing.get_res(args.output_directory.joinpath('vrt/comb_vrt.vrt'))
 
     # Create geopandas dataframes of raster footprints
     # Todo: make sure we have valid rasters before proceeding
@@ -348,14 +347,19 @@ def main():
     pre_mosaic = raster_processing.create_mosaic(
         [str(file) for file in pre_df.filename],
         Path(f"{args.output_directory}/mosaics/pre.tif"),
+        pre_df.crs,
         args.destination_crs,
+        extent,
         res
     )
+
     logger.info("Creating post mosaic...")
     post_mosaic = raster_processing.create_mosaic(
         [str(file) for file in post_df.filename],
         Path(f"{args.output_directory}/mosaics/post.tif"),
+        post_df.crs,
         args.destination_crs,
+        extent,
         res
     )
 
@@ -563,17 +567,22 @@ def main():
     damage_files = [x for x in get_files(dmg_path)]
     damage_mosaic = raster_processing.create_mosaic(
         [str(file) for file in damage_files],
-        str(args.output_directory.joinpath('/mosaics/damage.tif')),
-        args.destination_crs,
+        Path(f'{args.output_directory}/mosaics/damage.tif'),
+        None,
+        None,
+        None,
         res
     )
+
     logger.info("Creating overlay mosaic")
     p = Path(args.output_directory) / "over"
     overlay_files = [x for x in get_files(p)]
     overlay_mosaic = raster_processing.create_mosaic(
         [str(file) for file in overlay_files],
-        str(args.output_directory.joinpath('/mosaics/overlay.tif')),
-        args.destination_crs,
+        Path(f'{args.output_directory}/mosaics/overlay.tif'),
+        None,
+        None,
+        None,
         res
     )
 

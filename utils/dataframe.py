@@ -1,5 +1,6 @@
 import geopandas
 import rasterio
+import rasterio.warp
 from shapely.geometry import Polygon
 
 
@@ -63,12 +64,9 @@ def make_footprint_df(files, crs):
         }
     )
 
-    # Todo
-    #df = validate_df(df)
-
     # Todo: This probably requires validating that all rasters share the same CRS
     # Set CRS by mode of raster CRS's
-    df.crs = df['crs'].mode()[0]
+    df.crs = df['crs'][0]
 
     return df
 
