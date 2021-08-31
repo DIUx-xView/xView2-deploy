@@ -52,7 +52,8 @@ def create_aoi_poly(features):
     :return: ARCGIS polygon.
     """
     hull = features.dissolve().convex_hull
-    return hull
+    df = geopandas.GeoDataFrame.from_features(hull, crs=features.crs)
+    return df
 
 
 def create_centroids(features):
@@ -63,6 +64,6 @@ def create_centroids(features):
     :return: List of ARCGIS point features.
     """
 
-    cent_df = geopandas.GeoDataFrame.from_features(features.centroid)
+    cent_df = geopandas.GeoDataFrame.from_features(features.centroid, crs=features.crs)
     cent_df['dmg'] = features.dmg
     return cent_df

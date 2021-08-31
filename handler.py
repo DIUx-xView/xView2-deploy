@@ -585,7 +585,7 @@ def main():
     centroids = features.create_centroids(polygons)
     centroids.crs = polygons.crs
     logger.info(f'Polygons created: {len(polygons)}')
-    logger.info(f"AOI hull area: {aoi[0].area}")
+    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
 
     # Create output file
     logger.info('Writing output file')
@@ -595,7 +595,10 @@ def main():
     features.write_output(centroids, vector_out, 'centroids')
 
     if agol_push:
-        to_agol.agol_helper(args, polygons)
+        try:
+            to_agol.agol_helper(args, polygons, aoi, centroids)
+        except Exception as e:
+            logger.warning(f'AGOL push failed. Error: {e}')
 
     # Complete
     elapsed = timeit.default_timer() - t0
