@@ -5,7 +5,6 @@ from .conftest import Args
 from utils import raster_processing, dataframe
 import handler
 import numpy as np
-from time import sleep
 
 
 class TestCheckDims:
@@ -44,7 +43,7 @@ class TestCreateMosaic:
         pre_df = dataframe.process_df(pre_df, args.destination_crs)
         out_path = tmp_path / 'out.tif'
         files_str = [str(file) for file in files]
-        test = raster_processing.create_mosaic(files_str, out_path, None, None, None, None)
+        test = raster_processing.create_mosaic(files_str, out_path, None, None, None, (0.6, 0.6))
         assert test.is_file()
 
 
@@ -83,17 +82,10 @@ class TestCreateVRT:
         files = handler.get_files(in_dir)
         out_path = tmp_path / 'vrt.vrt'
         test = raster_processing.create_vrt(files, out_path)
-        assert out_path.is_file()  # Not sure why this doesn't work. Seems not to get written until the lock is released
+        assert out_path.is_file()
 
 
 class TestGetRes:
-
-    def test_get_in_memory_vrt_res(self, tmp_path):
-        in_dir = 'tests/data/input/pre'
-        files = handler.get_files(in_dir)
-        out_path = tmp_path / 'vrt.vrt'
-        test = raster_processing.create_vrt(files, out_path)
-        assert raster_processing.get_res(out_path) == 0  # Same issue as test_vrt
 
     def test_get_image_res(self):
         assert raster_processing.get_res('tests/data/input/pre/tile_337-9136.tif') == (0.6, 0.6)

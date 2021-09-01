@@ -93,6 +93,7 @@ class TestGood:
         # Call the handler
         handler.init()
 
+    # Make sure files exist that we expect to exist
     @pytest.mark.parametrize('file', [
         pytest.param('mosaics/pre.tif', id='pre_mosaic_is_file'),
         pytest.param('mosaics/post.tif', id='post_mosaic_is_file'),
@@ -104,6 +105,7 @@ class TestGood:
     def test_is_files(self, output_path, file):
         assert output_path.joinpath(file).is_file()
 
+    # Make sure raster outputs look as we expect
     @pytest.mark.parametrize('file,expected', [
         pytest.param('mosaics/pre.tif', 0, id='pre_mosaic_checksum'),
         pytest.param('mosaics/post.tif', 0, id='post_mosaic_checksum'),
@@ -114,37 +116,42 @@ class TestGood:
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.checksum() == expected
 
-    def test_overlay(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('over').glob('**/*'))) == 6
+    # Make sure directories contain the expected number of files
+    @pytest.mark.parametrize('folder,expected', [
+        pytest.param('chips/pre', 6, id='count_pre_chips'),
+        pytest.param('chips/post', 6, id='count_post_chips'),
+        pytest.param('loc', 6, id='count_loc_chips'),
+        pytest.param('dmg', 6, id='count_damage'),
+        pytest.param('over', 6, id='count_overlay_chips')
+    ])
+    def test_file_counts(self, output_path, folder, expected):
+        assert len(list(output_path.joinpath(folder).glob('**/*'))) == expected
 
-    def test_chips_pre(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('chips/pre').glob('**/*'))) == 6
-
-    def test_chips_post(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('chips/post').glob('**/*'))) == 6
-
-    def test_loc_out(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('loc').glob('**/*'))) == 6
-
-    def test_dmg_out(self, staging_path, output_path):
-        assert len(list(output_path.joinpath('dmg').glob('**/*'))) == 4
-
-    @pytest.mark.parametrize('layer, expected', [('damage', 1272), ('centroids', 872), ('aoi', 1)])
+    # Check out vector data contains the expected values
+    @pytest.mark.parametrize('layer, expected', [('damage', 1272), ('centroids', 1272), ('aoi', 1)])
     def test_out_file_damage(self, output_path, layer, expected):
         shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer)
         assert len(shapes) == expected
 
+    # Test that all vector layers have the correct CRS set
     @pytest.mark.parametrize('layer', ['damage', 'aoi', 'centroids'])
     def test_out_crs(self, output_path, layer):
         with fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer) as src:
             assert src.crs == {'init': 'epsg:32615'}
 
+    # Test for correct number of vector layers
     def test_out_file_layers(self, output_path):
         assert len(fiona.listlayers(output_path.joinpath('vector/damage.gpkg'))) == 3
 
-    def test_out_epsg(self, output_path):
-        with rasterio.open(output_path.joinpath('mosaics/overlay.tif')) as src:
-            assert src.crs.to_epsg() == 32615
+    # Test output rasters for correct CRS
+    @pytest.mark.parametrize('file,expected', [
+        pytest.param('mosaics/overlay.tif', 32615, id='overlay_mos_crs'),
+        pytest.param('mosaics/pre.tif', 32615, id='pre_mos_crs'),
+        pytest.param('mosaics/post.tif', 32615, id='post_mos_crs'),
+    ])
+    def test_out_epsg(self, output_path, file, expected):
+        with rasterio.open(output_path.joinpath(file)) as src:
+            assert src.crs.to_epsg() == expected
 
 
 class TestNoCUDA:
