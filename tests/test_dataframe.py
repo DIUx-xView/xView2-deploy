@@ -28,20 +28,23 @@ class TestGetTransformRes:
     def test_get_transform_res_from_src(self):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
         file = 'tests/data/input/pre/tile_337-9136.tif'
-        test = utils.dataframe.get_trans_res(file, args.pre_crs, args.destination_crs)
-        assert test == (0.5999999999999659, 0.5999999999999659)
+        src = rasterio.open(file)
+        test = utils.dataframe.get_trans_res(src.crs, src.width, src.height, src.bounds, args.destination_crs)
+        assert test == (0.6000000000019269, 0.6000000000019269)
 
     def test_get_transform_res_from_argument(self):
         args = Args(pre_crs=rasterio.crs.CRS.from_epsg(26915), destination_crs=rasterio.crs.CRS.from_epsg(32615))
         file = 'tests/data/misc/no_crs/may24C350000e4102500n.jpg'
-        test = utils.dataframe.get_trans_res(file, args.pre_crs, args.destination_crs)
+        src = rasterio.open(file)
+        test = utils.dataframe.get_trans_res(args.pre_crs, src.width, src.height, src.bounds, args.destination_crs)
         assert test == (0.2500000000010606, 0.2500000000010606)
 
     def test_get_transform_res_from_src_with_argument(self):
         # Should use src CRS
         args = Args(pre_crs=rasterio.crs.CRS.from_epsg(26916), destination_crs=rasterio.crs.CRS.from_epsg(32615))
         file = 'tests/data/input/pre/tile_337-9136.tif'
-        test = utils.dataframe.get_trans_res(file, args.pre_crs, args.destination_crs)
+        src = rasterio.open(file)
+        test = utils.dataframe.get_trans_res(args.pre_crs, src.width, src.height, src.bounds, args.destination_crs)
         assert test == (0.6380336196569164, 0.6380336196569164)
 
     def test_transform_res_not_set_not_passed(self):
