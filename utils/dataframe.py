@@ -1,10 +1,11 @@
 import geopandas
 import rasterio
 import rasterio.warp
+import rasterio.crs
 from shapely.geometry import Polygon
 
 
-def make_footprint_df(files, crs):
+def make_footprint_df(files):
     # Todo: this requires much more error handling and tests
 
     polys = []
@@ -36,22 +37,6 @@ def make_footprint_df(files, crs):
             width.append(src.width)
             bounds.append(src.bounds)
 
-            # Todo: this needs to go elsewhere...maybe handler.
-            # try:
-            #     trans_res.append(get_trans_res(f, in_crs, dst_crs))
-            # except:
-            #     trans_res.append(None)
-
-            # # Set approriate CRS
-            # if src.crs:
-            #     crs = src.crs
-            # elif crs:
-            #     crs = crs
-            # else:
-            #     crs = None
-
-
-
     df = geopandas.GeoDataFrame(
         {
             'filename': filename,
@@ -64,8 +49,7 @@ def make_footprint_df(files, crs):
         }
     )
 
-    # Todo: This probably requires validating that all rasters share the same CRS
-    # Set CRS by mode of raster CRS's
+    # Set CRS by CRS of first image
     df.crs = df['crs'][0]
 
     return df
@@ -87,7 +71,22 @@ def process_df(df, dest_crs):
 
 
 def get_utm(df):
-    return df.estimate_utm_crs()
+    """Return UTM EPSG code of respective lon/lat.
+    The EPSG is:
+        32600+zone for positive latitudes
+        32700+zone for negatives latitudes
+    """
+
+    cent = df.to_crs(4326).dissolve().centroid
+    lon = cent.x[0]
+    lat = cent.y[0]
+    zone = int(round((183 + lon) / 6, 0))
+    epsg = int(32700 - round((45 + lat) / 90, 0) * 100) + zone
+
+    return rasterio.crs.CRS.from_string(f'EPSG:{epsg}')
+
+    # Todo: This would be the preferred way, however it requires pyproj 3.0+ which seems to break every environment I tried.
+    #return df.estimate_utm_crs()
 
 
 def get_trans_res(src_crs, width, height, bounds, dst_crs):

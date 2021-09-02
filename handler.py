@@ -313,8 +313,8 @@ def main():
 
     # Create geopandas dataframes of raster footprints
     # Todo: make sure we have valid rasters before proceeding
-    pre_df = utils.dataframe.make_footprint_df(pre_files, crs=args.pre_crs)
-    post_df = utils.dataframe.make_footprint_df(post_files, crs=args.post_crs)
+    pre_df = utils.dataframe.make_footprint_df(pre_files)
+    post_df = utils.dataframe.make_footprint_df(post_files)
 
     # Create destination CRS object from argument, else determine UTM zone and create CRS object
     dest_crs = utils.dataframe.get_utm(pre_df)
