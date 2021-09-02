@@ -1,7 +1,10 @@
-from pathlib import Path
 import pytest
+import handler
+import rasterio.crs
+import utils.dataframe
+from pathlib import Path
 
-
+#### Mock Argument class ####
 class Args:
 
     def __init__(self,
@@ -45,16 +48,23 @@ class Args:
 
 #### Dataframe fixtures ####
 
-@pytest.fixture
-def df_1_int_with_df_2_and_3():
-    pass
+@pytest.fixture(scope='session')
+def pre_df():
+    args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
+    files = handler.get_files(Path('tests/data/input/pre'))
+    df = utils.dataframe.make_footprint_df(files)
+    df = utils.dataframe.process_df(df, args.destination_crs)
+    return df
 
-
 @pytest.fixture
-def df2_int_with_df_1():
-    pass
+def post_df():
+    args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+    files = handler.get_files('tests/data/input/post')
+    df = utils.dataframe.make_footprint_df(files)
+    df = utils.dataframe.process_df(df, args.destination_crs)
+    return df
 
 
 @pytest.fixture()
-def df3_int_with_df_1():
+def no_intersect_df():
     pass

@@ -12,13 +12,13 @@ class TestMakeFootprintDF:
     def test_footprint_df(self):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
         files = handler.get_files(Path('tests/data/input/pre'))
-        df = utils.dataframe.make_footprint_df(files, args.pre_crs)
+        df = utils.dataframe.make_footprint_df(files)
         assert df.shape == (4, 7)
 
     def test_footprint_df_crs_from_raster(self):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
         files = handler.get_files(Path('tests/data/input/pre'))
-        df = utils.dataframe.make_footprint_df(files, args.pre_crs)
+        df = utils.dataframe.make_footprint_df(files)
         assert df.crs == rasterio.crs.CRS.from_epsg(26915)
 
 
@@ -56,8 +56,9 @@ class TestGetTransformRes:
 
 class TestGetUTM:
 
-    def test_get_utm(self):
-        pass
+    def test_get_utm(self, pre_df):
+        assert utils.dataframe.get_utm(pre_df) == 32615
+
 
 
 class TestProcessDF:
@@ -65,37 +66,27 @@ class TestProcessDF:
     def test_process(self):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
         files = handler.get_files(Path('tests/data/input/pre'))
-        df = utils.dataframe.make_footprint_df(files, args.pre_crs)
+        df = utils.dataframe.make_footprint_df(files)
         test = utils.dataframe.process_df(df, args.destination_crs)
         assert test.shape == (4, 8)
 
 
 class TestGetIntersect:
 
-    def test_get_intersect(self):
+    def test_get_intersect(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        pre = handler.get_files('tests/data/input/pre')
-        post = handler.get_files('tests/data/input/post')
-        pre_df = utils.dataframe.make_footprint_df(pre, None)
-        post_df = utils.dataframe.make_footprint_df(post, None)
-        test = utils.dataframe.get_intersect(pre_df, post_df, args)
-        assert test == (366682.809231145, 4103282.4, 367871.4, 4104256.849245705)
+        assert utils.dataframe.get_intersect(pre_df, post_df, args) == (366682.809231145, 4103282.4, 367871.4, 4104256.849245705)
 
-    def test_not_rectangle(self):
+    def test_not_rectangle(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        pre = handler.get_files('tests/data/input/pre')[:3]
-        post = handler.get_files('tests/data/input/post')
-        pre_df = utils.dataframe.make_footprint_df(pre, None)
-        post_df = utils.dataframe.make_footprint_df(post, None)
-        test = utils.dataframe.get_intersect(pre_df, post_df, args)
-        assert test == (366682.809231145, 4103282.4, 367871.4, 4104256.849245705)
+        assert utils.dataframe.get_intersect(pre_df[:3], post_df, args) == (366682.809231145, 4103282.4, 367871.4, 4104256.849245705)
 
     def test_dont_intersect(self):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         one = Path('tests/data/input/post/tile_31500-5137.tif')
         two = Path('tests/data/input/post/tile_33548-6161.tif')
-        one = utils.dataframe.make_footprint_df([one], None)
-        two = utils.dataframe.make_footprint_df([two], None)
+        one = utils.dataframe.make_footprint_df([one])
+        two = utils.dataframe.make_footprint_df([two])
 
         with pytest.raises(AssertionError):
             assert utils.dataframe.get_intersect(one, two, args)
@@ -107,8 +98,8 @@ class TestGetMaxRes:
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         pre = handler.get_files('tests/data/input/pre')
         post = handler.get_files('tests/data/input/post')
-        pre_df = utils.dataframe.make_footprint_df(pre, None)
-        post_df = utils.dataframe.make_footprint_df(post, None)
+        pre_df = utils.dataframe.make_footprint_df(pre)
+        post_df = utils.dataframe.make_footprint_df(post)
         pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
         post_df = utils.dataframe.process_df(post_df, args.destination_crs)
         test = utils.dataframe.get_max_res(pre_df, post_df)
