@@ -15,12 +15,12 @@ class TestCreatePolys:
         polys = features.create_polys([file])
         assert len(polys) == 409
 
-    def test_damage_poly_multi_files(self):
+    def test_damage_poly_multi_files(self, tmp_path):
         # Test for bug #39
         file1 = Path('tests/data/output/dmg/0_pre.tif')
         file2 = Path('tests/data/output/dmg/1_pre.tif')
         polys = features.create_polys([file1, file2], threshold=0)
-        polys.to_file('/Users/lb/Downloads/dataframe.shp')
+        polys.to_file(tmp_path / 'dataframe.shp')
         assert len(polys) == 344
 
     def test_combine_poly_with_thresh(self):
