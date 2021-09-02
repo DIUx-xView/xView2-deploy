@@ -1,7 +1,9 @@
 import pytest
 import handler
+import geopandas
 import rasterio.crs
 import utils.dataframe
+from shapely.geometry import Polygon
 from pathlib import Path
 
 #### Mock Argument class ####
@@ -56,7 +58,7 @@ def pre_df():
     df = utils.dataframe.process_df(df, args.destination_crs)
     return df
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def post_df():
     args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
     files = handler.get_files('tests/data/input/post')
@@ -65,6 +67,9 @@ def post_df():
     return df
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def no_intersect_df():
-    pass
+    coords = ((0., 0.), (0., 1.), (1., 1.), (1., 0.), (0., 0.))
+    data = {'geometry': [Polygon(coords)]}
+    df = geopandas.GeoDataFrame(data, geometry='geometry', crs=32615)
+    return df

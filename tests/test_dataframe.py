@@ -81,16 +81,10 @@ class TestGetIntersect:
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         assert utils.dataframe.get_intersect(pre_df[:3], post_df, args) == pytest.approx(366682.809231145, 4103282.4, 367871.4, 4104256.849245705)
 
-    def test_dont_intersect(self):
-        # Todo: Make df non-intersect fixture
+    def test_dont_intersect(self, pre_df, no_intersect_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        one = Path('tests/data/input/post/tile_31500-5137.tif')
-        two = Path('tests/data/input/post/tile_33548-6161.tif')
-        one = utils.dataframe.make_footprint_df([one])
-        two = utils.dataframe.make_footprint_df([two])
-
         with pytest.raises(AssertionError):
-            assert utils.dataframe.get_intersect(one, two, args)
+            assert utils.dataframe.get_intersect(pre_df, no_intersect_df, args)
 
 
 class TestGetMaxRes:
