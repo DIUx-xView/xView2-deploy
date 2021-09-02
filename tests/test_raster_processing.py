@@ -26,23 +26,17 @@ class TestCheckDims:
 
 class TestCreateMosaic:
 
-    def test_create_mosaic(self, tmp_path):
+    def test_create_mosaic(self, tmp_path, pre_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
-        files = handler.get_files('tests/data/input/pre')
-        pre_df = dataframe.make_footprint_df(files)
-        pre_df = dataframe.process_df(pre_df, args.destination_crs)
         out_path = tmp_path / 'out.tif'
-        files_str = [str(file) for file in files]
+        files_str = [str(file) for file in pre_df.filename]
         test = raster_processing.create_mosaic(files_str, out_path, pre_df.crs, args.destination_crs, (366642.6, 4103282.4, 367871.4, 4104511.2),(.6, .6))
         assert test.is_file()
 
-    def test_create_mosaic_none_args(self, tmp_path):
+    def test_create_mosaic_none_args(self, tmp_path, pre_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
-        files = handler.get_files('tests/data/input/pre')
-        pre_df = dataframe.make_footprint_df(files)
-        pre_df = dataframe.process_df(pre_df, args.destination_crs)
         out_path = tmp_path / 'out.tif'
-        files_str = [str(file) for file in files]
+        files_str = [str(file) for file in pre_df.filename]
         test = raster_processing.create_mosaic(files_str, out_path, None, None, None, (0.6, 0.6))
         assert test.is_file()
 
