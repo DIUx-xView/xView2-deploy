@@ -71,5 +71,5 @@ def post_df():
 def no_intersect_df():
     coords = ((0., 0.), (0., 1.), (1., 1.), (1., 0.), (0., 0.))
     data = {'geometry': [Polygon(coords)]}
-    df = geopandas.GeoDataFrame(data, geometry='geometry', crs=32615)
+    df = geopandas.GeoDataFrame(data, geometry='geometry', crs=32612)
     return df
