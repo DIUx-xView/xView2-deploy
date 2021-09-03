@@ -75,7 +75,7 @@ class TestGetIntersect:
 
     def test_get_intersect(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        assert utils.dataframe.get_intersect(pre_df, post_df, args) == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1e-06)
+        assert utils.dataframe.get_intersect(pre_df, post_df, args) == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
 
     def test_not_rectangle(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
