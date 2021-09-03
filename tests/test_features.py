@@ -42,7 +42,7 @@ class TestCreateOutput:
     def test_create_output(self, tmp_path):
         files = handler.get_files(Path('tests/data/output/dmg'))
         polys = features.create_polys(files)
-        out_path = tmp_path / 'shapes'
+        out_path = tmp_path / 'vector'
         out_path.mkdir()
         shapefile = features.write_output(polys, out_path / 'damage.gpkg')
         assert Path.is_file(shapefile)
