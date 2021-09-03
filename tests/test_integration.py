@@ -118,17 +118,17 @@ class TestGood:
 
     # Make sure directories contain the expected number of files
     @pytest.mark.parametrize('folder,expected', [
-        pytest.param('chips/pre', 6, id='count_pre_chips'),
-        pytest.param('chips/post', 6, id='count_post_chips'),
-        pytest.param('loc', 6, id='count_loc_chips'),
-        pytest.param('dmg', 6, id='count_damage'),
-        pytest.param('over', 6, id='count_overlay_chips')
+        pytest.param('chips/pre', 4, id='count_pre_chips'),
+        pytest.param('chips/post', 4, id='count_post_chips'),
+        pytest.param('loc', 4, id='count_loc_chips'),
+        pytest.param('dmg', 4, id='count_damage'),
+        pytest.param('over', 4, id='count_overlay_chips')
     ])
     def test_file_counts(self, output_path, folder, expected):
         assert len(list(output_path.joinpath(folder).glob('**/*'))) == expected
 
     # Check out vector data contains the expected values
-    @pytest.mark.parametrize('layer, expected', [('damage', 1272), ('centroids', 1272), ('aoi', 1)])
+    @pytest.mark.parametrize('layer, expected', [('damage', 872), ('centroids', 872), ('aoi', 1)])
     def test_out_file_damage(self, output_path, layer, expected):
         shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer)
         assert len(shapes) == expected
