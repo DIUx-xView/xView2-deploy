@@ -7,10 +7,9 @@ import sys
 import multiprocessing as mp
 mp.set_start_method('spawn', force=True)
 import numpy as np
-from utils import to_shapefile, raster_processing
-from utils import to_agol
-from utils import features
+from utils import raster_processing, to_agol, features
 import rasterio.warp
+import rasterio.crs
 import torch
 #import ray
 from collections import defaultdict
@@ -97,7 +96,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/vector").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -185,7 +184,7 @@ def postprocess_and_write(result_dict):
     dst.write(loc, 1)
     dst.close()
 
-    dst = rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile']):
+    dst = rasterio.open(sample_result_dict['out_cls_path'], 'w', **sample_result_dict['geo_profile'])
     dst.write(cls, 1)
     dst.close()
 
@@ -207,7 +206,15 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
             #    import ipdb; ipdb.set_trace()
             #    debug=True
             out = model_wrapper.forward(result_dict['img'],debug=debug)
+
+            # Save prediction tensors for testing
+            # Todo: Create argument for turning on debug/trace/test data
+            # pred_path = Path('/home/ubuntu/debug/output/preds')
+            # makedirs(pred_path, exist_ok=True)
+            # torch.save(out, pred_path / f'preds_{mode}_{ii}.pt')
+
             out = out.detach().cpu()
+
             
             del result_dict['img']
 
@@ -230,7 +237,7 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     if write_output:
-        pred_folder = model_wrapper.pred_folder
+        pred_folder = args.output_directory / 'preds'
         logger.info('Writing results...')
         makedirs(pred_folder, exist_ok=True)
         for result in tqdm(results_list, total=len(results_list)):
@@ -275,9 +282,9 @@ def parse_args():
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
     parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
-    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.')
-    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.')
-    parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
+    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
     parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
@@ -304,6 +311,22 @@ def main():
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
+
+    # Create CRS object from our pre/post inputs
+    if args.pre_crs:
+        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
+    if args.post_crs:
+        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
+
+    # Create CRS object from argument, else determine UTM zone and create CRS object
+    if args.destination_crs:
+        args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
+    else:
+        in_centroid = raster_processing.get_lat_lon_centroid(pre_files[0], args)
+        logger.debug(f"Using centroid of {in_centroid} for CRS guess")
+        epsg = raster_processing.get_utm_epsg(*in_centroid)
+        args.destination_crs = rasterio.crs.CRS.from_epsg(epsg)
+        logger.info(f'Using calculated destination CRS of EPSG:{epsg}')
 
     logger.info('Re-projecting...')
     # Todo: test for overridden resolution and log a warning with calculated resolution.
@@ -553,18 +576,28 @@ def main():
     overlay_files = [x for x in get_files(p)]
     overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
 
-    # Get files for creating shapefile and/or pushing to AGOL
-    polygons = features.create_polys([damage_mosaic])
-    logger.debug(f'Polygons created: {len(polygons)}')
+    # Get files for creating vector file and/or pushing to AGOL
+    logger.info("Generating vector data")
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+    centroids.crs = polygons.crs
+    logger.info(f'Polygons created: {len(polygons)}')
+    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
 
-    # Create shapefile
-    logger.info('Creating shapefile')
-    to_shapefile.create_shapefile(polygons,
-                     Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                     args.destination_crs)
+    # Create output file
+    logger.info('Writing output file')
+    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
+    features.write_output(polygons, vector_out, layer='damage')
+    features.write_output(aoi, vector_out, 'aoi')
+    features.write_output(centroids, vector_out, 'centroids')
 
     if agol_push:
-        to_agol.agol_helper(args, polygons)
+        try:
+            to_agol.agol_helper(args, polygons, aoi, centroids)
+        except Exception as e:
+            logger.warning(f'AGOL push failed. Error: {e}')
 
     # Complete
     elapsed = timeit.default_timer() - t0
@@ -573,7 +606,7 @@ def main():
 
 def init():
 
-    # Todo: Fix this at some point
+    # Todo: Fix this global at some point
     global args
     args = parse_args()
 

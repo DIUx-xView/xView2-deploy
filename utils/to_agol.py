@@ -1,16 +1,6 @@
 import arcgis
 from tqdm import tqdm
-from shapely.geometry import MultiPolygon
 from loguru import logger
-
-
-# Enable .from_shapely for building AGOL features from shapely features.
-@classmethod
-def from_shapely(cls, shapely_geometry):
-    return cls(shapely_geometry.__geo_interface__)
-
-
-arcgis.geometry.BaseGeometry.from_shapely = from_shapely
 
 
 def agol_arg_check(user, password, fs_id):
@@ -30,7 +20,7 @@ def agol_arg_check(user, password, fs_id):
 
         # Test the AGOL connection
         try:
-            gis = connect_gis(user, password)
+            gis = agol_connect(user, password)
         # Todo: Also need to catch instance of nothing returned (ie. no internet connection)
         except Exception as ex:  # Incorrect user/pass raises an exception
             # Todo: this message is not entirely accurate. Check for connection
@@ -51,59 +41,40 @@ def agol_arg_check(user, password, fs_id):
         return False
 
 
-def create_aoi_poly(features):
+def agol_helper(args, polys, aoi, centroids):
 
-    """
-    Create convex hull polygon encompassing damage polygons.
-    :param features: Polygons to create hull around.
-    :return: ARCGIS polygon.
-    """
-    # Todo: This should be a rectangle of the intersect.
-    aoi_polys = [geom for geom, val in features]
-    hull = MultiPolygon(aoi_polys).convex_hull
-    shape = arcgis.geometry.Geometry.from_shapely(hull)
-    poly = arcgis.features.Feature(shape, attributes={'status': 'complete'})
+    dmg_fs = arcgis.features.GeoAccessor.from_geodataframe(polys, inplace=False, column_name='SHAPE').spatial.to_featureset()
+    aoi_fs = arcgis.features.GeoAccessor.from_geodataframe(aoi, inplace=False, column_name='SHAPE').spatial.to_featureset()
+    cent_fs = arcgis.features.GeoAccessor.from_geodataframe(centroids, inplace=False, column_name='SHAPE').spatial.to_featureset()
 
-    aoi_poly = [poly]
+    gis = agol_connect(username=args.agol_user, password=args.agol_password)
 
-    return aoi_poly
+    # Get the correct sub-layer for appending
+    sub_layers = {layer.properties.name: layer.properties.id for layer in gis.content.get(args.agol_feature_service).layers}
+    sub_layer = {}
+    for k, v in sub_layers.items():
+        if 'damage' in k.lower():
+            sub_layer['dmg'] = v
+        elif 'cent' in k.lower():
+            sub_layer['cent'] = v
+        elif 'aoi' in k.lower():
+            sub_layer['aoi'] = v
 
-
-def create_centroids(features):
-
-    """
-    Create centroids from polygon features.
-    :param features: Polygon features to create centroids from.
-    :return: List of ARCGIS point features.
-    """
-
-    centroids = []
-    for geom, val in features:
-        esri_shape = arcgis.geometry.Geometry.from_shapely(geom.centroid)
-        new_cent = arcgis.features.Feature(esri_shape, attributes={'dmg': val})
-        centroids.append(new_cent)
-
-    return centroids
+    result = agol_append(gis,
+                         dmg_fs,
+                         args.agol_feature_service,
+                         sub_layer.get('dmg'))
+    result = agol_append(gis,
+                         cent_fs,
+                         args.agol_feature_service,
+                         sub_layer.get('cent'))
+    result = agol_append(gis,
+                         aoi_fs,
+                         args.agol_feature_service,
+                         sub_layer.get('aoi'))
 
 
-def create_damage_polys(polys):
-
-    """
-    Create ARCGIS polygon features.
-    :param polys: Polygons to create ARCGIS features from.
-    :return: List of ARCGIS polygon features.
-    """
-
-    polygons = []
-    for geom, val in polys:
-        esri_shape = arcgis.geometry.Geometry.from_shapely(geom)
-        feature = arcgis.features.Feature(esri_shape, attributes={'dmg': val})
-        polygons.append(feature)
-
-    return polygons
-
-
-def connect_gis(username, password):
+def agol_connect(username, password):
 
     """
     Create a ArcGIS connection
@@ -133,10 +104,13 @@ def agol_append(gis, src_feats, dest_fs, layer):
 
 
     logger.info('Attempting to append features to ArcGIS')
+
     layer = gis.content.get(dest_fs).layers[int(layer)]
-    for batch in tqdm(batch_gen(src_feats, 1000)):
-        result = layer.edit_features(adds=batch, rollback_on_failure=True)
+    feat = src_feats.features
+    for batch in tqdm(batch_gen(feat, 1000)):
+    # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
+        result = layer.edit_features(adds=src_feats, rollback_on_failure=True)
 
     logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
-    return True
+    return result

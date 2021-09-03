@@ -1,6 +1,4 @@
 from utils import to_agol
-from utils import features
-from pathlib import Path
 import pytest
 import arcgis
 from unittest.mock import Mock
@@ -41,27 +39,3 @@ class TestAGOLArgCheck:
     # Todo: Test connection timeout
     def test_timeout(self):
         pass
-
-class TestCreateDamagePolys:
-
-    def test_damage_polys(self):
-        file = Path('tests/data/output/dmg/0_pre.tif')
-        polys = features.create_polys([file])
-        test = to_agol.create_damage_polys(polys)
-        assert len(test) == 264
-
-class TestAOIPolys:
-
-    def test_aoi_polys(self):
-        file = Path('tests/data/output/dmg/0_pre.tif')
-        polys = features.create_polys([file])
-        test = to_agol.create_aoi_poly(polys)
-        assert test[0].geometry_type == 'Polygon'
-
-class TestCentroids:
-
-    def test_centroids(self):
-        file = Path('tests/data/output/dmg/0_pre.tif')
-        polys = features.create_polys([file])
-        test = to_agol.create_centroids(polys)
-        assert len(test) == 264
