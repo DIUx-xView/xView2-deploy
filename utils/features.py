@@ -1,8 +1,5 @@
-import json
-
 import rasterio
-from rasterio.features import shapes, dataset_features
-from shapely.geometry import Polygon, shape
+from rasterio.features import dataset_features
 import geopandas
 
 

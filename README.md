@@ -10,7 +10,17 @@ on instance type and area to be inferred. Example instances:
     1. Todo!
 
 # Installation
-Todo!
+## Environment Setup
+Using Conda you can setup a virtual environment in one of two ways:
+1. Use the provided environment.yml file by issuing the following command:
+`conda create -f environment.yml` Note: this will only work on Linux systems.
+2. Create an environment from scratch with the following commands:
+   - `conda create -n xv2 python=3.7`
+   - `conda activate xv2`
+   - `conda install -c esri -c conda-forge geopandas rasterio gdal pillow opencv pytorch torchvision loguru tqdm shapely arcgis pytest scikit-image`
+   - `conda update -c conda-forge -c esri  --all`
+   - `conda deactivate`
+   - `conda activate xv2`
 
 # Usage
 |Argument|Required|Default|Help
@@ -32,7 +42,7 @@ Todo!
 
 # Example invocation for damage assessment
 On 2 GPUs:
-`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --staging_directory <staging dir>  --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs <n_proc> --batch_size 2 --num_workers 6`
+`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --n_procs <n_proc> --batch_size 2 --num_workers 6`
 
 # Notes:
    - CRS may not be mixed within each type of imagery (pre/post). However, pre and post imagery are not required to share the same CRS.
