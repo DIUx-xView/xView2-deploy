@@ -22,7 +22,6 @@ class TestMakeFootprintDF:
         assert df.crs == rasterio.crs.CRS.from_epsg(26915)
 
 
-# Todo: Fix these with fixtures file and parameters...may not even need this anymore
 class TestGetTransformRes:
 
     def test_get_transform_res_from_src(self):
@@ -58,7 +57,6 @@ class TestGetUTM:
 
     def test_get_utm(self, pre_df):
         assert utils.dataframe.get_utm(pre_df) == 32615
-
 
 
 class TestProcessDF:

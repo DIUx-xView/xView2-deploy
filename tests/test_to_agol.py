@@ -4,25 +4,19 @@ import arcgis
 from unittest.mock import Mock
 
 
-# Todo: parameterize this entire class
 class TestAGOLArgCheck:
 
-    def test_no_params(self):
-        assert not to_agol.agol_arg_check(None, None, None)
-
-    def test_no_user(self):
-        assert not to_agol.agol_arg_check(None, 'test', 'test')
-
-    def test_no_pass(self):
-        assert not to_agol.agol_arg_check('test', None, 'test')
-
-    def test_no_fs(self):
-        assert not to_agol.agol_arg_check('test', 'test', None)
-
-    def test_good_gis(self):
+    @pytest.mark.parametrize('user,password,fs,expected', [
+        pytest.param(None, None, None, False, id='no_params'),
+        pytest.param(None, 'test', 'test', False, id='no_user'),
+        pytest.param('test', None, 'test', False, id='no_pass'),
+        pytest.param('test', 'test', None, False, id='no_fs'),
+        pytest.param('test', 'test', 'test', True, id='good_to_agol')
+    ])
+    def test_to_agol(self, user, password, fs, expected):
         # Mock a GIS object...this will also mock the gis.content.get method
         arcgis.gis.GIS = Mock()
-        assert to_agol.agol_arg_check('test', 'test', 'test')
+        assert to_agol.agol_arg_check(user, password, fs) == expected
 
     def test_bad_creds(self):
         arcgis.gis.GIS = Mock(side_effect=Exception)
