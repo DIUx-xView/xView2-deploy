@@ -6,6 +6,11 @@ from shapely.geometry import Polygon
 
 
 def make_footprint_df(files):
+    """
+    Creates a dataframe of raster footprints and metadata
+    :param files: iterable of roster filenames
+    :return: geodataframe of raster footprints and metadata
+    """
     # Todo: this requires much more error handling and tests
 
     polys = []
@@ -56,6 +61,12 @@ def make_footprint_df(files):
 
 
 def process_df(df, dest_crs):
+    """
+    Process geadataframe of raster footprints and adds tranform resolution
+    :param df: geodataframe
+    :param dest_crs: destination CRS to get transform resolution
+    :return: geodataframe
+    """
     df['trans_res'] = df.apply(lambda x: get_trans_res(x.crs, x.width, x.height, x.bounds, dest_crs), axis=1)
     # Remove rasters with resolution that wildly varies from the others
     # Remove rasters with CRS that is not the same as most?
@@ -71,10 +82,16 @@ def process_df(df, dest_crs):
 
 
 def get_utm(df):
-    """Return UTM EPSG code of respective lon/lat.
-    The EPSG is:
+    """
+    Calculate UTM EPSG code for coordinate pair
+        The EPSG is:
         32600+zone for positive latitudes
         32700+zone for negatives latitudes
+    :param df: geodataframe
+    :return: EPSG code
+    """
+    """Return UTM EPSG code of respective lon/lat.
+
     """
 
     cent = df.dissolve().geometry.to_crs(4326).centroid
