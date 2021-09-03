@@ -342,7 +342,6 @@ def main():
         res = (args.output_resolution, args.output_resolution)
         logger.info(f'Calculated resolution overridden by passed argument: {res}')
 
-    # Todo: Do we want to create a mosaic for only the intersect or the entire input set??
     logger.info("Creating pre mosaic...")
     pre_mosaic = raster_processing.create_mosaic(
         [str(file) for file in pre_df.filename],
@@ -364,7 +363,6 @@ def main():
     )
 
     logger.info('Chipping...')
-    # Todo: fix the use of logging with tqdm (doc pages for loguru)
     pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
     logger.debug(f'Num pre chips: {len(pre_chips)}')
     post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)

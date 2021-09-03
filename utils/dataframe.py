@@ -77,7 +77,7 @@ def get_utm(df):
         32700+zone for negatives latitudes
     """
 
-    cent = df.geometry.to_crs(4326).dissolve().centroid
+    cent = df.dissolve().geometry.to_crs(4326).centroid
     lon = cent.x[0]
     lat = cent.y[0]
     zone = int(round((183 + lon) / 6, 0))
