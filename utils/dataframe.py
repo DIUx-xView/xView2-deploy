@@ -124,6 +124,6 @@ def get_intersect(pre_df, post_df, args):
 
 def get_max_res(pre_df, post_df):
     res_list = list(pre_df.trans_res) + list(post_df.trans_res)
-    x = min(x[0] for x in res_list)
-    y = min(x[1] for x in res_list)
+    x = max(x[0] for x in res_list)
+    y = max(x[1] for x in res_list)
     return (x, y)

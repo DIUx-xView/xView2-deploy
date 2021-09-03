@@ -90,4 +90,4 @@ class TestGetIntersect:
 class TestGetMaxRes:
 
     def test_max_res(self, pre_df, post_df):
-        assert utils.dataframe.get_max_res(pre_df, post_df) == pytest.approx((0.5437457393600895, 0.6000000000019269))
+        assert utils.dataframe.get_max_res(pre_df, post_df) == pytest.approx((0.6000000000032912, 0.6739616404124325))
