@@ -3,6 +3,7 @@ import rasterio
 import rasterio.warp
 import rasterio.crs
 from shapely.geometry import Polygon
+from loguru import logger
 
 
 def make_footprint_df(files):
@@ -107,7 +108,15 @@ def get_utm(df):
 
 
 def get_trans_res(src_crs, width, height, bounds, dst_crs):
-
+    """
+    Calculates default transform resolution.
+    :param src_crs: source CRS
+    :param width: source width
+    :param height: source height
+    :param bounds: tuple of source bounds
+    :param dst_crs: destination CRS
+    :return: tuple of destination CRS resolution (x, y)
+    """
     # Get our transform
     transform = rasterio.warp.calculate_default_transform(
         src_crs,
@@ -123,23 +132,41 @@ def get_trans_res(src_crs, width, height, bounds, dst_crs):
     return (transform[0][0], -transform[0][4])
 
 
-def get_intersect(pre_df, post_df, args):
-
+def get_intersect(pre_df, post_df, args, aoi=None):
     """
-    Computes intersect of input two rasters.
-    :param pre_mosaic: pre mosaic
-    :param post_mosaic: post mosaic
-    :return: tuple of intersect in (left, bottom, right, top)
+    Computes intersection of two dataframes and reduces extent by an optional defined AOI.
+    :param pre_df: dataframe of raster footprints
+    :param post_df: dataframe of raster footprints
+    :param args: arguments object
+    :param aoi: AOI dataframe
+    :return: tuple of calculated intersection
     """
     pre_env = pre_df.to_crs(args.destination_crs).unary_union
     post_env = post_df.to_crs(args.destination_crs).unary_union
     int = pre_env.intersection(post_env)
-    assert int.area > 0
+
+    logger.debug(f'Pre bounds: {pre_env.bounds}')
+    logger.debug(f'Post bounds: {post_env.bounds}')
+
+    assert int.area > 0, logger.critical('Pre and post imagery do not intersect')
+
+    if aoi is not None:
+        aoi = aoi.to_crs(args.destination_crs).unary_union
+        int = aoi.intersection(int)
+        wkt = int.to_wkt()
+        assert int.area > 0, logger.critical('AOI does not intersect imagery')
 
     return int.bounds
 
 
 def get_max_res(pre_df, post_df):
+    """
+    Calculates minimum resolution from two dataframes of raster footprints. Calculated on destination CRS units.
+        Never mind the function name...I don't want to hear it.
+    :param pre_df: geodataframe of raster footprints
+    :param post_df: geodataframe of raster footprints
+    :return: tuple of minimum resolution in (x, y)
+    """
     res_list = list(pre_df.trans_res) + list(post_df.trans_res)
     x = max(x[0] for x in res_list)
     y = max(x[1] for x in res_list)

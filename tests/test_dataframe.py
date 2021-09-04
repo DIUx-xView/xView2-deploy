@@ -1,4 +1,6 @@
 from pathlib import Path
+
+import geopandas
 import pytest
 import rasterio
 import rasterio.crs
@@ -71,19 +73,32 @@ class TestProcessDF:
 
 class TestGetIntersect:
 
-    def test_get_intersect(self, pre_df, post_df):
+    @pytest.mark.parametrize('poly_name,expected', [
+        pytest.param(['within'], pytest.approx((366857.56368295447, 4103474.666131911, 367772.7114690142, 4104074.393841441), abs=1), id='int_rect_within'),
+        pytest.param(['within', 'outside'], pytest.approx((366857.56368295447, 4103474.666131911, 367772.7114690142, 4104074.393841441), abs=1), id='int_rect_within_out'),
+        pytest.param(['intersects'], pytest.approx((367626.8372131828, 4103895.1999908756, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects'),
+        pytest.param(['intersects', 'outside'], pytest.approx((367626.8372131828, 4103895.1999908756, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects_out'),
+        pytest.param(['intersects', 'within'], pytest.approx((366857.56368295447, 4103474.666131911, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects_within')
+    ])
+    def test_get_intersect(self, pre_df, post_df, aoi_df, poly_name, expected):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        assert utils.dataframe.get_intersect(pre_df, post_df, args) == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
+        aoi = aoi_df[aoi_df.name.isin(poly_name)]
+        assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi) == expected
 
     def test_not_rectangle(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         assert utils.dataframe.get_intersect(pre_df[:3], post_df, args) == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
 
-    def test_dont_intersect(self, pre_df, no_intersect_df):
+    def test_intersect_fail(self, pre_df, no_intersect_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         with pytest.raises(AssertionError):
             assert utils.dataframe.get_intersect(pre_df, no_intersect_df, args)
 
+    def test_aoi_intersect_fail(self, pre_df, post_df, aoi_df):
+        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+        aoi = aoi_df[aoi_df.name.isin(['outside'])]
+        with pytest.raises(AssertionError):
+            assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi)
 
 class TestGetMaxRes:
 

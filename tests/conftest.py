@@ -22,6 +22,7 @@ class Args:
                  destination_crs=None,
                  output_resolution=None,
                  save_intermediates=False,
+                 aoi_file = '',
                  agol_user='',
                  agol_password='',
                  agol_feature_service='',
@@ -39,6 +40,7 @@ class Args:
         self.destination_crs = destination_crs
         self.output_resolution = output_resolution
         self.save_intermediates = save_intermediates
+        self.aoi_file = aoi_file
         self.agol_user = agol_user
         self.agol_password = agol_password
         self.agol_feature_service = agol_feature_service
@@ -70,3 +72,7 @@ def no_intersect_df():
     data = {'geometry': [Polygon(coords)]}
     df = geopandas.GeoDataFrame(data, geometry='geometry', crs=32612)
     return df
+
+@pytest.fixture(scope='session')
+def aoi_df():
+    return geopandas.GeoDataFrame.from_file('tests/data/misc/polygon_shapefile/intersect_polys.shp')
