@@ -5,6 +5,9 @@ import argparse
 import os
 import sys
 import multiprocessing as mp
+
+import geopandas
+
 mp.set_start_method('spawn', force=True)
 import utils.dataframe
 import numpy as np
@@ -275,6 +278,7 @@ def parse_args():
     parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
+    parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
     parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
@@ -330,8 +334,12 @@ def main():
     pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
     post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
-    # Calculate the intersect extent
-    extent = utils.dataframe.get_intersect(pre_df, post_df, args)
+    # Get AOI files and calculate intersect
+    if args.aoi_file:
+        aoi_df = geopandas.GeoDataFrame.from_file(args.aoi_file)
+    else:
+        aoi_df = None
+    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df)
     logger.info(f'Calculated extent: {extent}')
 
     # Calculate destination resolution

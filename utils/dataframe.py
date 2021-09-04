@@ -3,6 +3,7 @@ import rasterio
 import rasterio.warp
 import rasterio.crs
 from shapely.geometry import Polygon
+from loguru import logger
 
 
 def make_footprint_df(files):
@@ -106,7 +107,7 @@ def get_trans_res(src_crs, width, height, bounds, dst_crs):
     return (transform[0][0], -transform[0][4])
 
 
-def get_intersect(pre_df, post_df, args):
+def get_intersect(pre_df, post_df, args, aoi=None):
 
     """
     Computes intersect of input two rasters.
@@ -117,7 +118,17 @@ def get_intersect(pre_df, post_df, args):
     pre_env = pre_df.to_crs(args.destination_crs).unary_union
     post_env = post_df.to_crs(args.destination_crs).unary_union
     int = pre_env.intersection(post_env)
-    assert int.area > 0
+
+    #logger.debug(f'Pre bounds: {pre_env.bounds}')
+    #logger.debug(f'Post bounds: {post_env.bounds}')
+
+    assert int.area > 0, logger.critical('Pre and post imagery do not intersect')
+
+    if aoi is not None:
+        aoi = aoi.to_crs(args.destination_crs).unary_union
+        int = aoi.intersection(int)
+        wkt = int.to_wkt()
+        assert int.area > 0, logger.critical('AOI does not intersect imagery')
 
     return int.bounds
 

@@ -78,7 +78,7 @@ class TestGood:
         # Pass args to handler
         self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
             staging_path=staging_path,
-            output_path=output_path
+            output_path=output_path,
         )
                                  ),
 
