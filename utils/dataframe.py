@@ -119,8 +119,8 @@ def get_intersect(pre_df, post_df, args, aoi=None):
     post_env = post_df.to_crs(args.destination_crs).unary_union
     int = pre_env.intersection(post_env)
 
-    #logger.debug(f'Pre bounds: {pre_env.bounds}')
-    #logger.debug(f'Post bounds: {post_env.bounds}')
+    logger.debug(f'Pre bounds: {pre_env.bounds}')
+    logger.debug(f'Post bounds: {post_env.bounds}')
 
     assert int.area > 0, logger.critical('Pre and post imagery do not intersect')
 
