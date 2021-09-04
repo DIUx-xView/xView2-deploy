@@ -4,11 +4,12 @@ from loguru import logger
 
 
 def agol_arg_check(user, password, fs_id):
-
     """
     Checks that AGOL parameters are present for proper operation.
-    :param args: Arguments
-    :return: True if arguments are present to accomplish AGOL push. False if not.
+    :param user: AGOL username
+    :param password: AGOL password
+    :param fs_id: AGOL feature service
+    :return: True if able to push to AGOL, else False
     """
 
     # Check that all parameters have been passed to args.
@@ -42,6 +43,14 @@ def agol_arg_check(user, password, fs_id):
 
 
 def agol_helper(args, polys, aoi, centroids):
+    """
+    Helper function to direct traffic to AGOL
+    :param args: arguments object
+    :param polys: geodataframe of damage polygons
+    :param aoi: geodataframe of AOI polygon
+    :param centroids: geodataframe of centroids
+    :return: None
+    """
 
     dmg_fs = arcgis.features.GeoAccessor.from_geodataframe(polys, inplace=False, column_name='SHAPE').spatial.to_featureset()
     aoi_fs = arcgis.features.GeoAccessor.from_geodataframe(aoi, inplace=False, column_name='SHAPE').spatial.to_featureset()
@@ -75,7 +84,6 @@ def agol_helper(args, polys, aoi, centroids):
 
 
 def agol_connect(username, password):
-
     """
     Create a ArcGIS connection
     :param username: AGOL username.
@@ -87,7 +95,6 @@ def agol_connect(username, password):
 
 
 def agol_append(gis, src_feats, dest_fs, layer):
-
     """
     Add features to AGOL feature service.
     :param gis: AGOL connection.

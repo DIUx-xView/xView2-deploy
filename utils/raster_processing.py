@@ -14,6 +14,13 @@ from PIL import Image
 
 
 def create_vrt(in_files, out_path, resolution='lowest'):
+    """
+    Create VRT from an iterable of filenames.
+    :param in_files: iterable of filenames
+    :param out_path: output path
+    :param resolution: string of method to determine resolution {highest|lowest|average|user}
+    :return: pathname of output file
+    """
     # Note: gdal does not accept path objects
 
     files = [str(file) for file in in_files]
@@ -23,11 +30,26 @@ def create_vrt(in_files, out_path, resolution='lowest'):
 
 
 def get_res(image):
+    """
+    Gets resolution of raster.
+    :param image: filename of raster
+    :return: tuple of raster resolution (x, y)
+    """
     with rasterio.open(image) as src:
         return src.res
 
 
 def create_mosaic(in_data, out_file, src_crs, dst_crs, extent, dst_res):
+    """
+    Creates mosaic from input files
+    :param in_data: iterable of input rasters
+    :param out_file: output file path
+    :param src_crs: source CRS of input rasters
+    :param dst_crs: destination CRS
+    :param extent: tuple of resolution in destination CRS (left, bottom, right, top)
+    :param dst_res: destination resolution in destination CRS units (x, y)
+    :return: output file path
+    """
     # Note: gdal will not accept Path objects. They must be passed as strings
 
     reproj = gdal.Warp(str(out_file), in_data, srcSRS=src_crs, format='GTiff', dstSRS=dst_crs, xRes=dst_res[0], yRes=dst_res[1], outputBounds=extent)
@@ -42,7 +64,7 @@ def check_dims(arr, w, h):
     :param arr: numpy array
     :param w: tile width
     :param h: tile height
-    :return: tile of same dimensions specified
+    :return: tile of dimensions specified
     """
 
     dims = arr.shape
@@ -56,7 +78,6 @@ def check_dims(arr, w, h):
 
 
 def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
-
     """
     Creates chips from mosaic that fall inside the intersect
     :param in_raster: mosaic to create chips from
