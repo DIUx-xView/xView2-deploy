@@ -12,14 +12,9 @@ from pytest import MonkeyPatch
 
 
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='class')
 def output_path(tmp_path_factory):
     return tmp_path_factory.mktemp('output')
-
-
-@pytest.fixture(scope='class', autouse=True)
-def staging_path(tmp_path_factory):
-    return tmp_path_factory.mktemp('staging')
 
 
 class MockLocModel:
@@ -74,10 +69,9 @@ class TestInput:
 class TestGood:
 
     @pytest.fixture(scope='class', autouse=True)
-    def setup(self, staging_path, output_path):
+    def setup(self, output_path):
         # Pass args to handler
         self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            staging_path=staging_path,
             output_path=output_path
         )
                                  ),
@@ -157,10 +151,9 @@ class TestGood:
 class TestNoCUDA:
 
     @pytest.fixture(scope='class', autouse=True)
-    def setup(self, staging_path, output_path):
+    def setup(self, output_path):
         # Pass args to handler
         self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            staging_path=staging_path,
             output_path=output_path
         )
                                  ),
@@ -190,10 +183,9 @@ class TestExperiment:
     """
 
     @pytest.fixture(scope='class', autouse=True)
-    def setup(self, staging_path, output_path):
+    def setup(self, output_path):
         # Pass args to handler
         self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            staging_path=staging_path,
             output_path=output_path
         )
                                  ),

@@ -29,9 +29,6 @@ class Args:
                  ):
 
         self.output_directory = output_path
-        self.staging_directory = staging_path
-        self.staging_directory = staging_path
-        self.output_directory = output_path
         self.pre_directory = Path(pre_directory)
         self.post_directory = Path(post_directory)
         self.n_procs = n_procs
