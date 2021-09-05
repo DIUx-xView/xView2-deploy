@@ -4,7 +4,7 @@ import rasterio.merge
 import rasterio.warp
 import rasterio.plot
 import rasterio.crs
-from osgeo import gdal
+from osgeo import gdal, ogr
 from rasterio import windows
 from itertools import product
 from tqdm import tqdm
@@ -39,7 +39,7 @@ def get_res(image):
         return src.res
 
 
-def create_mosaic(in_data, out_file, src_crs, dst_crs, extent, dst_res):
+def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, dst_res=None, aoi=None):
     """
     Creates mosaic from input files
     :param in_data: iterable of input rasters
@@ -48,11 +48,30 @@ def create_mosaic(in_data, out_file, src_crs, dst_crs, extent, dst_res):
     :param dst_crs: destination CRS
     :param extent: tuple of resolution in destination CRS (left, bottom, right, top)
     :param dst_res: destination resolution in destination CRS units (x, y)
+    :param aoi: geodataframe of AOI(s)
     :return: output file path
     """
     # Note: gdal will not accept Path objects. They must be passed as strings
+    if dst_res:
+        xRes = dst_res[0],
+        yRes = dst_res[1]
+    else:
+        xRes = None
+        yRes = None
 
-    reproj = gdal.Warp(str(out_file), in_data, srcSRS=src_crs, format='GTiff', dstSRS=dst_crs, xRes=dst_res[0], yRes=dst_res[1], outputBounds=extent)
+    if aoi is not None:
+        aoi = aoi.to_json()
+
+    reproj = gdal.Warp(str(out_file),
+                       in_data,
+                       srcSRS=src_crs,
+                       format='GTiff',
+                       dstSRS=dst_crs,
+                       xRes=xRes,
+                       yRes=yRes,
+                       outputBounds=extent,
+                       cutlineDSName=aoi,
+    )
 
     return out_file
 

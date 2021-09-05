@@ -5,12 +5,17 @@ import rasterio.crs
 import utils.dataframe
 from shapely.geometry import Polygon
 from pathlib import Path
+from pytest import MonkeyPatch
+
+@pytest.fixture(scope='class')
+def output_path(tmp_path_factory):
+    return tmp_path_factory.mktemp('output')
+
 
 #### Mock Argument class ####
 class Args:
 
     def __init__(self,
-                 staging_path=None,
                  output_path=None,
                  pre_directory='tests/data/input/pre',
                  post_directory='tests/data/input/post',

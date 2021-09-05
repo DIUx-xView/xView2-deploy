@@ -357,7 +357,8 @@ def main():
         pre_df.crs,
         args.destination_crs,
         extent,
-        res
+        res,
+        aoi_df
     )
 
     logger.info("Creating post mosaic...")
@@ -367,7 +368,8 @@ def main():
         post_df.crs,
         args.destination_crs,
         extent,
-        res
+        res,
+        aoi_df
     )
 
     logger.info('Chipping...')

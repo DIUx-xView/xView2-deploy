@@ -1,10 +1,15 @@
 import rasterio
 import rasterio.crs
+import pytest
 from pathlib import Path
 from .conftest import Args
-from utils import raster_processing, dataframe
+from utils import raster_processing
 import handler
 import numpy as np
+
+
+def crs(epsg):
+    return rasterio.crs.CRS.from_epsg(epsg)
 
 
 class TestCheckDims:
@@ -26,20 +31,20 @@ class TestCheckDims:
 
 class TestCreateMosaic:
 
-    def test_create_mosaic(self, tmp_path, pre_df):
-        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
+    @pytest.mark.parametrize('src_crs,dst_crs,extent,res,aoi,expected', [
+        pytest.param(crs(26915), crs(32615), (366642.6, 4103282.4, 367871.4, 4104511.2), (.6, .6), None, 20737, id='param_no_mask'),
+        pytest.param(None, None, None, None, None, 20737, id='no_param_no_mask'),
+        pytest.param(crs(26915), crs(32615), (366642.6, 4103282.4, 367871.4, 4104511.2), (.6, .6), True, 23999, id='param_mask'),
+        pytest.param(None, None, None, None, True, 23999, id='no_param_mask')
+    ])
+    def test_create_mosaic(self, src_crs, dst_crs, extent, res, aoi, expected, pre_df, tmp_path, aoi_df):
         out_path = tmp_path / 'out.tif'
         files_str = [str(file) for file in pre_df.filename]
-        test = raster_processing.create_mosaic(files_str, out_path, pre_df.crs, args.destination_crs, (366642.6, 4103282.4, 367871.4, 4104511.2),(.6, .6))
-        assert test.is_file()
-
-    def test_create_mosaic_none_args(self, tmp_path, pre_df):
-        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(32615))
-        out_path = tmp_path / 'out.tif'
-        files_str = [str(file) for file in pre_df.filename]
-        test = raster_processing.create_mosaic(files_str, out_path, None, None, None, (0.6, 0.6))
-        assert test.is_file()
-
+        if aoi:
+            aoi = aoi_df
+        test = raster_processing.create_mosaic(files_str, out_path, src_crs, dst_crs, extent, res, aoi)
+        with rasterio.open(test) as src:
+            assert src.checksum(1) == expected
 
 class TestCreatChips:
 

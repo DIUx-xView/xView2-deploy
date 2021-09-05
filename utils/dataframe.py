@@ -143,20 +143,21 @@ def get_intersect(pre_df, post_df, args, aoi=None):
     """
     pre_env = pre_df.to_crs(args.destination_crs).unary_union
     post_env = post_df.to_crs(args.destination_crs).unary_union
-    int = pre_env.intersection(post_env)
+    intersect = pre_env.intersection(post_env)
 
     logger.debug(f'Pre bounds: {pre_env.bounds}')
     logger.debug(f'Post bounds: {post_env.bounds}')
 
-    assert int.area > 0, logger.critical('Pre and post imagery do not intersect')
+    assert intersect.area > 0, logger.critical('Pre and post imagery do not intersect')
 
     if aoi is not None:
         aoi = aoi.to_crs(args.destination_crs).unary_union
-        int = aoi.intersection(int)
-        wkt = int.to_wkt()
-        assert int.area > 0, logger.critical('AOI does not intersect imagery')
+        intersect = aoi.intersection(intersect)
+        assert intersect.area > 0, logger.critical('AOI does not intersect imagery')
+        logger.info('Intersection calculated with AOI')
 
-    return int.bounds
+    # Todo: Return tuple of ((bounds), area) to estimate inference time
+    return intersect.bounds
 
 
 def get_max_res(pre_df, post_df):

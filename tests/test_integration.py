@@ -10,11 +10,14 @@ from pytest import MonkeyPatch
 # Todo: Return appropriate tensor for each image
 # Todo: Class out our monkeypatches
 
-
-
-@pytest.fixture(scope='class')
-def output_path(tmp_path_factory):
-    return tmp_path_factory.mktemp('output')
+@pytest.fixture(scope="class", autouse=True)
+def monkeypatch_for_class(request):
+    """
+    Allows for the use of MonkeyPatch inside our test classes
+    :param request:
+    :return:
+    """
+    request.cls.monkeypatch = MonkeyPatch()
 
 
 class MockLocModel:
@@ -44,35 +47,72 @@ class MockClsModel:
         return arr
 
 
-@pytest.fixture(scope="class", autouse=True)
-def monkeypatch_for_class(request):
-    """
-    Allows for the use of MonkeyPatch inside our test classes
-    :param request:
-    :return:
-    """
-    request.cls.monkeypatch = MonkeyPatch()
+def pytest_generate_tests(metafunc):
+    # called once per each test function
+    funcarglist = metafunc.cls.params[metafunc.function.__name__]
+    argnames = sorted(funcarglist[0])
+    metafunc.parametrize(
+        argnames, [[funcargs[name] for name in argnames] for funcargs in funcarglist]
+    )
 
 
 class TestInput:
 
-    def test_input(self):
+    params = {
+        'test_input': [dict(file='tests/data/input/pre', expected=4),
+                       dict(file='tests/data/input/post', expected=6)]
+    }
+
+    def test_input(self, file, expected):
         """
         This is to ensure our inputs are correct. No code is tested here. If these fail expect that the input test
         data is incorrect and expect almost everything else to fail.
         :return:
         """
-        assert len(list(Path('tests/data/input/pre').glob('**/*'))) == 4
-        assert len(list(Path('tests/data/input/post').glob('**/*'))) == 6
+        assert len(list(Path(file).glob('**/*'))) == expected
 
 
-class TestGood:
+@pytest.mark.parametrize('aoi', [
+                             pytest.param('tests/data/misc/polygon_shapefile/intersect_polys.shp'),
+                             pytest.param(None)],
+                         scope='class')
+class TestIntegration:
 
-    @pytest.fixture(scope='class', autouse=True)
-    def setup(self, output_path):
+
+    params = {
+    'test_is_files': [dict(file='mosaics/pre.tif'),
+                       dict(file='mosaics/post.tif'),
+                       dict(file='mosaics/damage.tif'),
+                       dict(file='mosaics/overlay.tif'),
+                       dict(file='vector/damage.gpkg'),
+                       dict(file='log/xv2.log')],
+    'test_img_checksum': [dict(file='mosaics/pre.tif', expected=0),
+                          dict(file='mosaics/post.tif', expected=0),
+                          dict(file='mosaics/damage.tif', expected=0),
+                          dict(file='mosaics/overlay.tif', expected=0)],
+    'test_file_counts': [dict(folder='chips/pre', expected=4),
+                         dict(folder='chips/post', expected=4),
+                         dict(folder='loc', expected=4),
+                         dict(folder='dmg', expected=4),
+                         dict(folder='over', expected=4)],
+    'test_out_file_damage': [dict(layer='damage', expected=872),
+                             dict(layer='centroids', expected=872),
+                             dict(layer='aoi', expected=1)],
+    'test_out_crs': [dict(layer='damage'),
+                     dict(layer='centroids'),
+                     dict(layer='aoi')],
+    'test_out_file_layers': [dict(file='vector/damage.gpkg', expected=3)],
+    'test_out_epsg': [dict(file='mosaics/overlay.tif', expected=32615),
+                      dict(file='mosaics/pre.tif', expected=32615),
+                      dict(file='mosaics/post.tif', expected=32615)]
+    }
+
+    @pytest.fixture(autouse=True, scope='class')
+    def setup(self, output_path, aoi):
         # Pass args to handler
         self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            output_path=output_path
+            output_path=output_path,
+            aoi_file=aoi
         )
                                  ),
 
@@ -88,61 +128,33 @@ class TestGood:
         handler.init()
 
     # Make sure files exist that we expect to exist
-    @pytest.mark.parametrize('file', [
-        pytest.param('mosaics/pre.tif', id='pre_mosaic_is_file'),
-        pytest.param('mosaics/post.tif', id='post_mosaic_is_file'),
-        pytest.param('mosaics/damage.tif', id='damage_mosaic_is_file'),
-        pytest.param('mosaics/overlay.tif', id='overlay_mosaic_is_file'),
-        pytest.param('vector/damage.gpkg', id='damage_vector_is_file'),
-        pytest.param('log/xv2.log', id='log_file_is_file')
-    ])
     def test_is_files(self, output_path, file):
         assert output_path.joinpath(file).is_file()
 
     # Make sure raster outputs look as we expect
-    @pytest.mark.parametrize('file,expected', [
-        pytest.param('mosaics/pre.tif', 0, id='pre_mosaic_checksum'),
-        pytest.param('mosaics/post.tif', 0, id='post_mosaic_checksum'),
-        pytest.param('mosaics/damage.tif', 0, id='damage_mosaic_checksum'),
-        pytest.param('mosaics/overlay.tif', 0, id='overlay_mosaic_checksum'),
-    ])
-    def img_checksum(self, output_path, file, expected):
+    def test_img_checksum(self, output_path, file, expected):
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.checksum() == expected
 
     # Make sure directories contain the expected number of files
-    @pytest.mark.parametrize('folder,expected', [
-        pytest.param('chips/pre', 4, id='count_pre_chips'),
-        pytest.param('chips/post', 4, id='count_post_chips'),
-        pytest.param('loc', 4, id='count_loc_chips'),
-        pytest.param('dmg', 4, id='count_damage'),
-        pytest.param('over', 4, id='count_overlay_chips')
-    ])
     def test_file_counts(self, output_path, folder, expected):
         assert len(list(output_path.joinpath(folder).glob('**/*'))) == expected
 
     # Check out vector data contains the expected values
-    @pytest.mark.parametrize('layer, expected', [('damage', 872), ('centroids', 872), ('aoi', 1)])
     def test_out_file_damage(self, output_path, layer, expected):
         shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer)
         assert len(shapes) == expected
 
     # Test that all vector layers have the correct CRS set
-    @pytest.mark.parametrize('layer', ['damage', 'aoi', 'centroids'])
     def test_out_crs(self, output_path, layer):
         with fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer) as src:
             assert src.crs == {'init': 'epsg:32615'}
 
     # Test for correct number of vector layers
-    def test_out_file_layers(self, output_path):
-        assert len(fiona.listlayers(output_path.joinpath('vector/damage.gpkg'))) == 3
+    def test_out_file_layers(self, output_path, file, expected):
+        assert len(fiona.listlayers(output_path.joinpath(file))) == expected
 
     # Test output rasters for correct CRS
-    @pytest.mark.parametrize('file,expected', [
-        pytest.param('mosaics/overlay.tif', 32615, id='overlay_mos_crs'),
-        pytest.param('mosaics/pre.tif', 32615, id='pre_mos_crs'),
-        pytest.param('mosaics/post.tif', 32615, id='post_mos_crs'),
-    ])
     def test_out_epsg(self, output_path, file, expected):
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.crs.to_epsg() == expected
