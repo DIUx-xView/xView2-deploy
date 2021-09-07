@@ -61,6 +61,18 @@ def make_footprint_df(files):
     return df
 
 
+def make_aoi_df(aoi_file):
+    aoi = {'wildfire': 'https://opendata.arcgis.com/datasets/2191f997056547bd9dc530ab9866ab61_0.geojson'}
+
+    if aoi_file is None:
+        return None
+
+    if aoi_file in aoi:
+        aoi_file = aoi.get(aoi_file)
+
+    return geopandas.GeoDataFrame.from_file(aoi_file)
+
+
 def process_df(df, dest_crs):
     """
     Process geadataframe of raster footprints and adds tranform resolution

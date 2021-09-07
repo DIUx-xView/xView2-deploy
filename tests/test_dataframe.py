@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import fiona.errors
 import geopandas
 import pytest
 import rasterio
@@ -22,6 +22,22 @@ class TestMakeFootprintDF:
         files = handler.get_files(Path('tests/data/input/pre'))
         df = utils.dataframe.make_footprint_df(files)
         assert df.crs == rasterio.crs.CRS.from_epsg(26915)
+
+
+class TestMakeAOIDF:
+
+    @pytest.mark.parametrize('input,expected', [
+        ('wildfire', True),
+        ('tests/data/misc/polygon_shapefile/intersect_polys.shp', True),
+        (None, False),
+    ])
+    def test_aoi_df(self, input, expected):
+        df = utils.dataframe.make_aoi_df(input)
+        assert isinstance(df, geopandas.GeoDataFrame) == expected
+
+    def test_not_df(self):
+        with pytest.raises(fiona.errors.DriverError):
+            utils.dataframe.make_aoi_df('test_no_file')
 
 
 class TestGetTransformRes:

@@ -336,7 +336,7 @@ def main():
 
     # Get AOI files and calculate intersect
     if args.aoi_file:
-        aoi_df = geopandas.GeoDataFrame.from_file(args.aoi_file)
+        aoi_df = dataframe.make_aoi_df(args.aoi_file)
     else:
         aoi_df = None
     extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df)
