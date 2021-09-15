@@ -6,18 +6,17 @@ import torch
 import fiona
 import rasterio.crs
 from pytest import MonkeyPatch
+from collections import namedtuple
 
 # Todo: Return appropriate tensor for each image
 # Todo: Class out our monkeypatches
 
+
 @pytest.fixture(scope="class", autouse=True)
-def monkeypatch_for_class(request):
-    """
-    Allows for the use of MonkeyPatch inside our test classes
-    :param request:
-    :return:
-    """
-    request.cls.monkeypatch = MonkeyPatch()
+def monkeysession(request):
+    mpatch = MonkeyPatch()
+    yield mpatch
+    mpatch.undo()
 
 
 class MockLocModel:
@@ -47,172 +46,206 @@ class MockClsModel:
         return arr
 
 
-def pytest_generate_tests(metafunc):
-    # called once per each test function
-    funcarglist = metafunc.cls.params[metafunc.function.__name__]
-    argnames = sorted(funcarglist[0])
-    metafunc.parametrize(
-        argnames, [[funcargs[name] for name in argnames] for funcargs in funcarglist]
+TestCase = namedtuple('TestCase', ['name',
+                                   'pre_directory',
+                                   'post_directory',
+                                   'pre_crs',
+                                   'post_crs',
+                                   'agol_user',
+                                   'agol_pass',
+                                   'agol_fs',
+                                   'aoi_file',
+                                   'destination_crs',
+                                   'destination_res',
+                                   # Evaluation criteria
+                                   'chip_num',
+                                   'pre_checksum',
+                                   'post_checksum',
+                                   'damage_checksum',
+                                   'overlay_checksum',
+                                   'damage_polys',
+                                   'expected_epsg'
+                                   ])
+
+
+""" Cheat template for test cases
+    TestCase('name',
+             'pre_directory',
+             'post_directory',
+             'pre_crs',
+             'post_crs',
+             'agol_user',
+             'agol_pass',
+             'agol_fs',
+             'aoi_file',
+             'destination_crs',
+             'destination_res',
+             # Evaluation criteria
+             chip_num,
+             pre_checksum,
+             post_checksum,
+             damage_checksum,
+             overlay_checksum,
+             damage_polys,
+             expected_epsg
+    )
+"""
+
+
+testcases = [
+    TestCase('no_aoi',
+             'tests/data/input/pre',
+             'tests/data/input/post',
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             # Evaluation criteria
+             4,
+             14928,
+             26612,
+             64780,
+             50548,
+             872,
+             32615
+             ),
+    TestCase('aoi',
+             'tests/data/input/pre',
+             'tests/data/input/post',
+             None,
+             None,
+             None,
+             None,
+             None,
+             'tests/data/misc/polygon_shapefile/intersect_polys.shp',
+             None,
+             None,
+             # Evaluation criteria
+             4,
+             48631,
+             15106,
+             64780,
+             33874,
+             872,
+             32615
     )
 
+]
+
+
+@pytest.fixture(scope='class', params=testcases, ids=[test.name for test in testcases])
+def setup(output_path, request, monkeysession):
+    # Pass args to handler
+    monkeysession.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
+        pre_directory=request.param.pre_directory, post_directory=request.param.post_directory,
+        pre_crs=request.param.pre_crs, post_crs=request.param.post_crs, destination_crs=request.param.destination_crs,
+        output_resolution=request.param.destination_res, aoi_file=request.param.aoi_file,
+        agol_user=request.param.agol_user, agol_password=request.param.agol_pass,
+        agol_feature_service=request.param.agol_fs, output_directory=output_path))
+
+    # Mock CUDA devices
+    monkeysession.setattr('torch.cuda.device_count', lambda: 2)
+    monkeysession.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
+
+    # Mock classes to mock inference
+    monkeysession.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
+    monkeysession.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
+
+    # Call the handler
+    handler.init()
+
+    return request.param
 
 class TestInput:
 
-    params = {
-        'test_input': [dict(file='tests/data/input/pre', expected=4),
-                       dict(file='tests/data/input/post', expected=6)]
-    }
-
-    def test_input(self, file, expected):
+    @pytest.mark.parametrize('path,expected', [
+        ('tests/data/input/pre', 4),
+        ('tests/data/input/post', 6)
+    ])
+    def test_input(self, path, expected):
         """
         This is to ensure our inputs are correct. No code is tested here. If these fail expect that the input test
         data is incorrect and expect almost everything else to fail.
         :return:
         """
-        assert len(list(Path(file).glob('**/*'))) == expected
+        assert len(list(Path(path).glob('**/*'))) == expected
 
 
-@pytest.mark.parametrize('aoi', [
-                             pytest.param('tests/data/misc/polygon_shapefile/intersect_polys.shp'),
-                             pytest.param(None)],
-                         scope='class')
+@pytest.mark.usefixtures('setup')
 class TestIntegration:
 
-
-    params = {
-    'test_is_files': [dict(file='mosaics/pre.tif'),
-                       dict(file='mosaics/post.tif'),
-                       dict(file='mosaics/damage.tif'),
-                       dict(file='mosaics/overlay.tif'),
-                       dict(file='vector/damage.gpkg'),
-                       dict(file='log/xv2.log')],
-    'test_img_checksum': [dict(file='mosaics/pre.tif', expected=0),
-                          dict(file='mosaics/post.tif', expected=0),
-                          dict(file='mosaics/damage.tif', expected=0),
-                          dict(file='mosaics/overlay.tif', expected=0)],
-    'test_file_counts': [dict(folder='chips/pre', expected=4),
-                         dict(folder='chips/post', expected=4),
-                         dict(folder='loc', expected=4),
-                         dict(folder='dmg', expected=4),
-                         dict(folder='over', expected=4)],
-    'test_out_file_damage': [dict(layer='damage', expected=872),
-                             dict(layer='centroids', expected=872),
-                             dict(layer='aoi', expected=1)],
-    'test_out_crs': [dict(layer='damage'),
-                     dict(layer='centroids'),
-                     dict(layer='aoi')],
-    'test_out_file_layers': [dict(file='vector/damage.gpkg', expected=3)],
-    'test_out_epsg': [dict(file='mosaics/overlay.tif', expected=32615),
-                      dict(file='mosaics/pre.tif', expected=32615),
-                      dict(file='mosaics/post.tif', expected=32615)]
-    }
-
-    @pytest.fixture(autouse=True, scope='class')
-    def setup(self, output_path, aoi):
-        # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            output_path=output_path,
-            aoi_file=aoi
-        )
-                                 ),
-
-        # Mock CUDA devices
-        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 2)
-        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
-
-        # Mock classes to mock inference
-        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
-        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
-
-        # Call the handler
-        handler.init()
-
     # Make sure files exist that we expect to exist
-    def test_is_files(self, output_path, file):
+    @pytest.mark.parametrize('file', [
+        ('mosaics/pre.tif'),
+        ('mosaics/post.tif'),
+        ('mosaics/damage.tif'),
+        ('mosaics/overlay.tif'),
+        ('vector/damage.gpkg'),
+        ('log/xv2.log')
+    ])
+    def test_is_files(self, setup, output_path, file):
         assert output_path.joinpath(file).is_file()
 
     # Make sure raster outputs look as we expect
-    def test_img_checksum(self, output_path, file, expected):
+    @pytest.mark.parametrize('file,expected', [
+        ('mosaics/pre.tif', 'setup.pre_checksum'),
+        ('mosaics/post.tif', 'setup.post_checksum'),
+        ('mosaics/damage.tif', 'setup.damage_checksum'),
+        ('mosaics/overlay.tif', 'setup.overlay_checksum')
+    ])
+    def test_pre_checksum(self, output_path, setup, file, expected):
+        expected = eval(compile(expected, 'none', 'eval'))
         with rasterio.open(output_path.joinpath(file)) as src:
-            assert src.checksum() == expected
+            assert src.checksum(1) == expected
 
     # Make sure directories contain the expected number of files
-    def test_file_counts(self, output_path, folder, expected):
-        assert len(list(output_path.joinpath(folder).glob('**/*'))) == expected
+    @pytest.mark.parametrize('path,expected', [
+        ('chips/pre', 'setup.chip_num'),
+        ('chips/post', 'setup.chip_num'),
+        ('loc', 'setup.chip_num'),
+        ('dmg', 'setup.chip_num'),
+        ('over', 'setup.chip_num'),
+    ])
+    def test_file_counts(self, setup, output_path, path, expected):
+        expected = eval(compile(expected, 'none', 'eval'))
+        assert len(list(output_path.joinpath(path).glob('**/*'))) == expected
 
     # Check out vector data contains the expected values
-    def test_out_file_damage(self, output_path, layer, expected):
+    @pytest.mark.parametrize('layer,expected', [
+        ('damage', 'setup.damage_polys'),
+        ('centroids', 'setup.damage_polys'),
+        ('aoi', '1')
+    ])
+    def test_out_file_damage(self, setup, output_path, layer, expected):
+        expected = eval(compile(expected, 'none', 'eval'))
         shapes = fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer)
         assert len(shapes) == expected
 
     # Test that all vector layers have the correct CRS set
-    def test_out_crs(self, output_path, layer):
+    @pytest.mark.parametrize('layer,epsg', [
+        ('damage', {'init': 'epsg:32615'}),
+        ('centroids', {'init': 'epsg:32615'}),
+        ('aoi', {'init': 'epsg:32615'})
+    ])
+    def test_out_crs(self, setup, output_path, layer, epsg):
         with fiona.open(output_path.joinpath('vector/damage.gpkg'), layer=layer) as src:
-            assert src.crs == {'init': 'epsg:32615'}
+            assert src.crs == epsg
 
     # Test for correct number of vector layers
-    def test_out_file_layers(self, output_path, file, expected):
-        assert len(fiona.listlayers(output_path.joinpath(file))) == expected
+    def test_out_file_layers(self, setup, output_path):
+        assert len(fiona.listlayers(output_path.joinpath('vector/damage.gpkg'))) == 3
 
     # Test output rasters for correct CRS
-    def test_out_epsg(self, output_path, file, expected):
+    @pytest.mark.parametrize('file,expected', [
+        ('mosaics/overlay.tif', 'setup.expected_epsg'),
+        ('mosaics/pre.tif', 'setup.expected_epsg'),
+        ('mosaics/post.tif', 'setup.expected_epsg')
+    ])
+    def test_out_epsg(self, setup, output_path, file, expected):
+        expected = eval(compile(expected, 'none', 'eval'))
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.crs.to_epsg() == expected
-
-
-class TestNoCUDA:
-
-    @pytest.fixture(scope='class', autouse=True)
-    def setup(self, output_path):
-        # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            output_path=output_path
-        )
-                                 ),
-
-        # Mock CUDA devices
-        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 0)
-        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
-
-        # Mock classes to mock inference
-        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
-        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
-
-    def test_pass(self):
-        # Call the handler
-        with pytest.raises(ValueError):
-            handler.init()
-
-    def test_log(self, output_path):
-        assert (output_path / 'log' / 'xv2.log').is_file()
-
-
-@pytest.mark.skip
-class TestExperiment:
-    """
-    Experiment class to run the handler and view the output path for A/B testing etc.
-    Skip mark should be set when not in use.
-    """
-
-    @pytest.fixture(scope='class', autouse=True)
-    def setup(self, output_path):
-        # Pass args to handler
-        self.monkeypatch.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-            output_path=output_path
-        )
-                                 ),
-
-        # Mock CUDA devices
-        self.monkeypatch.setattr('torch.cuda.device_count', lambda: 2)
-        self.monkeypatch.setattr('torch.cuda.get_device_properties', lambda x: f'Mocked CUDA Device{x}')
-
-        # Mock classes to mock inference
-        self.monkeypatch.setattr('handler.XViewFirstPlaceLocModel', MockLocModel)
-        self.monkeypatch.setattr('handler.XViewFirstPlaceClsModel', MockClsModel)
-
-        # Call the handler
-        handler.init()
-
-    def test_experiment(self, output_path):
-        # Fail the test so we can view the output path
-        assert output_path == 0

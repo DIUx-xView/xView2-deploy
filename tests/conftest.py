@@ -7,16 +7,18 @@ from shapely.geometry import Polygon
 from pathlib import Path
 from pytest import MonkeyPatch
 
+
+# Todo: would like this to create a different output path for each parametrized test run
 @pytest.fixture(scope='class')
-def output_path(tmp_path_factory):
-    return tmp_path_factory.mktemp('output')
+def output_path(tmp_path_factory, request):
+    return tmp_path_factory.mktemp(f'output_{request.module.testcases[0].name}')
 
 
 #### Mock Argument class ####
 class Args:
 
     def __init__(self,
-                 output_path=None,
+                 output_directory=None,
                  pre_directory='tests/data/input/pre',
                  post_directory='tests/data/input/post',
                  n_procs=4,
@@ -34,7 +36,7 @@ class Args:
                  dp_mode=True
                  ):
 
-        self.output_directory = output_path
+        self.output_directory = output_directory
         self.pre_directory = Path(pre_directory)
         self.post_directory = Path(post_directory)
         self.n_procs = n_procs
