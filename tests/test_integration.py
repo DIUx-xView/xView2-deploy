@@ -249,3 +249,11 @@ class TestIntegration:
         expected = eval(compile(expected, 'none', 'eval'))
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.crs.to_epsg() == expected
+
+
+class TestErrors:
+    def test_geographic_crs(self):
+        pass
+
+    def test_errors(self):
+        pass

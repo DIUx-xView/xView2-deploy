@@ -600,6 +600,7 @@ def main():
     logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / 'dmg')
     polygons = features.create_polys(dmg_files)
+    polygons.geometry = polygons.geometry.simplify(1)
     aoi = features.create_aoi_poly(polygons)
     centroids = features.create_centroids(polygons)
     centroids.crs = polygons.crs
