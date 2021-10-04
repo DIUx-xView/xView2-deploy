@@ -329,6 +329,8 @@ def main():
         logger.info(f'Calculated CRS overridden by passed argument: {args.destination_crs}')
     else:
         args.destination_crs = dest_crs
+    # Ensure CRS is projected. This prevents a lot of problems downstream.
+    assert args.destination_crs.is_projected, logger.critical('CRS is not projected. Please use a projected CRS')
 
     # Process DF
     pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
