@@ -1,5 +1,4 @@
 import platform
-import cv2
 import timeit
 import argparse
 import os
@@ -228,6 +227,7 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     if write_output:
+        import cv2  # Moved here to prevent import error
         pred_folder = args.output_directory / 'preds'
         logger.info('Writing results...')
         makedirs(pred_folder, exist_ok=True)
