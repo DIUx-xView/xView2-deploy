@@ -17,3 +17,5 @@ dependencies:
   - scikit-image=0.18.3
   - torchvision=0.10.1
   - tqdm=4.62.3
+  - gdal=3.3.3 # Needed for conflicts
+  - poppler=21.09 # Needed for conflicts
