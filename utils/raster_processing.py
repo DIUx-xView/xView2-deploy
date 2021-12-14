@@ -65,7 +65,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
         else:
             raster = rasterio.open(in_data[0])
             aoi = aoi.to_crs(raster.crs)
-            
+
         aoi = aoi.to_json()
 
     reproj = gdal.Warp(str(out_file),
@@ -77,6 +77,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
                        yRes=yRes,
                        outputBounds=extent,
                        cutlineDSName=aoi,
+                       cropToCutline=True,
     )
 
     return out_file
