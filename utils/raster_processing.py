@@ -60,7 +60,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
         yRes = None
 
     if aoi is not None:
-        aoi = aoi.to_json()
+        aoi = aoi.to_crs(src_crs).to_json()
 
     reproj = gdal.Warp(str(out_file),
                        in_data,
