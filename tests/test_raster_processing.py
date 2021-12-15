@@ -34,8 +34,8 @@ class TestCreateMosaic:
     @pytest.mark.parametrize('src_crs,dst_crs,extent,res,aoi,expected', [
         pytest.param(crs(26915), crs(32615), (366642.6, 4103282.4, 367871.4, 4104511.2), (.6, .6), None, 20737, id='param_no_mask'),
         pytest.param(None, None, None, None, None, 20737, id='no_param_no_mask'),
-        pytest.param(crs(26915), crs(32615), (366642.6, 4103282.4, 367871.4, 4104511.2), (.6, .6), True, 23999, id='param_mask'),
-        pytest.param(None, None, None, None, True, 23999, id='no_param_mask')
+        pytest.param(crs(26915), crs(32615), (366642.6, 4103282.4, 367871.4, 4104511.2), (.6, .6), True, 35412, id='param_mask'),
+        pytest.param(None, None, None, None, True, 23738, id='no_param_mask')
     ])
     def test_create_mosaic(self, src_crs, dst_crs, extent, res, aoi, expected, pre_df, tmp_path, aoi_df):
         out_path = tmp_path / 'out.tif'

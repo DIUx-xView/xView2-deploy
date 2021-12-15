@@ -11,6 +11,7 @@ from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 from PIL import Image
+import io
 
 
 def create_vrt(in_files, out_path, resolution='lowest'):
@@ -60,13 +61,17 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
         yRes = None
 
     if aoi is not None:
-        if src_crs:
+        if src_crs is not None:
             aoi = aoi.to_crs(src_crs)
         else:
             raster = rasterio.open(in_data[0])
             aoi = aoi.to_crs(raster.crs)
+            raster.close()
 
-        aoi = aoi.to_json()
+        with io.BytesIO() as f:
+            aoi.to_file(f, driver='GeoJSON')
+            f.seek(0)
+            aoi = f.read().decode()
 
     reproj = gdal.Warp(str(out_file),
                        in_data,
@@ -77,7 +82,9 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
                        yRes=yRes,
                        outputBounds=extent,
                        cutlineDSName=aoi,
-                       cropToCutline=True,
+                       cropToCutline=True, # Todo: Setting this to true creates huge files...the opposite of what I expect
+                       # Todo: Apparently crop will grew it the the size of the cutline dataset. So if is bigger than the raster it pads it
+                       multithread=True
     )
 
     return out_file
