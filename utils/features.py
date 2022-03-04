@@ -1,17 +1,9 @@
 import rasterio
-from rasterio.features import shapes
-from shapely.geometry import Polygon, shape
+from rasterio.features import dataset_features
+import geopandas
 
 
-def make_valid(ob):
-    # This is a hack until shapely is updated with shapely.validation.make_valid
-    if ob.is_valid:
-        return ob
-    else:
-        return ob.buffer(0)
-
-
-def create_polys(in_files):
+def create_polys(in_files, threshold=30):
 
     """
     Create palygons to use for feature creation.
@@ -26,6 +18,52 @@ def create_polys(in_files):
         transform = src.transform
 
         bnd = src.read(1)
-        polygons += list(shapes(bnd, transform=transform))
+        polygons += list(dataset_features(src, 1, geographic=False))
 
-    return [(make_valid(Polygon(shape(geom))), val) for geom, val in polygons if val > 0]
+    # Create geo dataframe
+    df = geopandas.GeoDataFrame.from_features(polygons, crs=crs)
+    df.rename(columns={'val': 'dmg'}, inplace=True)
+
+    # Fix geometry if not valid
+    df.loc[~df.geometry.is_valid, 'geometry'] = df[~df.geometry.is_valid].geometry.apply(lambda x: x.buffer(0))
+
+    # Drop damage of 0 (no building), dissolve by each damage level, and explode them back to single polygons
+    df = df.dissolve(by='dmg').reset_index().drop(index=0)
+    df = df.explode().reset_index(drop=True)
+
+    # Apply our threshold
+    df['area'] = df.geometry.area
+    df = df[df.area >= threshold]
+
+    return df.reset_index(drop=True)
+
+
+def write_output(features, out_file, layer='features'):
+    features.to_file(out_file, driver='GPKG', layer=layer)
+
+    return out_file
+
+
+def create_aoi_poly(features):
+
+    """
+    Create convex hull polygon encompassing damage polygons.
+    :param features: Polygons to create hull around.
+    :return: ARCGIS polygon.
+    """
+    hull = features.dissolve().convex_hull
+    df = geopandas.GeoDataFrame.from_features(hull, crs=features.crs)
+    return df
+
+
+def create_centroids(features):
+
+    """
+    Create centroids from polygon features.
+    :param features: Polygon features to create centroids from.
+    :return: List of ARCGIS point features.
+    """
+
+    cent_df = geopandas.GeoDataFrame.from_features(features.centroid, crs=features.crs)
+    cent_df['dmg'] = features.dmg
+    return cent_df

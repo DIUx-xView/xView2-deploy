@@ -1,190 +1,94 @@
-import random
-import string
-import subprocess
-import fiona
 import numpy as np
 import rasterio
 import rasterio.merge
 import rasterio.warp
 import rasterio.plot
 import rasterio.crs
-import handler
-import os
+from osgeo import gdal, ogr
 from rasterio import windows
-from rasterio.features import shapes
-from shapely.geometry import shape, mapping
-from shapely.geometry.polygon import Polygon
 from itertools import product
-from osgeo import gdal
 from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 from PIL import Image
+import io
 
 
-def get_reproj_res(pre_files, post_files, args):
-
-    def get_res(file, in_crs, dst_crs):
-
-        with rasterio.open(file) as src:
-
-            # See if the CRS is set in the file, else use the passed argument
-            if src.crs:
-                pre_crs = src.crs
-            else:
-                pre_crs = rasterio.crs.CRS({'init': in_crs})
-
-            # Get our transform
-            transform = rasterio.warp.calculate_default_transform(
-                pre_crs,
-                rasterio.crs.CRS({'init': dst_crs}),
-                width=src.width, height=src.height,
-                left=src.bounds.left,
-                bottom=src.bounds.bottom,
-                right=src.bounds.right,
-                top=src.bounds.top,
-                dst_width=src.width, dst_height=src.height
-            )
-
-            # Append resolution from the affine transform.
-        return (transform[0][0], -transform[0][4])
-
-    res = []
-
-    for file in pre_files:
-        # Try to skip non-geospatial images
-        try:
-            res.append(get_res(file, args.pre_crs, args.destination_crs))
-        except AttributeError:
-            pass
-
-    for file in post_files:
-        # Try to skip non-geospatial images
-        try:
-            res.append(get_res(file, args.post_crs, args.destination_crs))
-        except AttributeError:
-            pass
-
-    return (max([sublist[0] for sublist in res]),
-            max([sublist[1] for sublist in res]))
-
-
-# Todo: This should be able to be skipped by passing the res to reproject.
-def reproject(in_file, dest_file, in_crs, dest_crs, res):
-
+def create_vrt(in_files, out_path, resolution='lowest'):
     """
-    Re-project images
-    :param in_file: path to file to be reprojected
-    :param dest_file: path to write re-projected image
-    :param in_crs: crs of input file -- only valid if image does not contain crs in metadata
-    :param dest_crs: destination crs
-    :param res: tuple -- output resolution
-    :return: path to re-projected image
+    Create VRT from an iterable of filenames.
+    :param in_files: iterable of filenames
+    :param out_path: output path
+    :param resolution: string of method to determine resolution {highest|lowest|average|user}
+    :return: pathname of output file
     """
+    # Note: gdal does not accept path objects
 
-    input_raster = gdal.Open(str(in_file))
-
-    if input_raster.GetSpatialRef() is not None:
-        in_crs = input_raster.GetSpatialRef()
-
-    if in_crs is None:
-        raise ValueError('No CRS set')
-
-    gdal.Warp(str(dest_file), input_raster, dstSRS=dest_crs, srcSRS=in_crs, xRes=res[0], yRes=res[1])
-
-    return Path(dest_file).resolve()
+    files = [str(file) for file in in_files]
+    out_file = str(out_path)
+    vrt = gdal.BuildVRT(out_file, files, resolution=resolution)
+    return out_path
 
 
-def create_mosaic(in_files, out_file):
-
+def get_res(image):
     """
-    Creates mosaic from in_files.
-    :param in_files: list of paths to input files
-    :param out_file: path to output mosaic
-    :return: path to output file
+    Gets resolution of raster.
+    :param image: filename of raster
+    :return: tuple of raster resolution (x, y)
     """
-
-    # This is some hacky, dumb shit
-    # There is a limit on how many file descriptors we can have open at once
-    # So we will up that limit for a bit and then set it back
-    if os.name == 'posix':
-        import resource
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        if len(in_files) >= soft:
-            new_limit = len(in_files) * 2
-            resource.setrlimit(resource.RLIMIT_NOFILE, (new_limit, hard))
-            logger.debug(f'Hard limit changed from: {hard} to {new_limit}')
-            logger.debug(f'Soft limit: {soft}')
-    elif os.name == 'nt':
-        import win32file
-        soft = win32file._getmaxstdio()
-        if len(in_files) >= soft:
-            new_limit = len(in_files) * 2
-            win32file._setmaxstdio(new_limit)
-            logger.debug(f'Limit changed from {soft} to {new_limit}')
-
-    file_objs = []
-
-    for file in in_files:
-        src = rasterio.open(file)
-        file_objs.append(src)
-
-    mosaic, out_trans = rasterio.merge.merge(file_objs)
-
-    out_meta = src.meta.copy()
-
-    out_meta.update({"driver": "GTiff",
-                     "height": mosaic.shape[1],
-                     "width": mosaic.shape[2],
-                     "transform": out_trans
-                     }
-                    )
-
-    with rasterio.open(out_file, "w", **out_meta) as dest:
-        dest.write(mosaic)
-        logger.debug(f'Mosaic created at {out_file} with resolution: {dest.res}')
-
-    # Reset soft limit
-    if os.name == 'posix':
-        import resource
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        if len(in_files) >= soft:
-            # Todo: this doesn't seem correct
-            resource.setrlimit(resource.RLIMIT_NOFILE, (len(in_files) * 2, hard))
-    elif os.name == 'nt':
-        import win32file
-        soft = win32file._getmaxstdio()
-        if len(in_files) >= soft:
-            win32file._setmaxstdio(len(in_files) * 2)
-    # Todo: log limit reset
-
-    return Path(out_file).resolve()
+    with rasterio.open(image) as src:
+        return src.res
 
 
-def get_intersect(pre_mosaic, post_mosaic):
-
+def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, dst_res=None, aoi=None):
     """
-    Computes intersect of input two rasters.
-    :param pre_mosaic: pre mosaic
-    :param post_mosaic: post mosaic
-    :return: tuple of intersect in (left, bottom, right, top)
+    Creates mosaic from input files
+    :param in_data: iterable of input rasters
+    :param out_file: output file path
+    :param src_crs: source CRS of input rasters
+    :param dst_crs: destination CRS
+    :param extent: tuple of resolution in destination CRS (left, bottom, right, top)
+    :param dst_res: destination resolution in destination CRS units (x, y)
+    :param aoi: geodataframe of AOI(s)
+    :return: output file path
     """
+    # Note: gdal will not accept Path objects. They must be passed as strings
+    if dst_res:
+        xRes = dst_res[0],
+        yRes = dst_res[1]
+    else:
+        xRes = None
+        yRes = None
 
-    with rasterio.open(pre_mosaic) as pre:
-        pre_win = rasterio.windows.Window(0, 0, pre.width, pre.height)
-        pre_bounds = pre.window_bounds(pre_win)
-        logger.debug(f'Pre bounds: {pre_bounds}')
+    if aoi is not None:
+        if src_crs is not None:
+            aoi = aoi.to_crs(src_crs)
+        else:
+            raster = rasterio.open(in_data[0])
+            aoi = aoi.to_crs(raster.crs)
+            raster.close()
 
-    with rasterio.open(post_mosaic) as post:
-        post_win = rasterio.windows.Window(0, 0, post.width, post.height)
-        pre_win_bounds = post.window(*pre_bounds)
-        logger.debug(f'Post bounds: {post.window_bounds(post_win)}')
-        assert rasterio.windows.intersect(pre_win_bounds, post_win), logger.error('Input rasters do not intersect')
-        intersect_win = post_win.intersection(pre_win_bounds)
-        intersect = post.window_bounds(intersect_win)
-        logger.debug(f'Calculated intersect: {intersect}')
+        with io.BytesIO() as f:
+            aoi.to_file(f, driver='GeoJSON')
+            f.seek(0)
+            aoi = f.read().decode()
 
-        return intersect
+    reproj = gdal.Warp(str(out_file),
+                       in_data,
+                       srcSRS=src_crs,
+                       format='GTiff',
+                       dstSRS=dst_crs,
+                       xRes=xRes,
+                       yRes=yRes,
+                       outputBounds=extent,
+                       cutlineDSName=aoi,
+                       cropToCutline=True, # Todo: Setting this to true creates huge files...the opposite of what I expect
+                       # Todo: Apparently crop will grew it the the size of the cutline dataset. So if is bigger than the raster it pads it
+                       multithread=True
+    )
+
+    return out_file
+
 
 
 def check_dims(arr, w, h):
@@ -193,7 +97,7 @@ def check_dims(arr, w, h):
     :param arr: numpy array
     :param w: tile width
     :param h: tile height
-    :return: tile of same dimensions specified
+    :return: tile of dimensions specified
     """
 
     dims = arr.shape
@@ -207,7 +111,6 @@ def check_dims(arr, w, h):
 
 
 def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
-
     """
     Creates chips from mosaic that fall inside the intersect
     :param in_raster: mosaic to create chips from
@@ -289,7 +192,6 @@ def create_composite(base, overlay, out_file, transforms, alpha=.6):
     :return: Path object to overlay
     """
 
-    # Todo: This seems pretty inefficient...would be a good candidate for refactoring.
     mask_map_img = np.zeros((overlay.shape[0], overlay.shape[1], 4), dtype=np.uint8)
     mask_map_img[overlay == 1] = (255, 255, 255, 255 * alpha)
     mask_map_img[overlay == 2] = (229, 255, 50, 255 * alpha)

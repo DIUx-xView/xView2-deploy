@@ -3,6 +3,7 @@ __pycache__/
 weights/
 .idea/
 x_post.ph
+scratch.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

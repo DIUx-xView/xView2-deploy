@@ -1,16 +1,18 @@
 import platform
-import cv2
 import timeit
 import argparse
 import os
 import sys
 import multiprocessing as mp
+
+import geopandas
+
 mp.set_start_method('spawn', force=True)
+import utils.dataframe
 import numpy as np
-from utils import to_shapefile, raster_processing
-from utils import to_agol
-from utils import features
+from utils import raster_processing, to_agol, features, dataframe
 import rasterio.warp
+import rasterio.crs
 import torch
 #import ray
 from collections import defaultdict
@@ -24,7 +26,6 @@ from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
 from loguru import logger
 from osgeo import gdal
 import shapely
-from PIL import Image
 
 
 class Options(object):
@@ -70,19 +71,6 @@ class Files(object):
             return src.profile
 
 
-def make_staging_structure(staging_path):
-    """
-    Creates directory structure for staging.
-    :param staging_path: Staging path
-    :return: True if successful
-    """
-
-    Path(f"{staging_path}/pre").mkdir(parents=True, exist_ok=True)
-    Path(f"{staging_path}/post").mkdir(parents=True, exist_ok=True)
-
-    return True
-
-
 def make_output_structure(output_path):
 
     """
@@ -97,7 +85,8 @@ def make_output_structure(output_path):
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/shapes").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/vector").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/vrt").mkdir(parents=True, exist_ok=True)
 
     return True
 
@@ -207,7 +196,15 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
             #    import ipdb; ipdb.set_trace()
             #    debug=True
             out = model_wrapper.forward(result_dict['img'],debug=debug)
+
+            # Save prediction tensors for testing
+            # Todo: Create argument for turning on debug/trace/test data
+            # pred_path = Path('/home/ubuntu/debug/output/preds')
+            # makedirs(pred_path, exist_ok=True)
+            # torch.save(out, pred_path / f'preds_{mode}_{ii}.pt')
+
             out = out.detach().cpu()
+
             
             del result_dict['img']
 
@@ -230,7 +227,8 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
     # Making a list
     results_list = [dict(zip(results,t)) for t in zip(*results.values())]
     if write_output:
-        pred_folder = model_wrapper.pred_folder
+        import cv2  # Moved here to prevent import error
+        pred_folder = args.output_directory / 'preds'
         logger.info('Writing results...')
         makedirs(pred_folder, exist_ok=True)
         for result in tqdm(results_list, total=len(results_list)):
@@ -271,17 +269,17 @@ def parse_args():
 
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
     parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
-    parser.add_argument('--staging_directory', metavar='/path/to/staging/', type=Path, required=True, help='Directory to store intermediate working files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
     parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
-    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.')
-    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.')
-    parser.add_argument('--destination_crs', default='EPSG:4326', help='The Coordinate Reference System (CRS) for the output overlays.')
+    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
     parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
+    parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
     parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
@@ -297,56 +295,87 @@ def main():
     # Determine if items are being pushed to AGOL
     agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
-    make_staging_structure(args.staging_directory)
+    # Make file structure
     make_output_structure(args.output_directory)
 
+    # Create input CRS objects from our pre/post inputs
+    if args.pre_crs:
+        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
+    if args.post_crs:
+        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
+
+    # Retrieve files form input directories
     logger.info('Retrieving files...')
     pre_files = get_files(args.pre_directory)
     logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
     post_files = get_files(args.post_directory)
     logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
 
-    logger.info('Re-projecting...')
-    # Todo: test for overridden resolution and log a warning with calculated resolution.
-    if not args.output_resolution:
-        reproj_res = raster_processing.get_reproj_res(pre_files, post_files, args)
+    # Create VRTs
+    # Todo: Why are we doing this?
+    pre_vrt = raster_processing.create_vrt(pre_files, args.output_directory.joinpath('vrt/pre_vrt.vrt'))
+    post_vrt = raster_processing.create_vrt(post_files, args.output_directory.joinpath('vrt/post_vrt.vrt'))
+
+    # Create geopandas dataframes of raster footprints
+    # Todo: make sure we have valid rasters before proceeding
+    pre_df = utils.dataframe.make_footprint_df(pre_files)
+    post_df = utils.dataframe.make_footprint_df(post_files)
+
+    # Create destination CRS object from argument, else determine UTM zone and create CRS object
+    dest_crs = utils.dataframe.get_utm(pre_df)
+    logger.info(f'Calculated CRS: {dest_crs}')
+
+    if args.destination_crs:
+        args.destination_crs = rasterio.crs.CRS.from_string(args.destination_crs)
+        logger.info(f'Calculated CRS overridden by passed argument: {args.destination_crs}')
     else:
-        # Create tuple from passed resolution
-        reproj_res = (args.output_resolution, args.output_resolution)
+        args.destination_crs = dest_crs
+    # Ensure CRS is projected. This prevents a lot of problems downstream.
+    assert args.destination_crs.is_projected, logger.critical('CRS is not projected. Please use a projected CRS')
 
-    print(f'Re-projecting. Resolution (x, y): {reproj_res}')
+    # Process DF
+    pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
+    post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
-    # Run reprojection in parallel processes
-    manager = mp.Manager()
-    return_dict = manager.dict()
-    jobs = []
+    # Get AOI files and calculate intersect
+    if args.aoi_file:
+        aoi_df = dataframe.make_aoi_df(args.aoi_file)
+    else:
+        aoi_df = None
+    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df)
+    logger.info(f'Calculated extent: {extent}')
 
-    # Some data hacking to make it more efficient for multiprocessing
-    pre_files = [("pre", args.pre_crs, x) for x in pre_files]
-    post_files = [("post", args.post_crs, x) for x in post_files]
-    files = pre_files + post_files
+    # Calculate destination resolution
+    res = dataframe.get_max_res(pre_df, post_df)
+    logger.info(f'Calculated resolution: {res}')
 
-    # Launch multiprocessing jobs for reprojection
-    for idx, f in enumerate(files):
-        p = mp.Process(target=reproject_helper, args=(args, f, idx, return_dict, reproj_res))
-        jobs.append(p)
-        p.start()
-    for proc in jobs:
-        proc.join()
-
-    reproj = [x for x in return_dict.values() if x[1] is not None]
-    pre_reproj = [x[1] for x in reproj if x[0] == "pre"]
-    post_reproj = [x[1] for x in reproj if x[0] == "post"]
+    if args.output_resolution:
+        res = (args.output_resolution, args.output_resolution)
+        logger.info(f'Calculated resolution overridden by passed argument: {res}')
 
     logger.info("Creating pre mosaic...")
-    pre_mosaic = raster_processing.create_mosaic(pre_reproj, Path(f"{args.output_directory}/mosaics/pre.tif"))
-    logger.info("Creating post mosaic...")
-    post_mosaic = raster_processing.create_mosaic(post_reproj, Path(f"{args.output_directory}/mosaics/post.tif"))
+    pre_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in pre_df.filename],
+        Path(f"{args.output_directory}/mosaics/pre.tif"),
+        pre_df.crs,
+        args.destination_crs,
+        extent,
+        res,
+        aoi_df
+    )
 
-    extent = raster_processing.get_intersect(pre_mosaic, post_mosaic)
+    logger.info("Creating post mosaic...")
+    post_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in post_df.filename],
+        Path(f"{args.output_directory}/mosaics/post.tif"),
+        post_df.crs,
+        args.destination_crs,
+        extent,
+        res,
+        aoi_df
+    )
 
     logger.info('Chipping...')
-    # Todo: fix the use of logging with tqdm (doc pages for loguru)
     pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
     logger.debug(f'Num pre chips: {len(pre_chips)}')
     post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
@@ -543,29 +572,54 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
-    # Create damage mosaic
+    # Create damage and overlay mosaics
     logger.info("Creating damage mosaic")
     dmg_path = Path(args.output_directory) / 'dmg'
     damage_files = [x for x in get_files(dmg_path)]
-    damage_mosaic = raster_processing.create_mosaic(damage_files, Path(f"{args.output_directory}/mosaics/damage.tif"))
+    damage_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in damage_files],
+        Path(f'{args.output_directory}/mosaics/damage.tif'),
+        None,
+        None,
+        None,
+        res
+    )
 
     logger.info("Creating overlay mosaic")
     p = Path(args.output_directory) / "over"
     overlay_files = [x for x in get_files(p)]
-    overlay_mosaic = raster_processing.create_mosaic(overlay_files, Path(f"{args.output_directory}/mosaics/overlay.tif"))
+    overlay_mosaic = raster_processing.create_mosaic(
+        [str(file) for file in overlay_files],
+        Path(f'{args.output_directory}/mosaics/overlay.tif'),
+        None,
+        None,
+        None,
+        res
+    )
 
-    # Get files for creating shapefile and/or pushing to AGOL
-    polygons = features.create_polys([damage_mosaic])
-    logger.debug(f'Polygons created: {len(polygons)}')
+    # Get files for creating vector file and/or pushing to AGOL
+    logger.info("Generating vector data")
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
+    polygons.geometry = polygons.geometry.simplify(1)
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+    centroids.crs = polygons.crs
+    logger.info(f'Polygons created: {len(polygons)}')
+    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
 
-    # Create shapefile
-    logger.info('Creating shapefile')
-    to_shapefile.create_shapefile(polygons,
-                     Path(args.output_directory).joinpath('shapes') / 'damage.shp',
-                     args.destination_crs)
+    # Create output file
+    logger.info('Writing output file')
+    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
+    features.write_output(polygons, vector_out, layer='damage')
+    features.write_output(aoi, vector_out, 'aoi')
+    features.write_output(centroids, vector_out, 'centroids')
 
     if agol_push:
-        to_agol.agol_helper(args, polygons)
+        try:
+            to_agol.agol_helper(args, polygons, aoi, centroids)
+        except Exception as e:
+            logger.warning(f'AGOL push failed. Error: {e}')
 
     # Complete
     elapsed = timeit.default_timer() - t0
@@ -574,7 +628,7 @@ def main():
 
 def init():
 
-    # Todo: Fix this at some point
+    # Todo: Fix this global at some point
     global args
     args = parse_args()
 
