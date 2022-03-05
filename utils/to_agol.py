@@ -64,7 +64,7 @@ def agol_helper(args, polys, aoi, centroids):
     for k, v in sub_layers.items():
         if 'damage' in k.lower():
             sub_layer['dmg'] = v
-        elif 'cent' in k.lower():
+        elif 'centroids' in k.lower():
             sub_layer['cent'] = v
         elif 'aoi' in k.lower():
             sub_layer['aoi'] = v
