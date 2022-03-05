@@ -116,7 +116,7 @@ def agol_append(gis, src_feats, dest_fs, layer):
     feat = src_feats.features
     for batch in tqdm(batch_gen(feat, 1000)):
     # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
-        result = layer.edit_features(adds=src_feats, rollback_on_failure=True)
+        result = layer.edit_features(adds=batch, rollback_on_failure=True)
 
     logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 
