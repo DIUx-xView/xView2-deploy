@@ -1,5 +1,5 @@
 # Added by Pound 2022-03-05
-scratch.*
+scratch*
 
 __pycache__/
 .vscode/
