@@ -516,45 +516,19 @@ def main():
                     '92': [1, 1, 1],
                     '154': [0, 0, 0]}
 
-        results_dict = {}
+    elif torch.cuda.device_count() == 4:
+        # For 2-GPU machines [ Todo: Test ]
 
-        # Running inference
-        logger.info('Running inference...')
+        # Loading model
+        loc_gpus = {'34': [0, 0, 0],
+                    '50': [1, 1, 1],
+                    '92': [2, 2, 2],
+                    '154': [3, 3, 3]}
 
-        for sz in loc_gpus.keys():
-            logger.info(f'Running models of size {sz}...')
-            loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
-            cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
-
-            # Running inference
-            logger.info('Running inference...')
-
-            # Run inference in parallel processes
-            manager = mp.Manager()
-            return_dict = manager.dict()
-            jobs = []
-
-            # Launch multiprocessing jobs for different pytorch jobs
-            p1 = mp.Process(target=run_inference,
-                            args=(eval_cls_dataloader,
-                                  cls_wrapper,
-                                  args.save_intermediates,
-                                  'cls',
-                                  return_dict))
-            p2 = mp.Process(target=run_inference,
-                            args=(eval_loc_dataloader,
-                                  loc_wrapper,
-                                  args.save_intermediates,
-                                  'loc',
-                                  return_dict))
-            p1.start()
-            p2.start()
-            jobs.append(p1)
-            jobs.append(p2)
-            for proc in jobs:
-                proc.join()
-
-            results_dict.update({k: v for k, v in return_dict.items()})
+        cls_gpus = {'34': [0, 0, 0],
+                    '50': [1, 1, 1],
+                    '92': [2, 2, 2],
+                    '154': [3, 3, 3]}
 
     elif torch.cuda.device_count() == 8:
         # For 8-GPU machines
@@ -570,53 +544,54 @@ def main():
                     '92': [6, 6, 6],
                     '154': [7, 7, 7]}
 
-        results_dict = {}
+    else:
+        raise ValueError('Must use either 2, 4, or 8 GPUs.')
+
+    results_dict = {}
+
+    # Running inference
+    logger.info('Running inference...')
+
+    for sz in loc_gpus.keys():
+        logger.info(f'Running models of size {sz}...')
+        loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
+        cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+
+        # Running inference
+        logger.info('Running inference...')
+
         # Run inference in parallel processes
         manager = mp.Manager()
         return_dict = manager.dict()
         jobs = []
 
-        for sz in loc_gpus.keys():
-            logger.info(f'Adding jobs for size {sz}...')
-            loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
-            cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+        # Launch multiprocessing jobs for different pytorch jobs
+        p1 = mp.Process(target=run_inference,
+                        args=(eval_cls_dataloader,
+                              cls_wrapper,
+                              args.save_intermediates,
+                              'cls',
+                              return_dict))
+        p2 = mp.Process(target=run_inference,
+                        args=(eval_loc_dataloader,
+                              loc_wrapper,
+                              args.save_intermediates,
+                              'loc',
+                              return_dict))
+        p1.start()
 
-            # DEBUG
-            # run_inference(eval_loc_dataloader,
-            #                    loc_wrapper,
-            #                    True, # Don't write intermediate outputs
-            #                    'loc',
-            #                    return_dict)
+        if not args.bldg_polys:
+            p2.start()
 
-            # import ipdb; ipdb.set_trace()
+        jobs.append(p1)
 
-            # Launch multiprocessing jobs for different pytorch jobs
-            jobs.append(mp.Process(target=run_inference,
-                                   args=(eval_cls_dataloader,
-                                         cls_wrapper,
-                                         args.save_intermediates,  # Don't write intermediate outputs
-                                         'cls',
-                                         return_dict))
-                        )
-            jobs.append(mp.Process(target=run_inference,
-                                   args=(eval_loc_dataloader,
-                                         loc_wrapper,
-                                         args.save_intermediates,  # Don't write intermediate outputs
-                                         'loc',
-                                         return_dict))
-                        )
+        if not args.bldg_polys:
+            jobs.append(p2)
 
-        logger.info('Running inference...')
-
-        for proc in jobs:
-            proc.start()
         for proc in jobs:
             proc.join()
 
         results_dict.update({k: v for k, v in return_dict.items()})
-
-    else:
-        raise ValueError('Must use either 2 or 8 GPUs')
 
     # Quick check to make sure the samples in cls and loc are in the same order
     # assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
