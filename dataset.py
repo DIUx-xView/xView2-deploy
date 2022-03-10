@@ -1,7 +1,4 @@
-import cv2
-import os
-from skimage.io import imread
-import tifffile
+from PIL import Image
 import torch
 from torch.utils.data import Dataset
 from utils import utils
@@ -20,14 +17,14 @@ class XViewDataset(Dataset):
         self.return_geo=return_geo
         self.mode = mode
 
-
     def __len__(self):
         return(len(self.pairs))
 
     def __getitem__(self, idx, return_img=False):
         fl = self.pairs[idx]
-        pre_image = cv2.imread(str(fl.opts.in_pre_path), cv2.IMREAD_COLOR)
-        post_image = cv2.imread(str(fl.opts.in_post_path), cv2.IMREAD_COLOR)
+        pre_image = np.array(Image.open(str(fl.opts.in_pre_path)).convert('RGB'))
+        post_image = np.array(Image.open(str(fl.opts.in_post_path)).convert('RGB'))
+
         if self.mode == 'cls':
             img = np.concatenate([pre_image, post_image], axis=2)
         elif self.mode == 'loc':
@@ -48,6 +45,7 @@ class XViewDataset(Dataset):
         out_dict = {}
         out_dict['in_pre_path'] = str(fl.opts.in_pre_path)
         out_dict['in_post_path'] = str(fl.opts.in_post_path)
+        out_dict['poly_chip'] = str(fl.opts.poly_chip)
         if return_img:
             out_dict['pre_image'] = pre_image
             out_dict['post_image'] = post_image

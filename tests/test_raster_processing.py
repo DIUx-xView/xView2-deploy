@@ -88,6 +88,3 @@ class TestGetRes:
 
     def test_get_image_res(self):
         assert raster_processing.get_res('tests/data/input/pre/tile_337-9136.tif') == (0.6, 0.6)
-
-
-

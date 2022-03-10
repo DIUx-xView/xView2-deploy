@@ -14,7 +14,7 @@ from utils import raster_processing, to_agol, features, dataframe
 import rasterio.warp
 import rasterio.crs
 import torch
-#import ray
+# import ray
 from collections import defaultdict
 from os import makedirs, path
 from pathlib import Path
@@ -30,12 +30,13 @@ import shapely
 
 class Options(object):
 
-    def __init__(self, pre_path='input/pre', post_path='input/post',
+    def __init__(self, pre_path='input/pre', post_path='input/post', poly_chip=None,
                  out_loc_path='output/loc', out_dmg_path='output/dmg', out_overlay_path='output/over',
                  model_config='configs/model.yaml', model_weights='weights/weight.pth',
                  geo_profile=None, use_gpu=False, vis=False):
         self.in_pre_path = pre_path
         self.in_post_path = post_path
+        self.poly_chip = poly_chip
         self.out_loc_path = out_loc_path
         self.out_cls_path = out_dmg_path
         self.out_overlay_path = out_overlay_path
@@ -44,27 +45,34 @@ class Options(object):
         self.geo_profile = geo_profile
         self.is_use_gpu = use_gpu
         self.is_vis = vis
-        
+
+
 class Files(object):
 
-    def __init__(self, ident, pre_directory, post_directory, output_directory, pre, post):
+    def __init__(self, ident, pre_directory, post_directory, output_directory, pre, post, poly_chip):
         self.ident = ident
-        self.pre = pre_directory.joinpath(pre).resolve()
+        self.pre = pre_directory.joinpath(
+            pre).resolve()  # Todo: These don't seem right...why are we joining to the pre_directory?
         self.post = post_directory.joinpath(post).resolve()
+        if poly_chip:
+            poly_chip = poly_chip.joinpath(poly_chip).resolve()
+        self.poly_chip = poly_chip
         self.loc = output_directory.joinpath('loc').joinpath(f'{self.ident}.tif').resolve()
         self.dmg = output_directory.joinpath('dmg').joinpath(f'{self.ident}.tif').resolve()
         self.over = output_directory.joinpath('over').joinpath(f'{self.ident}.tif').resolve()
         self.profile = self.get_profile()
         self.transform = self.profile["transform"]
-        self.opts = Options(pre_path=self.pre,
-                                      post_path=self.post,
-                                      out_loc_path=self.loc,
-                                      out_dmg_path=self.dmg,
-                                      out_overlay_path=self.over,
-                                      geo_profile=self.profile,
-                                      vis=True,
-                                      use_gpu=True
-                                      )
+        self.opts = Options(
+            pre_path=self.pre,
+            post_path=self.post,
+            poly_chip=self.poly_chip,
+            out_loc_path=self.loc,
+            out_dmg_path=self.dmg,
+            out_overlay_path=self.over,
+            geo_profile=self.profile,
+            vis=True,
+            use_gpu=True
+        )
 
     def get_profile(self):
         with rasterio.open(self.pre) as src:
@@ -72,7 +80,6 @@ class Files(object):
 
 
 def make_output_structure(output_path):
-
     """
     Creates directory structure for outputs.
     :param output_path: Output path
@@ -82,6 +89,7 @@ def make_output_structure(output_path):
     Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
+    Path(f"{output_path}/chips/in_polys").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
     Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
@@ -92,20 +100,20 @@ def make_output_structure(output_path):
 
 
 def get_files(dirname, extensions=['.png', '.tif', '.jpg']):
-
     """
     Gathers list of files for processing from path recursively.
     :param dirname: path to parse
     :param extensions: extensions to match
     :return: list of files matching extensions
     """
-    dir_path = Path(dirname)
+    dir_path = Path(dirname).resolve()
 
     files = dir_path.glob('**/*')
 
     match = [path.resolve() for path in files if path.suffix in extensions]
 
     assert len(match) > 0, logger.critical(f'No image files found in {dir_path.resolve()}')
+    logger.debug(f'Retrieved {len(match)} files from {dirname}')
 
     return match
 
@@ -118,7 +126,8 @@ def reproject_helper(args, raster_tuple, procnum, return_dict, resolution):
     basename = raster_file.stem
     dest_file = args.staging_directory.joinpath('pre').joinpath(f'{basename}.tif')
     try:
-        return_dict[procnum] = (pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs, resolution))
+        return_dict[procnum] = (
+        pre_post, raster_processing.reproject(raster_file, dest_file, src_crs, args.destination_crs, resolution))
     except ValueError:
         return None
 
@@ -129,33 +138,36 @@ def postprocess_and_write(result_dict):
     :param result_dict: dictionary containing all required opts for each example
     """
     _thr = [0.38, 0.13, 0.14]
-    pred_coefs = [1.0] * 4 # not 12, b/c already took mean over 3 in each subset 
-    loc_coefs = [1.0] * 4 
+    pred_coefs = [1.0] * 4  # not 12, b/c already took mean over 3 in each subset
+    loc_coefs = [1.0] * 4
 
     preds = []
     _i = -1
-    for k,v in result_dict.items():
+    for k, v in result_dict.items():
         if 'cls' in k:
             _i += 1
             # Todo: I think the below can just be replaced by v['cls'] -- should check
             msk = v['cls'].numpy()
             preds.append(msk * pred_coefs[_i])
-    
+
     preds = np.asarray(preds).astype('float').sum(axis=0) / np.sum(pred_coefs) / 255
-    
-    loc_preds = []
-    _i = -1
-    for k,v in result_dict.items():
-        if 'loc' in k:
-            _i += 1
-            msk = v['loc'].numpy()
-            loc_preds.append(msk * loc_coefs[_i])
-    
-    loc_preds = np.asarray(loc_preds).astype('float').sum(axis=0) / np.sum(loc_coefs) / 255
-    
     msk_dmg = preds[..., 1:].argmax(axis=2) + 1
-    msk_loc = (1 * ((loc_preds > _thr[0]) | ((loc_preds > _thr[1]) & (msk_dmg > 1) & (msk_dmg < 4)) | ((loc_preds > _thr[2]) & (msk_dmg > 1)))).astype('uint8')
-    
+
+    if v['poly_chip'] == 'None':  # Must be a string or PyTorch throws an error
+        loc_preds = []
+        _i = -1
+        for k, v in result_dict.items():
+            if 'loc' in k:
+                _i += 1
+                msk = v['loc'].numpy()
+                loc_preds.append(msk * loc_coefs[_i])
+
+        loc_preds = np.asarray(loc_preds).astype('float').sum(axis=0) / np.sum(loc_coefs) / 255
+        msk_loc = (1 * ((loc_preds > _thr[0]) | ((loc_preds > _thr[1]) & (msk_dmg > 1) & (msk_dmg < 4)) | (
+                    (loc_preds > _thr[2]) & (msk_dmg > 1)))).astype('uint8')
+    else:
+        msk_loc = rasterio.open(v['poly_chip']).read(1)
+
     msk_dmg = msk_dmg * msk_loc
     _msk = (msk_dmg == 2)
     if _msk.sum() > 0:
@@ -166,8 +178,8 @@ def postprocess_and_write(result_dict):
 
     loc = msk_loc
     cls = msk_dmg
-    
-    sample_result_dict = result_dict['34loc']
+
+    sample_result_dict = result_dict['34cls']
     sample_result_dict['geo_profile'].update(dtype=rasterio.uint8)
 
     dst = rasterio.open(sample_result_dict['out_loc_path'], 'w', **sample_result_dict['geo_profile'])
@@ -188,14 +200,15 @@ def postprocess_and_write(result_dict):
 
 def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_dict=None):
     results = defaultdict(list)
-    with torch.no_grad(): # This is really important to not explode memory with gradients!
+    with torch.no_grad():  # This is really important to not explode memory with gradients!
         for ii, result_dict in tqdm(enumerate(loader), total=len(loader)):
-            #print(result_dict['in_pre_path'])
-            debug=False
-            #if '116' in result_dict['in_pre_path'][0]:
+            # print(result_dict['in_pre_path'])
+            debug = False
+            # if '116' in result_dict['in_pre_path'][0]:
             #    import ipdb; ipdb.set_trace()
             #    debug=True
-            out = model_wrapper.forward(result_dict['img'],debug=debug)
+
+            out = model_wrapper.forward(result_dict['img'], debug=debug)
 
             # Save prediction tensors for testing
             # Todo: Create argument for turning on debug/trace/test data
@@ -205,7 +218,6 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
 
             out = out.detach().cpu()
 
-            
             del result_dict['img']
 
             if 'pre_image' in result_dict:
@@ -221,11 +233,11 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
             # Do this one separately because you can't return a class from a dataloader
             result_dict['geo_profile'] = [loader.dataset.pairs[idx].opts.geo_profile
                                           for idx in result_dict['idx']]
-            for k,v in result_dict.items():
+            for k, v in result_dict.items():
                 results[k] = results[k] + list(v)
-                
+
     # Making a list
-    results_list = [dict(zip(results,t)) for t in zip(*results.values())]
+    results_list = [dict(zip(results, t)) for t in zip(*results.values())]
     if write_output:
         import cv2  # Moved here to prevent import error
         pred_folder = args.output_directory / 'preds'
@@ -234,21 +246,22 @@ def run_inference(loader, model_wrapper, write_output=False, mode='loc', return_
         for result in tqdm(results_list, total=len(results_list)):
             # TODO: Multithread this to make it more efficient/maybe eliminate it from workflow
             if mode == 'loc':
-                cv2.imwrite(path.join(pred_folder, 
-                                  result['in_pre_path'].split('/')[-1].replace('.tif', '_part1.png')),
-                                   np.array(result['loc'])[...], 
-                                   [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                cv2.imwrite(path.join(pred_folder,
+                                      result['in_pre_path'].split('/')[-1].replace('.tif', '_part1.png')),
+                            np.array(result['loc'])[...],
+                            [cv2.IMWRITE_PNG_COMPRESSION, 9])
             elif mode == 'cls':
                 cv2.imwrite(path.join(pred_folder, result['in_pre_path'].split('/')[-1].replace('.tif', '_part1.png')),
-                                      np.array(result['cls'])[..., :3], [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                            np.array(result['cls'])[..., :3], [cv2.IMWRITE_PNG_COMPRESSION, 9])
                 cv2.imwrite(path.join(pred_folder, result['in_pre_path'].split('/')[-1].replace('.tif', '_part2.png')),
-                                      np.array(result['cls'])[..., 2:], [cv2.IMWRITE_PNG_COMPRESSION, 9])    
+                            np.array(result['cls'])[..., 2:], [cv2.IMWRITE_PNG_COMPRESSION, 9])
     if return_dict is None:
         return results_list
     else:
         return_dict[f'{model_wrapper.model_size}{mode}'] = results_list
 
 
+# Todo: Move this to raster_processing
 def check_data(images):
     """
     Check that our image pairs contain useful data. Note: This only check the first band of each file.
@@ -263,32 +276,61 @@ def check_data(images):
 
     return True
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
-    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
-    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
-    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
+    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True,
+                        help='Directory containing pre-disaster imagery. This is searched recursively.')
+    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True,
+                        help='Directory containing post-disaster imagery. This is searched recursively.')
+    parser.add_argument('--bldg_polys', default=None, type=Path, required=False,
+                        help='Building polygons to clip outputs. Reduces inference time by approximately half.')
+    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True,
+                        help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
     parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
     parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
-    parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
-    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
-    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
-    parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
-    parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
-    parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
+    parser.add_argument('--num_workers', default=8,
+                        help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
+    parser.add_argument('--pre_crs',
+                        help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--post_crs',
+                        help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--destination_crs', default=None,
+                        help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
+    parser.add_argument('--dp_mode', default=False, action='store_true',
+                        help='Run models serially, but using DataParallel')
+    parser.add_argument('--output_resolution', default=None,
+                        help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
     parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
     parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
-    parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
+    parser.add_argument('--agol_feature_service', default=None,
+                        help='ArcGIS online feature service to append damage polygons.')
 
     return parser.parse_args()
 
 
+def pre_post_handler(args, pre_post):
+    if pre_post == 'pre':
+        crs_arg = args.pre_crs
+        directory = args.pre_directory
+    elif pre_post == 'post':
+        crs_arg = args.post_crs
+        directory = args.post_directory
+    else:
+        raise ValueError('pre_post must be either pre or post.')
+
+    crs = rasterio.crs.CRS.from_string(crs_arg) if crs_arg else None
+    files = get_files(directory)
+    df = utils.dataframe.make_footprint_df(files)
+
+    return files, crs, df
+
+
 @logger.catch()
 def main():
-
     t0 = timeit.default_timer()
 
     # Determine if items are being pushed to AGOL
@@ -297,28 +339,9 @@ def main():
     # Make file structure
     make_output_structure(args.output_directory)
 
-    # Create input CRS objects from our pre/post inputs
-    if args.pre_crs:
-        args.pre_crs = rasterio.crs.CRS.from_string(args.pre_crs)
-    if args.post_crs:
-        args.post_crs = rasterio.crs.CRS.from_string(args.post_crs)
-
-    # Retrieve files form input directories
-    logger.info('Retrieving files...')
-    pre_files = get_files(args.pre_directory)
-    logger.debug(f'Retrieved {len(pre_files)} pre files from {args.pre_directory}')
-    post_files = get_files(args.post_directory)
-    logger.debug(f'Retrieved {len(post_files)} pre files from {args.post_directory}')
-
-    # Create VRTs
-    # Todo: Why are we doing this?
-    pre_vrt = raster_processing.create_vrt(pre_files, args.output_directory.joinpath('vrt/pre_vrt.vrt'))
-    post_vrt = raster_processing.create_vrt(post_files, args.output_directory.joinpath('vrt/post_vrt.vrt'))
-
-    # Create geopandas dataframes of raster footprints
-    # Todo: make sure we have valid rasters before proceeding
-    pre_df = utils.dataframe.make_footprint_df(pre_files)
-    post_df = utils.dataframe.make_footprint_df(post_files)
+    # Create post df and determine crs
+    args.pre_crs, pre_files, pre_df = pre_post_handler(args, 'pre')
+    args.post_crs, post_files, post_df = pre_post_handler(args, 'post')
 
     # Create destination CRS object from argument, else determine UTM zone and create CRS object
     dest_crs = utils.dataframe.get_utm(pre_df)
@@ -329,6 +352,7 @@ def main():
         logger.info(f'Calculated CRS overridden by passed argument: {args.destination_crs}')
     else:
         args.destination_crs = dest_crs
+
     # Ensure CRS is projected. This prevents a lot of problems downstream.
     assert args.destination_crs.is_projected, logger.critical('CRS is not projected. Please use a projected CRS')
 
@@ -336,12 +360,18 @@ def main():
     pre_df = utils.dataframe.process_df(pre_df, args.destination_crs)
     post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
+    if args.bldg_polys:
+        in_poly_df = dataframe.bldg_poly_handler(args.bldg_polys)
+    else:
+        in_poly_df = None
+
     # Get AOI files and calculate intersect
     if args.aoi_file:
         aoi_df = dataframe.make_aoi_df(args.aoi_file)
     else:
         aoi_df = None
-    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df)
+
+    extent = utils.dataframe.get_intersect(pre_df, post_df, aoi_df, in_poly_df, args.destination_crs)
     logger.info(f'Calculated extent: {extent}')
 
     # Calculate destination resolution
@@ -374,17 +404,43 @@ def main():
         aoi_df
     )
 
+    if args.bldg_polys:
+        logger.info("Creating input polygon mosaic...")
+        with rasterio.open(post_mosaic) as src:
+            out_shape = (src.height, src.width)
+            out_transform = src.transform
+
+        in_poly_mosaic = dataframe.bldg_poly_process(
+            in_poly_df,
+            extent,
+            args.destination_crs,
+            Path(f"{args.output_directory}/mosaics/in_polys.tif"),
+            out_shape,
+            out_transform
+        )
+
     logger.info('Chipping...')
-    pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'), extent)
+    pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'),
+                                               extent)
     logger.debug(f'Num pre chips: {len(pre_chips)}')
-    post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'), extent)
+    post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'),
+                                                extent)
     logger.debug(f'Num post chips: {len(post_chips)}')
 
-    assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch')
+    if args.bldg_polys:
+        poly_chips = raster_processing.create_chips(in_poly_mosaic,
+                                                    args.output_directory.joinpath('chips').joinpath('in_polys'),
+                                                    extent)
+    else:
+        poly_chips = [None] * len(pre_chips)
+
+    assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch (pre/post')
+    if args.bldg_polys:
+        assert len(pre_chips) == len(poly_chips), logger.error('Chip numbers mismatch (in polys')
 
     # Defining dataset and dataloader
     pairs = []
-    for idx, (pre, post) in enumerate(zip(pre_chips, post_chips)):
+    for idx, (pre, post, poly) in enumerate(zip(pre_chips, post_chips, poly_chips)):
         if not check_data([pre, post]):
             continue
 
@@ -394,52 +450,55 @@ def main():
             args.post_directory,
             args.output_directory,
             pre,
-            post)
-            )
-    
+            post,
+            poly)
+        )
+
     eval_loc_dataset = XViewDataset(pairs, 'loc')
-    eval_loc_dataloader = DataLoader(eval_loc_dataset, 
-                                     batch_size=args.batch_size, 
-                                     num_workers=args.num_workers,
-                                     shuffle=False,
-                                     pin_memory=True)
-    
-    eval_cls_dataset = XViewDataset(pairs, 'cls')
-    eval_cls_dataloader = DataLoader(eval_cls_dataset, 
+    eval_loc_dataloader = DataLoader(eval_loc_dataset,
                                      batch_size=args.batch_size,
                                      num_workers=args.num_workers,
                                      shuffle=False,
                                      pin_memory=True)
 
+    eval_cls_dataset = XViewDataset(pairs, 'cls')
+    eval_cls_dataloader = DataLoader(eval_cls_dataset,
+                                     batch_size=args.batch_size,
+                                     num_workers=args.num_workers,
+                                     shuffle=False,
+                                     pin_memory=True)
 
+    # Todo: Carry bldg_poly to other than dp_mode
     # Todo: If on a one GPU machine (or other unsupported GPU count), force DP mode
     if args.dp_mode:
         results_dict = {}
 
         for sz in ['34', '50', '92', '154']:
             logger.info(f'Running models of size {sz}...')
+
             return_dict = {}
             loc_wrapper = XViewFirstPlaceLocModel(sz, dp_mode=args.dp_mode)
 
-            run_inference(eval_loc_dataloader,
-                                loc_wrapper,
-                                args.save_intermediates,
-                                'loc',
-                                return_dict)
+            if not args.bldg_polys:
+                run_inference(eval_loc_dataloader,
+                              loc_wrapper,
+                              args.save_intermediates,
+                              'loc',
+                              return_dict)
 
             del loc_wrapper
 
             cls_wrapper = XViewFirstPlaceClsModel(sz, dp_mode=args.dp_mode)
 
             run_inference(eval_cls_dataloader,
-                                cls_wrapper,
-                                args.save_intermediates,
-                                'cls',
-                                return_dict)
+                          cls_wrapper,
+                          args.save_intermediates,
+                          'cls',
+                          return_dict)
 
             del cls_wrapper
 
-            results_dict.update({k:v for k,v in return_dict.items()})
+            results_dict.update({k: v for k, v in return_dict.items()})
 
 
     # Todo: Make GPU partition for four GPU machines
@@ -447,15 +506,15 @@ def main():
         # For 2-GPU machines [TESTED]
 
         # Loading model
-        loc_gpus = {'34':[0,0,0],
-                    '50':[1,1,1],
-                    '92':[0,0,0],
-                    '154':[1,1,1]}
+        loc_gpus = {'34': [0, 0, 0],
+                    '50': [1, 1, 1],
+                    '92': [0, 0, 0],
+                    '154': [1, 1, 1]}
 
-        cls_gpus = {'34':[1,1,1],
-                    '50':[0,0,0],
-                    '92':[1,1,1],
-                    '154':[0,0,0]}
+        cls_gpus = {'34': [1, 1, 1],
+                    '50': [0, 0, 0],
+                    '92': [1, 1, 1],
+                    '154': [0, 0, 0]}
 
         results_dict = {}
 
@@ -478,16 +537,16 @@ def main():
             # Launch multiprocessing jobs for different pytorch jobs
             p1 = mp.Process(target=run_inference,
                             args=(eval_cls_dataloader,
-                                cls_wrapper,
-                                args.save_intermediates,
-                                'cls',
-                                return_dict))
+                                  cls_wrapper,
+                                  args.save_intermediates,
+                                  'cls',
+                                  return_dict))
             p2 = mp.Process(target=run_inference,
                             args=(eval_loc_dataloader,
-                                loc_wrapper,
-                                args.save_intermediates,
-                                'loc',
-                                return_dict))
+                                  loc_wrapper,
+                                  args.save_intermediates,
+                                  'loc',
+                                  return_dict))
             p1.start()
             p2.start()
             jobs.append(p1)
@@ -495,25 +554,24 @@ def main():
             for proc in jobs:
                 proc.join()
 
-            results_dict.update({k:v for k,v in return_dict.items()})
+            results_dict.update({k: v for k, v in return_dict.items()})
 
     elif torch.cuda.device_count() == 8:
         # For 8-GPU machines
-        # TODO: Test!
 
         # Loading model
-        loc_gpus = {'34':[0,0,0],
-                    '50':[1,1,1],
-                    '92':[2,2,2],
-                    '154':[3,3,3]}
+        loc_gpus = {'34': [0, 0, 0],
+                    '50': [1, 1, 1],
+                    '92': [2, 2, 2],
+                    '154': [3, 3, 3]}
 
-        cls_gpus = {'34':[4,4,4],
-                    '50':[5,5,5],
-                    '92':[6,6,6],
-                    '154':[7,7,7]}
+        cls_gpus = {'34': [4, 4, 4],
+                    '50': [5, 5, 5],
+                    '92': [6, 6, 6],
+                    '154': [7, 7, 7]}
 
         results_dict = {}
-         # Run inference in parallel processes
+        # Run inference in parallel processes
         manager = mp.Manager()
         return_dict = manager.dict()
         jobs = []
@@ -524,29 +582,29 @@ def main():
             cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
 
             # DEBUG
-            #run_inference(eval_loc_dataloader,
+            # run_inference(eval_loc_dataloader,
             #                    loc_wrapper,
             #                    True, # Don't write intermediate outputs
             #                    'loc',
             #                    return_dict)
 
-            #import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
 
             # Launch multiprocessing jobs for different pytorch jobs
             jobs.append(mp.Process(target=run_inference,
-                            args=(eval_cls_dataloader,
-                                cls_wrapper,
-                                args.save_intermediates, # Don't write intermediate outputs
-                                'cls',
-                                return_dict))
-                            )
+                                   args=(eval_cls_dataloader,
+                                         cls_wrapper,
+                                         args.save_intermediates,  # Don't write intermediate outputs
+                                         'cls',
+                                         return_dict))
+                        )
             jobs.append(mp.Process(target=run_inference,
-                            args=(eval_loc_dataloader,
-                                loc_wrapper,
-                                args.save_intermediates, # Don't write intermediate outputs
-                                'loc',
-                                return_dict))
-                            )
+                                   args=(eval_loc_dataloader,
+                                         loc_wrapper,
+                                         args.save_intermediates,  # Don't write intermediate outputs
+                                         'loc',
+                                         return_dict))
+                        )
 
         logger.info('Running inference...')
 
@@ -555,19 +613,19 @@ def main():
         for proc in jobs:
             proc.join()
 
-        results_dict.update({k:v for k,v in return_dict.items()})
+        results_dict.update({k: v for k, v in return_dict.items()})
 
     else:
         raise ValueError('Must use either 2 or 8 GPUs')
-       
-    # Quick check to make sure the samples in cls and loc are in the same order
-    #assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
 
-    results_list = [{k:v[i] for k,v in results_dict.items()} for i in range(len(results_dict['34cls'])) ]
+    # Quick check to make sure the samples in cls and loc are in the same order
+    # assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
+
+    results_list = [{k: v[i] for k, v in results_dict.items()} for i in range(len(results_dict['34cls']))]
 
     # Running postprocessing
     p = mp.Pool(args.n_procs)
-    #postprocess_and_write(results_list[0])
+    # postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
@@ -626,7 +684,6 @@ def main():
 
 
 def init():
-
     # Todo: Fix this global at some point
     global args
     args = parse_args()
@@ -636,14 +693,15 @@ def init():
     logger.remove()
     logger.configure(
         handlers=[
+            # Todo: Add argument to change log level
             dict(sink=sys.stderr, format="[{level}] {message}", level='INFO'),
-            dict(sink=args.output_directory / 'log'/ f'xv2.log', enqueue=True, level='DEBUG', backtrace=True),
+            dict(sink=args.output_directory / 'log' / f'xv2.log', enqueue=True, level='DEBUG', backtrace=True),
         ],
     )
     logger.opt(exception=True)
 
     # Scrub args of AGOL username and password and log them for debugging
-    clean_args = {k:v for (k,v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
+    clean_args = {k: v for (k, v) in args.__dict__.items() if k != 'agol_password' if k != 'agol_user'}
     logger.debug(f'Run from:{__file__}')
     for k, v in clean_args.items():
         logger.debug(f'{k}: {v}')
@@ -675,5 +733,4 @@ def init():
 
 
 if __name__ == '__main__':
-
     init()

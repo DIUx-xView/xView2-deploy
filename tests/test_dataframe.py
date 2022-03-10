@@ -116,7 +116,25 @@ class TestGetIntersect:
         with pytest.raises(AssertionError):
             assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi)
 
+    def test_bldg_poly(self, bldg_poly_df, post_df):
+        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+        intersect = utils.dataframe.get_intersect(bldg_poly_df, post_df, args)
+        assert intersect == (366682.8771564872, 4103280.987792889, 367872.6850531151, 4104257.0333117004)
+
 class TestGetMaxRes:
 
     def test_max_res(self, pre_df, post_df):
         assert utils.dataframe.get_max_res(pre_df, post_df) == pytest.approx((0.6000000000032912, 0.6739616404124325))
+
+
+class TestBldgPolyProcess:
+
+    def test_bldg_poly_process(self, bldg_poly_df, tmpdir):
+        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+        intersect = (366682.8771564872, 4103280.987792889, 367872.6850531151, 4104257.0333117004)
+        with rasterio.open('tests/data/output/mosaics/post.tif') as src:
+            out_shape = (src.height, src.width)
+            out_transform = src.transform
+        out_file = f'{tmpdir}/bldg_mosaic.tif'
+        test = utils.dataframe.bldg_poly_process(bldg_poly_df, intersect, args.destination_crs, out_file, out_shape, out_transform)
+        assert Path(out_file).is_file()

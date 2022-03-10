@@ -33,7 +33,8 @@ class Args:
                  agol_user='',
                  agol_password='',
                  agol_feature_service='',
-                 dp_mode=True
+                 dp_mode=True,
+                 bldg_polys=None
                  ):
 
         self.output_directory = output_directory
@@ -52,6 +53,7 @@ class Args:
         self.agol_password = agol_password
         self.agol_feature_service = agol_feature_service
         self.dp_mode = dp_mode
+        self.bldg_polys = bldg_polys
 
 
 #### Dataframe fixtures ####
@@ -70,6 +72,11 @@ def post_df():
     files = handler.get_files('tests/data/input/post')
     df = utils.dataframe.make_footprint_df(files)
     df = utils.dataframe.process_df(df, args.destination_crs)
+    return df
+
+@pytest.fixture(scope='session')
+def bldg_poly_df():
+    df = geopandas.read_file('tests/data/misc/bldg_polys.gpkg')
     return df
 
 

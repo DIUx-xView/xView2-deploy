@@ -65,3 +65,12 @@ class TestCentroids:
         polys = features.create_polys([file], threshold=0)
         test = utils.features.create_centroids(polys)
         assert len(test) == 640
+
+
+class TestRasterizePolys:
+
+    def test_rasterize_polys(self, tmp_path):
+        in_vector = '/Users/lb/Downloads/damage_small.gpkg'
+        out_file = f'{tmp_path}/footprint_raster.tif'
+        features.rasterize(in_vector, out_file, (2048, 2048))
+        assert Path(out_file).is_file()

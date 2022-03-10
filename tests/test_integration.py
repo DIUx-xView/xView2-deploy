@@ -49,6 +49,7 @@ class MockClsModel:
 TestCase = namedtuple('TestCase', ['name',
                                    'pre_directory',
                                    'post_directory',
+                                    'in_polys',
                                    'pre_crs',
                                    'post_crs',
                                    'agol_user',
@@ -72,6 +73,7 @@ TestCase = namedtuple('TestCase', ['name',
     TestCase('name',
              'pre_directory',
              'post_directory',
+             'in_polys',
              'pre_crs',
              'post_crs',
              'agol_user',
@@ -91,11 +93,33 @@ TestCase = namedtuple('TestCase', ['name',
     )
 """
 
-
+# Todo: create folder for each test case
 testcases = [
+    TestCase('bldg_polys',
+             'tests/data/input/pre',
+             'tests/data/input/post',
+             'tests/data/misc/bldg_polys.gpkg',
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             # Evaluation criteria
+             4,
+             14928,
+             26612,
+             64780,
+             50548,
+             872,
+             32615
+             ),
     TestCase('no_aoi',
              'tests/data/input/pre',
              'tests/data/input/post',
+             None,
              None,
              None,
              None,
@@ -124,6 +148,7 @@ testcases = [
              'tests/data/misc/polygon_shapefile/intersect_polys.shp',
              None,
              None,
+             None,
              # Evaluation criteria
              4,
              48631,
@@ -141,11 +166,19 @@ testcases = [
 def setup(output_path, request, monkeysession):
     # Pass args to handler
     monkeysession.setattr('argparse.ArgumentParser.parse_args', lambda x: Args(
-        pre_directory=request.param.pre_directory, post_directory=request.param.post_directory,
-        pre_crs=request.param.pre_crs, post_crs=request.param.post_crs, destination_crs=request.param.destination_crs,
-        output_resolution=request.param.destination_res, aoi_file=request.param.aoi_file,
-        agol_user=request.param.agol_user, agol_password=request.param.agol_pass,
-        agol_feature_service=request.param.agol_fs, output_directory=output_path))
+        pre_directory=request.param.pre_directory,
+        post_directory=request.param.post_directory,
+        bldg_polys=request.param.in_polys,
+        pre_crs=request.param.pre_crs,
+        post_crs=request.param.post_crs,
+        destination_crs=request.param.destination_crs,
+        output_resolution=request.param.destination_res,
+        aoi_file=request.param.aoi_file,
+        agol_user=request.param.agol_user,
+        agol_password=request.param.agol_pass,
+        agol_feature_service=request.param.agol_fs,
+        output_directory=output_path
+    ))
 
     # Mock CUDA devices
     monkeysession.setattr('torch.cuda.device_count', lambda: 2)

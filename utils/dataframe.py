@@ -144,7 +144,7 @@ def get_trans_res(src_crs, width, height, bounds, dst_crs):
     return (transform[0][0], -transform[0][4])
 
 
-def get_intersect(pre_df, post_df, args, aoi=None):
+def get_intersect(pre_df, post_df, aoi, in_poly_df, dst_crs):
     """
     Computes intersection of two dataframes and reduces extent by an optional defined AOI.
     :param pre_df: dataframe of raster footprints
@@ -153,8 +153,8 @@ def get_intersect(pre_df, post_df, args, aoi=None):
     :param aoi: AOI dataframe
     :return: tuple of calculated intersection
     """
-    pre_env = pre_df.to_crs(args.destination_crs).unary_union
-    post_env = post_df.to_crs(args.destination_crs).unary_union
+    pre_env = pre_df.to_crs(dst_crs).unary_union
+    post_env = post_df.to_crs(dst_crs).unary_union
     intersect = pre_env.intersection(post_env)
 
     logger.debug(f'Pre bounds: {pre_env.bounds}')
@@ -162,8 +162,14 @@ def get_intersect(pre_df, post_df, args, aoi=None):
 
     assert intersect.area > 0, logger.critical('Pre and post imagery do not intersect')
 
+    if in_poly_df is not None:
+        in_poly_env = in_poly_df.to_crs(dst_crs).unary_union
+        intersect = in_poly_env.intersection(intersect)
+        assert intersect.area > 0, logger.critical('In polygons do not intersect imagery')
+        logger.info('Intersection calculated with building polygons')
+
     if aoi is not None:
-        aoi = aoi.to_crs(args.destination_crs).unary_union
+        aoi = aoi.to_crs(dst_crs).unary_union
         intersect = aoi.intersection(intersect)
         assert intersect.area > 0, logger.critical('AOI does not intersect imagery')
         logger.info('Intersection calculated with AOI')
@@ -184,3 +190,53 @@ def get_max_res(pre_df, post_df):
     x = max(x[0] for x in res_list)
     y = max(x[1] for x in res_list)
     return (x, y)
+
+
+def bldg_poly_handler(poly_file):
+
+    df = geopandas.read_file(poly_file)
+
+    return df
+
+
+def bldg_poly_process(df, intersect, dest_crs, out_file, out_shape, transform):
+
+        def _clip_polys(input, mask):
+            return geopandas.clip(input, mask)
+
+        def _rasterize(in_feats, out_file, out_shape, transform, dst_crs):
+
+            image = rasterio.features.rasterize(
+                    in_feats.geometry,
+                    out_shape=out_shape,
+                    all_touched=True,
+                    transform=transform,
+                    )
+
+            assert image.sum() > 0, logger.critical('Building rasterization failed.')
+
+            with rasterio.open(
+                    out_file, 'w',
+                    driver='GTiff',
+                    dtype=rasterio.uint8,
+                    count=1,
+                    height=out_shape[0],
+                    width=out_shape[1],
+                    transform=transform,
+                    crs=dst_crs) as dst:
+                dst.write(image, indexes=1)
+
+            return out_file
+
+        poly_cords = [
+                     (intersect[0], intersect[1]),
+                     (intersect[2], intersect[1]),
+                     (intersect[2], intersect[3]),
+                     (intersect[0], intersect[3])
+                     ]
+        mask = geopandas.GeoDataFrame({'geometry': [Polygon(poly_cords)]}, crs=dest_crs)
+        df = df.to_crs(dest_crs)
+        assert mask.crs == df.crs, logger.critical('CRS mismatch')
+        df = _clip_polys(df, mask)
+        mosaic = _rasterize(df, out_file, out_shape, transform, dest_crs)
+        return mosaic
