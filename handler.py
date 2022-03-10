@@ -468,8 +468,10 @@ def main():
                                      shuffle=False,
                                      pin_memory=True)
 
-    # Todo: Carry bldg_poly to other than dp_mode
     # Todo: If on a one GPU machine (or other unsupported GPU count), force DP mode
+    if torch.cuda.device_count() == 1:
+        args.dp_mode = True
+        logger.info('Single CUDA device found. Forcing DP mode')
     if args.dp_mode:
         results_dict = {}
 

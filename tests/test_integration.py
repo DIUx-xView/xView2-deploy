@@ -95,6 +95,27 @@ TestCase = namedtuple('TestCase', ['name',
 
 # Todo: create folder for each test case
 testcases = [
+    TestCase('single_cuda_dev',
+             'tests/data/input/pre',
+             'tests/data/input/post',
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             None,
+             # Evaluation criteria
+             4,
+             14928,
+             26612,
+             64780,
+             50548,
+             872,
+             32615
+             ),
     TestCase('bldg_polys',
              'tests/data/input/pre',
              'tests/data/input/post',
