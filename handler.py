@@ -547,7 +547,7 @@ def main():
                     '154': [7, 7, 7]}
 
     else:
-        raise ValueError('Must use either 2, 4, or 8 GPUs.')
+        raise ValueError(logger.critical('Must use either 2, 4, or 8 GPUs.'))
 
     results_dict = {}
 
