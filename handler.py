@@ -472,6 +472,8 @@ def main():
     if torch.cuda.device_count() == 1:
         args.dp_mode = True
         logger.info('Single CUDA device found. Forcing DP mode')
+
+    # Inference in DP mode
     if args.dp_mode:
         results_dict = {}
 
@@ -502,98 +504,98 @@ def main():
 
             results_dict.update({k: v for k, v in return_dict.items()})
 
-
-    # Todo: Make GPU partition for four GPU machines
-    elif torch.cuda.device_count() == 2:
-        # For 2-GPU machines [TESTED]
-
-        # Loading model
-        loc_gpus = {'34': [0, 0, 0],
-                    '50': [1, 1, 1],
-                    '92': [0, 0, 0],
-                    '154': [1, 1, 1]}
-
-        cls_gpus = {'34': [1, 1, 1],
-                    '50': [0, 0, 0],
-                    '92': [1, 1, 1],
-                    '154': [0, 0, 0]}
-
-    elif torch.cuda.device_count() == 4:
-        # For 2-GPU machines [ Todo: Test ]
-
-        # Loading model
-        loc_gpus = {'34': [0, 0, 0],
-                    '50': [1, 1, 1],
-                    '92': [2, 2, 2],
-                    '154': [3, 3, 3]}
-
-        cls_gpus = {'34': [0, 0, 0],
-                    '50': [1, 1, 1],
-                    '92': [2, 2, 2],
-                    '154': [3, 3, 3]}
-
-    elif torch.cuda.device_count() == 8:
-        # For 8-GPU machines
-
-        # Loading model
-        loc_gpus = {'34': [0, 0, 0],
-                    '50': [1, 1, 1],
-                    '92': [2, 2, 2],
-                    '154': [3, 3, 3]}
-
-        cls_gpus = {'34': [4, 4, 4],
-                    '50': [5, 5, 5],
-                    '92': [6, 6, 6],
-                    '154': [7, 7, 7]}
-
     else:
-        raise ValueError(logger.critical('Must use either 2, 4, or 8 GPUs.'))
+        if torch.cuda.device_count() == 2:
+            # For 2-GPU machines [TESTED]
 
-    results_dict = {}
+            # Loading model
+            loc_gpus = {'34': [0, 0, 0],
+                        '50': [1, 1, 1],
+                        '92': [0, 0, 0],
+                        '154': [1, 1, 1]}
 
-    # Running inference
-    logger.info('Running inference...')
+            cls_gpus = {'34': [1, 1, 1],
+                        '50': [0, 0, 0],
+                        '92': [1, 1, 1],
+                        '154': [0, 0, 0]}
 
-    for sz in loc_gpus.keys():
-        logger.info(f'Running models of size {sz}...')
-        loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
-        cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
+        elif torch.cuda.device_count() == 4:
+            # For 2-GPU machines [ Todo: Test ]
+
+            # Loading model
+            loc_gpus = {'34': [0, 0, 0],
+                        '50': [1, 1, 1],
+                        '92': [2, 2, 2],
+                        '154': [3, 3, 3]}
+
+            cls_gpus = {'34': [0, 0, 0],
+                        '50': [1, 1, 1],
+                        '92': [2, 2, 2],
+                        '154': [3, 3, 3]}
+
+        elif torch.cuda.device_count() == 8:
+            # For 8-GPU machines
+
+            # Loading model
+            loc_gpus = {'34': [0, 0, 0],
+                        '50': [1, 1, 1],
+                        '92': [2, 2, 2],
+                        '154': [3, 3, 3]}
+
+            cls_gpus = {'34': [4, 4, 4],
+                        '50': [5, 5, 5],
+                        '92': [6, 6, 6],
+                        '154': [7, 7, 7]}
+
+        else:
+            raise ValueError('Unsupported number of GPUs. Please use a 1, 2, 4, or 8 GPUs.')
+
+        results_dict = {}
 
         # Running inference
         logger.info('Running inference...')
 
-        # Run inference in parallel processes
-        manager = mp.Manager()
-        return_dict = manager.dict()
-        jobs = []
+        for sz in loc_gpus.keys():
+            logger.info(f'Running models of size {sz}...')
+            loc_wrapper = XViewFirstPlaceLocModel(sz, devices=loc_gpus[sz])
+            cls_wrapper = XViewFirstPlaceClsModel(sz, devices=cls_gpus[sz])
 
-        # Launch multiprocessing jobs for different pytorch jobs
-        p1 = mp.Process(target=run_inference,
-                        args=(eval_cls_dataloader,
-                              cls_wrapper,
-                              args.save_intermediates,
-                              'cls',
-                              return_dict))
-        p2 = mp.Process(target=run_inference,
-                        args=(eval_loc_dataloader,
-                              loc_wrapper,
-                              args.save_intermediates,
-                              'loc',
-                              return_dict))
-        p1.start()
+            # Running inference
+            logger.info('Running inference...')
 
-        if not args.bldg_polys:
-            p2.start()
+            # Run inference in parallel processes
+            manager = mp.Manager()
+            return_dict = manager.dict()
+            jobs = []
 
-        jobs.append(p1)
+            # Launch multiprocessing jobs for different pytorch jobs
+            p1 = mp.Process(target=run_inference,
+                            args=(eval_cls_dataloader,
+                                  cls_wrapper,
+                                  args.save_intermediates,
+                                  'cls',
+                                  return_dict))
+            p2 = mp.Process(target=run_inference,
+                            args=(eval_loc_dataloader,
+                                  loc_wrapper,
+                                  args.save_intermediates,
+                                  'loc',
+                                  return_dict))
+            p1.start()
 
-        if not args.bldg_polys:
-            jobs.append(p2)
+            if not args.bldg_polys:
+                p2.start()
 
-        for proc in jobs:
-            proc.join()
+            jobs.append(p1)
 
-        results_dict.update({k: v for k, v in return_dict.items()})
+            if not args.bldg_polys:
+                jobs.append(p2)
+
+            for proc in jobs:
+                proc.join()
+
+            results_dict.update({k: v for k, v in return_dict.items()})
+        raise ValueError(logger.critical('Must use either 2, 4, or 8 GPUs.'))
 
     # Quick check to make sure the samples in cls and loc are in the same order
     # assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
