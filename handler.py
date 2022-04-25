@@ -614,6 +614,10 @@ def main():
     features.write_output(aoi, vector_out, 'aoi')
     features.write_output(centroids, vector_out, 'centroids')
 
+    # create geojson
+    json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
+    polygons.to_file(json_out, driver='GeoJSON')
+
     if agol_push:
         try:
             to_agol.agol_helper(args, polygons, aoi, centroids)
