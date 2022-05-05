@@ -35,7 +35,7 @@ COPY handler.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
-ENTRYPOINT [ "CUDA_VISIBLE_DEVICES=0", "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output", "--n_procs", "8", "--batch_size", "2", "--num_workers", "4" ]
+ENTRYPOINT [ "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output", "--n_procs", "8", "--batch_size", "2", "--num_workers", "4" ]
 
 # ENTRYPOINT ["python", "handler.py", \
 #     "--pre_directory", "/input/pre", \
