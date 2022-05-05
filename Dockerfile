@@ -13,6 +13,9 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 ENV PATH /opt/conda/bin:$PATH
 
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES all
+
 SHELL ["/bin/bash", "-c"]
 
 WORKDIR /work
@@ -26,7 +29,9 @@ COPY spec-file.txt /work/locks/
 # to export spec-file run: 'conda list --explicit > spec-file.txt'
 RUN conda install --file locks/spec-file.txt
 
-COPY handler.py test.py dataset.py models.py spec-file.txt /work/
+COPY utils/* /work/utils/
+COPY tests/* /work/tests/
+COPY handler.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
