@@ -1,6 +1,4 @@
-import os
 from skimage.io import imread
-import tifffile
 import torch
 from torch.utils.data import Dataset
 import numpy as np
