@@ -10,7 +10,7 @@ import geopandas
 mp.set_start_method('spawn', force=True)
 import utils.dataframe
 import numpy as np
-from utils import raster_processing, to_agol, features, dataframe
+from utils import raster_processing, features, dataframe
 import rasterio.warp
 import rasterio.crs
 import torch
@@ -279,9 +279,6 @@ def parse_args():
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
-    parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
-    parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
-    parser.add_argument('--agol_feature_service', default=None, help='ArcGIS online feature service to append damage polygons.')
 
     return parser.parse_args()
 
@@ -290,9 +287,6 @@ def parse_args():
 def main():
 
     t0 = timeit.default_timer()
-
-    # Determine if items are being pushed to AGOL
-    agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
     # Make file structure
     make_output_structure(args.output_directory)
@@ -596,7 +590,7 @@ def main():
         res
     )
 
-    # Get files for creating vector file and/or pushing to AGOL
+    # Get files for creating vector file
     logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / 'dmg')
     polygons = features.create_polys(dmg_files)
@@ -617,12 +611,6 @@ def main():
     # create geojson
     json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
     polygons.to_file(json_out, driver='GeoJSON')
-
-    if agol_push:
-        try:
-            to_agol.agol_helper(args, polygons, aoi, centroids)
-        except Exception as e:
-            logger.warning(f'AGOL push failed. Error: {e}')
 
     # Complete
     elapsed = timeit.default_timer() - t0
