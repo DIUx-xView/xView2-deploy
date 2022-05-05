@@ -26,11 +26,11 @@ COPY spec-file.txt /work/locks/
 # to export spec-file run: 'conda list --explicit > spec-file.txt'
 RUN conda install --file locks/spec-file.txt
 
-COPY . /work/
+COPY handler.py test.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
-ENTRYPOINT [ "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output" ]
+ENTRYPOINT [ "CUDA_VISIBLE_DEVICES=0", "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output", "--n_procs", "8", "--batch_size", "2", "--num_workers", "4" ]
 
 # ENTRYPOINT ["python", "handler.py", \
 #     "--pre_directory", "/input/pre", \
