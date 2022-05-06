@@ -36,14 +36,9 @@ RUN conda install --file locks/spec-file.txt
 
 COPY utils/* /work/utils/
 COPY tests/* /work/tests/
-COPY handler.py dataset.py models.py spec-file.txt /work/
+COPY test.py handler.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
-ENTRYPOINT [ "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output", "--n_procs", "8", "--batch_size", "2", "--num_workers", "4" ]
-
-# ENTRYPOINT ["python", "handler.py", \
-#     "--pre_directory", "/input/pre", \
-#     "--post_directory", "/input/post",\
-#     "--output_directory", "/output"\
-#     ]
+ENTRYPOINT [ "python", "test.py" ]
+#ENTRYPOINT [ "python", "handler.py", "--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output", "--n_procs", "8", "--batch_size", "2", "--num_workers", "4" ]
