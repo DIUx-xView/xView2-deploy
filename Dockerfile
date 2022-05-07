@@ -1,25 +1,22 @@
 FROM --platform=linux/amd64 nvidia/cuda:11.4.0-base-ubuntu18.04
 
-# Use a fixed apt-get repo to stop intermittent failures due to flaky httpredir connections,
-# as described by Lionel Chan at http://stackoverflow.com/a/37426929/5881346
-RUN sed -i "s/httpredir.debian.org/debian.uchicago.edu/" /etc/apt/sources.list && \
-    apt-get update && apt-get install -y build-essential
-    
-RUN apt-get update --fix-missing && apt-get install -y wget bzip2 ca-certificates \
-    libglib2.0-0 libxext6 libsm6 libxrender1 \
-    git mercurial subversion zip unzip
-
-RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py39_4.9.2-Linux-x86_64.sh -O ~/anaconda.sh && \
-    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
-    rm ~/anaconda.sh
-    
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
-
 ENV PATH /opt/conda/bin:$PATH
 
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES all
+RUN apt-get update --fix-missing && \
+    apt-get install -y wget bzip2 ca-certificates curl git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py39_4.9.2-Linux-x86_64.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda clean -tipsy && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
+    echo "conda activate base" >> ~/.bashrc
+
+ENV PATH /opt/conda/bin:$PATH
+ENV LD_LIBRARY_PATH /usr/local/cuda-11.4/lib64:/usr/local/cuda-11.4/extras/CUPTI/lib64:$LD_LIBRARY_PATH
 
 SHELL ["/bin/bash", "-c"]
 
@@ -30,9 +27,12 @@ WORKDIR /work
 COPY weights/* /work/weights/
 COPY zoo/* /work/zoo/
 
-COPY spec-file.txt /work/locks/
 # to export spec-file run: 'conda list --explicit > spec-file.txt'
-RUN conda install --file locks/spec-file.txt
+# BUG: attempting to install spec file to base environment breaks conda
+COPY spec-file.txt /work/locks/
+RUN conda create --name xv --file locks/spec-file.txt
+
+RUN conda activate xv
 
 COPY utils/* /work/utils/
 COPY tests/* /work/tests/
