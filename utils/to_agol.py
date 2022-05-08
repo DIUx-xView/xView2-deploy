@@ -64,7 +64,7 @@ def agol_helper(args, polys, aoi, centroids):
     for k, v in sub_layers.items():
         if 'damage' in k.lower():
             sub_layer['dmg'] = v
-        elif 'cent' in k.lower():
+        elif 'centroids' in k.lower():
             sub_layer['cent'] = v
         elif 'aoi' in k.lower():
             sub_layer['aoi'] = v
@@ -116,7 +116,7 @@ def agol_append(gis, src_feats, dest_fs, layer):
     feat = src_feats.features
     for batch in tqdm(batch_gen(feat, 1000)):
     # Todo: This should use append IAW docs: https://developers.arcgis.com/python/api-reference/arcgis.features.toc.html?highlight=edit_features#arcgis.features.FeatureLayer.edit_features
-        result = layer.edit_features(adds=src_feats, rollback_on_failure=True)
+        result = layer.edit_features(adds=batch, rollback_on_failure=True)
 
     logger.success(f'Appended {len(result.get("addResults"))} features to {layer.properties.name}')
 

@@ -611,9 +611,13 @@ def main():
     # Create output file
     logger.info('Writing output file')
     vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
-    features.write_output(polygons, vector_out, layer='damage')
+    features.write_output(polygons, vector_out, layer='damage')  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
     features.write_output(aoi, vector_out, 'aoi')
     features.write_output(centroids, vector_out, 'centroids')
+
+    # create geojson
+    json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
+    polygons.to_file(json_out, driver='GeoJSON')
 
     if agol_push:
         try:
