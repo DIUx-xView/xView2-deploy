@@ -269,9 +269,9 @@ def parse_args():
     parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
     parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
     parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
-    parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
-    parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
-    parser.add_argument('--num_workers', default=8, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
+    parser.add_argument('--n_procs', default=8, help="Number of processors for multiprocessing", type=int)
+    parser.add_argument('--batch_size', default=2, help="Number of chips to run inference on at once", type=int)
+    parser.add_argument('--num_workers', default=4, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
     parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
     parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
     parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units

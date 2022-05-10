@@ -10,36 +10,30 @@ on instance type and area to be inferred. Example instances:
     1. Todo!
 
 # Installation
-## Environment Setup
-Using Conda you can setup a virtual environment in one of two ways:
-1. Use the provided environment.yml file by issuing the following command:
-`conda create -f environment.yml` Note: this will only work on Linux systems.
-2. Create an environment from scratch with the following commands:
-   - `conda create -n xv2 python=3.7`
-   - `conda activate xv2`
-   - `conda install -c esri -c conda-forge geopandas rasterio gdal pillow opencv pytorch torchvision loguru tqdm shapely arcgis pytest scikit-image`
-   - `conda update -c conda-forge -c esri  --all`
-   - `conda deactivate`
-   - `conda activate xv2`
+## Install from source
+**Note**: Only tested on Linux systems.
+1. Close repository `git clone https://github.com/fdny-imt/xView2_FDNY.git`.
+2. Create Conda environment by issuing the following command: `conda create --name xv2 --file spec-file.txt`.
+3. Activate conda environment by issuing: `conda activate xv2`.
+## Docker
+
 
 # Usage
 |Argument|Required|Default|Help
 |---|---|---|---|
-|--pre-directory|Yes|None|Directory containing pre-disaster imagery. This is searched recursively.|
-|--post-directory|Yes|None|Directory containing post-disaster imagery. This is searched recursively.|
-|--is_use_gpu|Sort of (CPU inference is wildly impractical)|False|If True, use GPUs|
-|--num_procs|Yes|4|Number of processors for multiprocessing|
-|--batch_size|Yes|16|Number of chips to run inference on at once|
-|--num_workers|Yes|8|Number of workers loading data into RAM. Recommend 4 * num_gpu|
+|--pre_directory|Yes|None|Directory containing pre-disaster imagery. This is searched recursively.|
+|--post_directory|Yes|None|Directory containing post-disaster imagery. This is searched recursively.|
+|--output_directory|Yes|None|Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.|
+|--num_procs|Yes|8|Number of processors for multiprocessing|
+|--batch_size|Yes|2|Number of chips to run inference on at once|
+|--num_workers|Yes|4|Number of workers loading data into RAM. Recommend 4 * num_gpu|
 |--pre_crs|No|None|The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.|
 |--post_crs|No|None|The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.|
 |--destination_crs|No|EPSG:4326|The Coordinate Reference System (CRS) for the output overlays.|
+|--output_resolution|No|None|Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.|
 |--dp_mode|No|False|Run models serially, but using DataParallel|
 |--save_intermediates|No|False|Store intermediate runfiles|
 |--aoi_file|No|None|Shapefile or GeoJSON file of AOI polygons
-|--agol_user|No|None|ArcGIS online username|
-|--agol_password|No|None|ArcGIS online password|
-|--agol_feature_service|No|None|ArcGIS online feature service to append damage polygons.|
 
 # Example invocation for damage assessment
 On 2 GPUs:
