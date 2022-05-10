@@ -565,6 +565,28 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
+    # Get files for creating vector file
+    logger.info("Generating vector data")
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
+    polygons.geometry = polygons.geometry.simplify(1)
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+    centroids.crs = polygons.crs
+    logger.info(f'Polygons created: {len(polygons)}')
+    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
+
+    # Create output file
+    logger.info('Writing output file')
+    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
+    features.write_output(polygons, vector_out, layer='damage')  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
+    features.write_output(aoi, vector_out, 'aoi')
+    features.write_output(centroids, vector_out, 'centroids')
+
+    # create geojson
+    json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
+    polygons.to_file(json_out, driver='GeoJSON')
+
     # Create damage and overlay mosaics
     logger.info("Creating damage mosaic")
     dmg_path = Path(args.output_directory) / 'dmg'
@@ -589,28 +611,6 @@ def main():
         None,
         res
     )
-
-    # Get files for creating vector file
-    logger.info("Generating vector data")
-    dmg_files = get_files(Path(args.output_directory) / 'dmg')
-    polygons = features.create_polys(dmg_files)
-    polygons.geometry = polygons.geometry.simplify(1)
-    aoi = features.create_aoi_poly(polygons)
-    centroids = features.create_centroids(polygons)
-    centroids.crs = polygons.crs
-    logger.info(f'Polygons created: {len(polygons)}')
-    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
-
-    # Create output file
-    logger.info('Writing output file')
-    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
-    features.write_output(polygons, vector_out, layer='damage')  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
-    features.write_output(aoi, vector_out, 'aoi')
-    features.write_output(centroids, vector_out, 'centroids')
-
-    # create geojson
-    json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
-    polygons.to_file(json_out, driver='GeoJSON')
 
     # Complete
     elapsed = timeit.default_timer() - t0

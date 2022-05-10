@@ -24,7 +24,7 @@ on instance type and area to be inferred. Example instances:
 |--pre_directory|Yes|None|Directory containing pre-disaster imagery. This is searched recursively.|
 |--post_directory|Yes|None|Directory containing post-disaster imagery. This is searched recursively.|
 |--output_directory|Yes|None|Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.|
-|--num_procs|Yes|8|Number of processors for multiprocessing|
+|--n_procs|Yes|8|Number of processors for multiprocessing|
 |--batch_size|Yes|2|Number of chips to run inference on at once|
 |--num_workers|Yes|4|Number of workers loading data into RAM. Recommend 4 * num_gpu|
 |--pre_crs|No|None|The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.|
