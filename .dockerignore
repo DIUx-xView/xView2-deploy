@@ -5,8 +5,6 @@
 !models.py
 !spec-file.txt
 
-!test.py
-
 !weights/*
 !zoo/*
 !utils/*

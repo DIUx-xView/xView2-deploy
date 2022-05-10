@@ -31,6 +31,14 @@ WORKDIR /work
 COPY weights/* /work/weights/
 COPY zoo/* /work/zoo/
 
+# download backbone weights
+# TODO: Move this to S3 bucket: S3 bucket name: xv2-weights
+RUN mkdir --parents /root/.cache/torch/hub/checkpoints/
+RUN wget --quiet https://download.pytorch.org/models/resnet34-b627a593.pth -O /root/.cache/torch/hub/checkpoints/resnet34-b627a593.pth
+RUN wget --quiet http://data.lip6.fr/cadene/pretrainedmodels/se_resnext50_32x4d-a260b3a4.pth -O /root/.cache/torch/hub/checkpoints/se_resnext50_32x4d-a260b3a4.pth
+RUN wget --quiet http://data.lip6.fr/cadene/pretrainedmodels/dpn92_extra-b040e4a9b.pth -O /root/.cache/torch/hub/checkpoints/dpn92_extra-b040e4a9b.pth
+RUN wget --quiet http://data.lip6.fr/cadene/pretrainedmodels/senet154-c7b49a05.pth -O /root/.cache/torch/hub/checkpoints/senet154-c7b49a05.pth
+
 # to export spec-file run: 'conda list --explicit > spec-file.txt'
 # BUG: attempting to install spec file to base environment breaks conda
 COPY spec-file.txt /work/locks/
@@ -41,7 +49,7 @@ RUN export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 COPY utils/* /work/utils/
 COPY tests/* /work/tests/
-COPY test.py handler.py dataset.py models.py spec-file.txt /work/
+COPY handler.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
