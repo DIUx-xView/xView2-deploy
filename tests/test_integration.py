@@ -226,7 +226,7 @@ class TestInput:
         data is incorrect and expect almost everything else to fail.
         :return:
         """
-        assert len(list(Path(path).glob('**/*'))) == expected
+        assert len(list(Path(path).glob('**/*.tif'))) == expected
 
 
 @pytest.mark.usefixtures('setup')
@@ -239,6 +239,7 @@ class TestIntegration:
         ('mosaics/damage.tif'),
         ('mosaics/overlay.tif'),
         ('vector/damage.gpkg'),
+        ('vector/damage.geojson'),
         ('log/xv2.log')
     ])
     def test_is_files(self, setup, output_path, file):

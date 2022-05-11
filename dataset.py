@@ -1,8 +1,14 @@
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
-from utils import utils
 import numpy as np
+from PIL import Image
+
+def preprocess_inputs(x):
+    x = np.asarray(x, dtype='float32')
+    x /= 127
+    x -= 1
+    return x
 
 class XViewDataset(Dataset):
     "Dataset for xView"
@@ -24,7 +30,6 @@ class XViewDataset(Dataset):
         fl = self.pairs[idx]
         pre_image = np.array(Image.open(str(fl.opts.in_pre_path)).convert('RGB'))
         post_image = np.array(Image.open(str(fl.opts.in_post_path)).convert('RGB'))
-
         if self.mode == 'cls':
             img = np.concatenate([pre_image, post_image], axis=2)
         elif self.mode == 'loc':
@@ -32,7 +37,7 @@ class XViewDataset(Dataset):
         else:
             raise ValueError('Incorrect mode!  Must be cls or loc')
             
-        img = utils.preprocess_inputs(img)
+        img = preprocess_inputs(img)
 
         inp = []
         inp.append(img)

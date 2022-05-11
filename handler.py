@@ -10,7 +10,7 @@ import geopandas
 mp.set_start_method('spawn', force=True)
 import utils.dataframe
 import numpy as np
-from utils import raster_processing, to_agol, features, dataframe
+from utils import raster_processing, features, dataframe
 import rasterio.warp
 import rasterio.crs
 import torch
@@ -280,34 +280,19 @@ def check_data(images):
 def parse_args():
     parser = argparse.ArgumentParser(description='Create arguments for xView 2 handler.')
 
-    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True,
-                        help='Directory containing pre-disaster imagery. This is searched recursively.')
-    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True,
-                        help='Directory containing post-disaster imagery. This is searched recursively.')
-    parser.add_argument('--bldg_polys', default=None, type=Path, required=False,
-                        help='Building polygons to clip outputs. Reduces inference time by approximately half.')
-    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True,
-                        help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
-    parser.add_argument('--n_procs', default=4, help="Number of processors for multiprocessing", type=int)
-    parser.add_argument('--batch_size', default=16, help="Number of chips to run inference on at once", type=int)
-    parser.add_argument('--num_workers', default=8,
-                        help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
-    parser.add_argument('--pre_crs',
-                        help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
-    parser.add_argument('--post_crs',
-                        help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
-    parser.add_argument('--destination_crs', default=None,
-                        help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
-    parser.add_argument('--dp_mode', default=False, action='store_true',
-                        help='Run models serially, but using DataParallel')
-    parser.add_argument('--output_resolution', default=None,
-                        help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
+    parser.add_argument('--pre_directory', metavar='/path/to/pre/files/', type=Path, required=True, help='Directory containing pre-disaster imagery. This is searched recursively.')
+    parser.add_argument('--post_directory', metavar='/path/to/post/files/', type=Path, required=True, help='Directory containing post-disaster imagery. This is searched recursively.')
+    parser.add_argument('--output_directory', metavar='/path/to/output/', type=Path, required=True, help='Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.')
+    parser.add_argument('--n_procs', default=8, help="Number of processors for multiprocessing", type=int)
+    parser.add_argument('--batch_size', default=2, help="Number of chips to run inference on at once", type=int)
+    parser.add_argument('--num_workers', default=4, help="Number of workers loading data into RAM. Recommend 4 * num_gpu", type=int)
+    parser.add_argument('--pre_crs', help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--post_crs', help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.')
+    parser.add_argument('--destination_crs', default=None, help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.')  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
+    parser.add_argument('--dp_mode', default=False, action='store_true', help='Run models serially, but using DataParallel')
+    parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
-    parser.add_argument('--agol_user', default=None, help='ArcGIS online username')
-    parser.add_argument('--agol_password', default=None, help='ArcGIS online password')
-    parser.add_argument('--agol_feature_service', default=None,
-                        help='ArcGIS online feature service to append damage polygons.')
 
     return parser.parse_args()
 
@@ -332,9 +317,6 @@ def pre_post_handler(args, pre_post):
 @logger.catch()
 def main():
     t0 = timeit.default_timer()
-
-    # Determine if items are being pushed to AGOL
-    agol_push = to_agol.agol_arg_check(args.agol_user, args.agol_password, args.agol_feature_service)
 
     # Make file structure
     make_output_structure(args.output_directory)
@@ -608,6 +590,28 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
+    # Get files for creating vector file
+    logger.info("Generating vector data")
+    dmg_files = get_files(Path(args.output_directory) / 'dmg')
+    polygons = features.create_polys(dmg_files)
+    polygons.geometry = polygons.geometry.simplify(1)
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+    centroids.crs = polygons.crs
+    logger.info(f'Polygons created: {len(polygons)}')
+    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
+
+    # Create output file
+    logger.info('Writing output file')
+    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
+    features.write_output(polygons, vector_out, layer='damage')  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
+    features.write_output(aoi, vector_out, 'aoi')
+    features.write_output(centroids, vector_out, 'centroids')
+
+    # create geojson
+    json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
+    polygons.to_file(json_out, driver='GeoJSON')
+
     # Create damage and overlay mosaics
     logger.info("Creating damage mosaic")
     dmg_path = Path(args.output_directory) / 'dmg'
@@ -632,30 +636,6 @@ def main():
         None,
         res
     )
-
-    # Get files for creating vector file and/or pushing to AGOL
-    logger.info("Generating vector data")
-    dmg_files = get_files(Path(args.output_directory) / 'dmg')
-    polygons = features.create_polys(dmg_files)
-    polygons.geometry = polygons.geometry.simplify(1)
-    aoi = features.create_aoi_poly(polygons)
-    centroids = features.create_centroids(polygons)
-    centroids.crs = polygons.crs
-    logger.info(f'Polygons created: {len(polygons)}')
-    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
-
-    # Create output file
-    logger.info('Writing output file')
-    vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
-    features.write_output(polygons, vector_out, layer='damage')
-    features.write_output(aoi, vector_out, 'aoi')
-    features.write_output(centroids, vector_out, 'centroids')
-
-    if agol_push:
-        try:
-            to_agol.agol_helper(args, polygons, aoi, centroids)
-        except Exception as e:
-            logger.warning(f'AGOL push failed. Error: {e}')
 
     # Complete
     elapsed = timeit.default_timer() - t0
