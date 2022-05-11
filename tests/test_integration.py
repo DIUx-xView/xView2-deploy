@@ -172,7 +172,7 @@ class TestInput:
         data is incorrect and expect almost everything else to fail.
         :return:
         """
-        assert len(list(Path(path).glob('**/*'))) == expected
+        assert len(list(Path(path).glob('**/*.tif'))) == expected
 
 
 @pytest.mark.usefixtures('setup')
