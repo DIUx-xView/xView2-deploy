@@ -73,7 +73,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
             f.seek(0)
             aoi = f.read().decode()
 
-    temp_out = Path(out_file.stem + '_temp.tif')
+    temp_out = out_file.with_name(f'{out_file.stem}_temp.tif')
 
     reproj = gdal.Warp(str(temp_out),
                        in_data,
@@ -90,7 +90,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
     )
 
     # Remove alpha channel
-    gdal.Translate(str(out_file), str(temp_out), bandList=[1, 2, 3])
+    gdal.Translate(str(out_file), reproj, bandList=[1, 2, 3])
     temp_out.unlink()
 
     return out_file

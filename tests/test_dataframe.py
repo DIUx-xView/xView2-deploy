@@ -110,16 +110,21 @@ class TestGetIntersect:
         with pytest.raises(AssertionError):
             assert utils.dataframe.get_intersect(pre_df, no_intersect_df, args)
 
-    def test_aoi_intersect_fail(self, pre_df, post_df, aoi_df):
+    def test_int_aoi_intersect(self, pre_df, post_df, aoi_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         aoi = aoi_df[aoi_df.name.isin(['outside'])]
         with pytest.raises(AssertionError):
             assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi)
 
-    def test_bldg_poly(self, bldg_poly_df, post_df):
+    def test_int_bldg_poly(self, pre_df, bldg_poly_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        intersect = utils.dataframe.get_intersect(bldg_poly_df, post_df, args)
-        assert intersect == (366682.8771564872, 4103280.987792889, 367872.6850531151, 4104257.0333117004)
+        intersect = utils.dataframe.get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=bldg_poly_df)
+        assert intersect == pytest.approx((366752.26574140263, 4103766.5432614237, 367241.3084387472, 4104183.0162179894), abs=1)
+
+    def test_int_no_aoi_no_bldgs(self, pre_df, bldg_poly_df, post_df):
+        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+        intersect = utils.dataframe.get_intersect(pre_df, post_df, args)
+        assert intersect == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
 
 class TestGetMaxRes:
 

@@ -311,7 +311,7 @@ def pre_post_handler(args, pre_post):
     files = get_files(directory)
     df = utils.dataframe.make_footprint_df(files)
 
-    return files, crs, df
+    return df, crs
 
 
 @logger.catch()
@@ -322,8 +322,8 @@ def main():
     make_output_structure(args.output_directory)
 
     # Create post df and determine crs
-    args.pre_crs, pre_files, pre_df = pre_post_handler(args, 'pre')
-    args.post_crs, post_files, post_df = pre_post_handler(args, 'post')
+    pre_df, args.pre_crs = pre_post_handler(args, 'pre')
+    post_df, args.post_crs = pre_post_handler(args, 'post')
 
     # Create destination CRS object from argument, else determine UTM zone and create CRS object
     dest_crs = utils.dataframe.get_utm(pre_df)
@@ -353,7 +353,7 @@ def main():
     else:
         aoi_df = None
 
-    extent = utils.dataframe.get_intersect(pre_df, post_df, aoi_df, in_poly_df, args.destination_crs)
+    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df, in_poly_df)
     logger.info(f'Calculated extent: {extent}')
 
     # Calculate destination resolution
