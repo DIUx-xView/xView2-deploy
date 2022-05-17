@@ -74,6 +74,7 @@ def create_mosaic(in_data, out_file, src_crs=None, dst_crs=None, extent=None, ds
             aoi = f.read().decode()
 
     temp_out = out_file.with_name(f'{out_file.stem}_temp.tif')
+    # temp_out = out_file.with_stem(out_file.stem + '_temp') # Todo: Requires Python >= 3.9
 
     reproj = gdal.Warp(str(temp_out),
                        in_data,
