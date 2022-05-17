@@ -293,6 +293,7 @@ def parse_args():
     parser.add_argument('--output_resolution', default=None, help='Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.')
     parser.add_argument('--save_intermediates', default=False, action='store_true', help='Store intermediate runfiles')
     parser.add_argument('--aoi_file', default=None, help='Shapefile or GeoJSON file of AOI polygons')
+    parser.add_argument('--bldg_polys', default=None, help='Shapefile or GeoJSON file of input building footprints')
 
     return parser.parse_args()
 
@@ -343,13 +344,13 @@ def main():
     post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
     if args.bldg_polys:
-        in_poly_df = dataframe.bldg_poly_handler(args.bldg_polys)
+        in_poly_df = dataframe.bldg_poly_handler(args.bldg_polys).to_crs(args.destination_crs)
     else:
         in_poly_df = None
 
     # Get AOI files and calculate intersect
     if args.aoi_file:
-        aoi_df = dataframe.make_aoi_df(args.aoi_file)
+        aoi_df = dataframe.make_aoi_df(args.aoi_file).to_crs(args.destination_crs)
     else:
         aoi_df = None
 
@@ -413,12 +414,13 @@ def main():
         poly_chips = raster_processing.create_chips(in_poly_mosaic,
                                                     args.output_directory.joinpath('chips').joinpath('in_polys'),
                                                     extent)
+
+        assert len(pre_chips) == len(poly_chips), logger.error('Chip numbers mismatch (in polys')
     else:
         poly_chips = [None] * len(pre_chips)
 
     assert len(pre_chips) == len(post_chips), logger.error('Chip numbers mismatch (pre/post')
-    if args.bldg_polys:
-        assert len(pre_chips) == len(poly_chips), logger.error('Chip numbers mismatch (in polys')
+        
 
     # Defining dataset and dataloader
     pairs = []
@@ -502,7 +504,7 @@ def main():
                         '154': [0, 0, 0]}
 
         elif torch.cuda.device_count() == 4:
-            # For 2-GPU machines [ Todo: Test ]
+            # For 4-GPU machines [ Todo: Test ]
 
             # Loading model
             loc_gpus = {'34': [0, 0, 0],
@@ -577,6 +579,7 @@ def main():
                 proc.join()
 
             results_dict.update({k: v for k, v in return_dict.items()})
+
         raise ValueError(logger.critical('Must use either 2, 4, or 8 GPUs.'))
 
     # Quick check to make sure the samples in cls and loc are in the same order
@@ -594,10 +597,16 @@ def main():
     logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / 'dmg')
     polygons = features.create_polys(dmg_files)
+
+    if args.bldg_polys:
+        polygons = in_poly_df.overlay(polygons, how='identity')  # This is probably not necessary as we pass the polys directly to the cls model
+        polygons = polygons.sjoin(in_poly_df, how='left')[['dmg', 'filename', 'index_right', 'geometry']] # attaches bldg index to dmg for dissolving
+        polygons = polygons.groupby('index_right', as_index=False).apply(features.weight_dmg).reset_index()
+
     polygons.geometry = polygons.geometry.simplify(1)
     aoi = features.create_aoi_poly(polygons)
     centroids = features.create_centroids(polygons)
-    centroids.crs = polygons.crs
+
     logger.info(f'Polygons created: {len(polygons)}')
     logger.info(f"AOI hull area: {aoi.geometry[0].area}")
 
