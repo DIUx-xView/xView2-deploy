@@ -49,13 +49,10 @@ class MockClsModel:
 TestCase = namedtuple('TestCase', ['name',
                                    'pre_directory',
                                    'post_directory',
-                                    'in_polys',
+                                   'in_polys',
+                                   'aoi_file',
                                    'pre_crs',
                                    'post_crs',
-                                   'agol_user',
-                                   'agol_pass',
-                                   'agol_fs',
-                                   'aoi_file',
                                    'destination_crs',
                                    'destination_res',
                                    # Evaluation criteria
@@ -69,118 +66,93 @@ TestCase = namedtuple('TestCase', ['name',
                                    ])
 
 
-""" Cheat template for test cases
-    TestCase('name',
-             'pre_directory',
-             'post_directory',
-             'in_polys',
-             'pre_crs',
-             'post_crs',
-             'agol_user',
-             'agol_pass',
-             'agol_fs',
-             'aoi_file',
-             'destination_crs',
-             'destination_res',
-             # Evaluation criteria
-             chip_num,
-             pre_checksum,
-             post_checksum,
-             damage_checksum,
-             overlay_checksum,
-             damage_polys,
-             expected_epsg
+""" # template for test cases
+
+    TestCase(
+        # Test name
+        name,
+
+        # Setup args
+        pre_directory,
+        post_directory,
+        in_polys,
+        aoi_file,
+        pre_crs,
+        post_crs,
+        destination_crs,
+        destination_res,
+
+        # Evaluation criteria
+        chip_num,
+        pre_checksum,
+        post_checksum,
+        damage_checksum,
+        overlay_checksum,
+        damage_polys,
+        expected_epsg
     )
 """
 
-# Todo: create folder for each test case
-testcases = [
-    TestCase('single_cuda_dev',
-             'tests/data/input/pre',
-             'tests/data/input/post',
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             # Evaluation criteria
-             4,
-             14928,
-             26612,
-             64780,
-             50548,
-             872,
-             32615
-             ),
-    TestCase('bldg_polys',
-             'tests/data/input/pre',
-             'tests/data/input/post',
-             'tests/data/misc/bldg_polys.gpkg',
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             # Evaluation criteria
-             4,
-             14928,
-             26612,
-             64780,
-             50548,
-             872,
-             32615
-             ),
-    TestCase('no_aoi',
-             'tests/data/input/pre',
-             'tests/data/input/post',
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             None,
-             # Evaluation criteria
-             4,
-             14928,
-             26612,
-             64780,
-             50548,
-             872,
-             32615
-             ),
-    TestCase('aoi',
-             'tests/data/input/pre',
-             'tests/data/input/post',
-             None,
-             None,
-             None,
-             None,
-             None,
-             'tests/data/misc/polygon_shapefile/intersect_polys.shp',
-             None,
-             None,
-             None,
-             # Evaluation criteria
-             4,
-             48631,
-             15106,
-             64780,
-             33874,
-             872,
-             32615
-    )
 
-]
+testcases = [
+    TestCase(
+        'integration_bldg_polys_no_aoi',
+        'tests/data/input/pre',
+        'tests/data/input/post',
+        'tests/data/misc/bldg_polys.gpkg',
+        None,
+        None,
+        None,
+        None,
+        None,
+        # Evaluation criteria
+        1,
+        14928,
+        26612,
+        64780,
+        50548,
+        77,
+        32615
+        ),
+    TestCase(
+        'integration_no_polys_no_aoi',
+        'tests/data/input/pre',
+        'tests/data/input/post',
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        # Evaluation criteria
+        4,
+        14928,
+        26612,
+        64780,
+        50548,
+        872,
+        32615
+        ),
+    TestCase(
+        'integration_no_poly_aoi',
+        'tests/data/input/pre',
+        'tests/data/input/post',
+        None,
+        'tests/data/misc/polygon_shapefile/intersect_polys.shp',
+        None,
+        None,
+        None,
+        None,
+        # Evaluation criteria
+        4,
+        48631,
+        15106,
+        64780,
+        33874,
+        872,
+        32615
+    )
+ ]
 
 
 @pytest.fixture(scope='class', params=testcases, ids=[test.name for test in testcases])
@@ -195,9 +167,6 @@ def setup(output_path, request, monkeysession):
         destination_crs=request.param.destination_crs,
         output_resolution=request.param.destination_res,
         aoi_file=request.param.aoi_file,
-        agol_user=request.param.agol_user,
-        agol_password=request.param.agol_pass,
-        agol_feature_service=request.param.agol_fs,
         output_directory=output_path
     ))
 

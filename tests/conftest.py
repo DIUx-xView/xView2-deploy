@@ -18,41 +18,35 @@ def output_path(tmp_path_factory, request):
 class Args:
 
     def __init__(self,
-                 output_directory=None,
                  pre_directory='tests/data/input/pre',
                  post_directory='tests/data/input/post',
+                 output_directory=None,
                  n_procs=4,
                  batch_size=1,
                  num_workers=8,
                  pre_crs=None,
                  post_crs=None,
                  destination_crs=None,
+                 dp_mode=True,
                  output_resolution=None,
                  save_intermediates=False,
                  aoi_file = '',
-                 agol_user='',
-                 agol_password='',
-                 agol_feature_service='',
-                 dp_mode=True,
                  bldg_polys=None
                  ):
 
-        self.output_directory = output_directory
         self.pre_directory = Path(pre_directory)
         self.post_directory = Path(post_directory)
+        self.output_directory = output_directory
         self.n_procs = n_procs
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pre_crs = pre_crs
         self.post_crs = post_crs
         self.destination_crs = destination_crs
+        self.dp_mode = dp_mode
         self.output_resolution = output_resolution
         self.save_intermediates = save_intermediates
         self.aoi_file = aoi_file
-        self.agol_user = agol_user
-        self.agol_password = agol_password
-        self.agol_feature_service = agol_feature_service
-        self.dp_mode = dp_mode
         self.bldg_polys = bldg_polys
 
 

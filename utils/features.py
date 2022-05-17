@@ -67,3 +67,15 @@ def create_centroids(features):
     cent_df = geopandas.GeoDataFrame.from_features(features.centroid, crs=features.crs)
     cent_df['dmg'] = features.dmg
     return cent_df
+
+
+def weight_dmg(features):
+
+    poly = features.geometry.unary_union
+
+    features.loc[features.dmg.isnull(), 'dmg'] = 1
+    features['dmg'] = round(((features.geometry.area * features.dmg) / poly.area), ndigits=1)
+    
+    features = features.dissolve(by='index_right', aggfunc=sum).reset_index(drop=True)
+
+    return features
