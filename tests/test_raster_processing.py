@@ -46,6 +46,16 @@ class TestCreateMosaic:
         with rasterio.open(test) as src:
             assert src.checksum(1) == expected
 
+    @pytest.mark.parametrize('in_data', [
+        pytest.param(['tests/data/misc/input_raster_w_alpha.tif'],  id='single_file_alpha'),
+        pytest.param(['tests/data/misc/input_raster_w_alpha.tif', 'tests/data/input/pre/tile_337-10160.tif'], id='one_alpha_one_no_alpha')
+    ])
+    def test_remove_alpha(self, tmp_path, in_data):
+        out_path = tmp_path / 'out.tif'
+        test = raster_processing.create_mosaic(in_data, out_path)
+        with rasterio.open(test) as src:
+            assert src.count == 3
+
 class TestCreatChips:
 
     def test_create_chips(self, tmp_path):
