@@ -354,8 +354,8 @@ def main():
     else:
         aoi_df = None
 
-    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df, in_poly_df)
-    logger.info(f'Calculated extent: {extent}')
+    extent = utils.dataframe.get_intersect(pre_df, post_df, args, aoi_df, in_poly_df) # Todo: should probably pass back the shape and call the bounds when needed
+    logger.info(f'Calculated extent: {extent.bounds}')
 
     # Calculate destination resolution
     res = dataframe.get_max_res(pre_df, post_df)
@@ -371,7 +371,7 @@ def main():
         Path(f"{args.output_directory}/mosaics/pre.tif"),
         pre_df.crs,
         args.destination_crs,
-        extent,
+        extent.bounds,
         res,
         aoi_df
     )
@@ -382,7 +382,7 @@ def main():
         Path(f"{args.output_directory}/mosaics/post.tif"),
         post_df.crs,
         args.destination_crs,
-        extent,
+        extent.bounds,
         res,
         aoi_df
     )
@@ -395,7 +395,7 @@ def main():
 
         in_poly_mosaic = dataframe.bldg_poly_process(
             in_poly_df,
-            extent,
+            extent.bounds,
             args.destination_crs,
             Path(f"{args.output_directory}/mosaics/in_polys.tif"),
             out_shape,
@@ -404,16 +404,16 @@ def main():
 
     logger.info('Chipping...')
     pre_chips = raster_processing.create_chips(pre_mosaic, args.output_directory.joinpath('chips').joinpath('pre'),
-                                               extent)
+                                               extent.bounds)
     logger.debug(f'Num pre chips: {len(pre_chips)}')
     post_chips = raster_processing.create_chips(post_mosaic, args.output_directory.joinpath('chips').joinpath('post'),
-                                                extent)
+                                                extent.bounds)
     logger.debug(f'Num post chips: {len(post_chips)}')
 
     if args.bldg_polys:
         poly_chips = raster_processing.create_chips(in_poly_mosaic,
                                                     args.output_directory.joinpath('chips').joinpath('in_polys'),
-                                                    extent)
+                                                    extent.bounds)
 
         assert len(pre_chips) == len(poly_chips), logger.error('Chip numbers mismatch (in polys')
     else:
@@ -599,7 +599,7 @@ def main():
     polygons = features.create_polys(dmg_files)
 
     if args.bldg_polys:
-        polygons = in_poly_df.overlay(polygons, how='identity')  # This is probably not necessary as we pass the polys directly to the cls model
+        polygons = in_poly_df.overlay(polygons, how='identity').clip(extent)
         polygons = polygons.sjoin(in_poly_df, how='left')[['dmg', 'filename', 'index_right', 'geometry']] # attaches bldg index to dmg for dissolving
         polygons = polygons.groupby('index_right', as_index=False).apply(features.weight_dmg).reset_index()
 
@@ -608,20 +608,21 @@ def main():
     centroids = features.create_centroids(polygons)
 
     logger.info(f'Polygons created: {len(polygons)}')
-    logger.info(f"AOI hull area: {aoi.geometry[0].area}")
+    logger.info(f"Inferred hull area: {aoi.area}") # Todo: Calculate area for pre/post/poly/aoi/intersect (the one that matters)
 
-    # Create output file
+    # Create geopackage
     logger.info('Writing output file')
     vector_out = Path(args.output_directory).joinpath('vector') / 'damage.gpkg'
     features.write_output(polygons, vector_out, layer='damage')  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
     features.write_output(aoi, vector_out, 'aoi')
     features.write_output(centroids, vector_out, 'centroids')
 
-    # create geojson
+    # Create geojson
     json_out = Path(args.output_directory).joinpath('vector') / 'damage.geojson'
     polygons.to_file(json_out, driver='GeoJSON')
 
     # Create damage and overlay mosaics
+    # Probably stop generating damage mosaic and create overlay from pre and vectors. Stop making overlay from chips
     logger.info("Creating damage mosaic")
     dmg_path = Path(args.output_directory) / 'dmg'
     damage_files = [x for x in get_files(dmg_path)]
