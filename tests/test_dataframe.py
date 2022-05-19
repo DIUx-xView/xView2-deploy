@@ -90,20 +90,20 @@ class TestProcessDF:
 class TestGetIntersect:
 
     @pytest.mark.parametrize('poly_name,expected', [
-        pytest.param(['within'], pytest.approx((366857.56368295447, 4103474.666131911, 367772.7114690142, 4104074.393841441), abs=1), id='int_rect_within'),
-        pytest.param(['within', 'outside'], pytest.approx((366857.56368295447, 4103474.666131911, 367772.7114690142, 4104074.393841441), abs=1), id='int_rect_within_out'),
-        pytest.param(['intersects'], pytest.approx((367626.8372131828, 4103895.1999908756, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects'),
-        pytest.param(['intersects', 'outside'], pytest.approx((367626.8372131828, 4103895.1999908756, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects_out'),
-        pytest.param(['intersects', 'within'], pytest.approx((366857.56368295447, 4103474.666131911, 367871.4, 4104242.2477293555), abs=1), id='int_rect_intersects_within')
+        pytest.param(['within'], (366857, 4103474, 367772, 4104074), id='int_rect_within'),
+        pytest.param(['within', 'outside'], (366857, 4103474, 367772, 4104074), id='int_rect_within_out'),
+        pytest.param(['intersects'], (367626, 4103895, 367871, 4104242), id='int_rect_intersects'),
+        pytest.param(['intersects', 'outside'], (367626, 4103895, 367871, 4104242), id='int_rect_intersects_out'),
+        pytest.param(['intersects', 'within'], (3668577, 4103474, 367871, 4104242), id='int_rect_intersects_within')
     ])
     def test_get_intersect(self, pre_df, post_df, aoi_df, poly_name, expected):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         aoi = aoi_df[aoi_df.name.isin(poly_name)]
-        assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi) == expected
+        assert utils.dataframe.get_intersect(pre_df, post_df, args, aoi).bounds == pytest.approx(expected, abs=2)
 
     def test_not_rectangle(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        assert utils.dataframe.get_intersect(pre_df[:3], post_df, args) == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
+        assert utils.dataframe.get_intersect(pre_df[:3], post_df, args).bounds == pytest.approx((366682, 4103282, 367871, 4104256), abs=2)
 
     def test_intersect_fail(self, pre_df, no_intersect_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
@@ -119,12 +119,18 @@ class TestGetIntersect:
     def test_int_bldg_poly(self, pre_df, bldg_poly_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         intersect = utils.dataframe.get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=bldg_poly_df)
-        assert intersect == pytest.approx((366752.26574140263, 4103766.5432614237, 367241.3084387472, 4104183.0162179894), abs=1)
+        assert intersect.bounds == pytest.approx((366752, 4103766, 367241, 4104183), abs=2)
+
+    def test_int_bldg_poly_new_please_param_me(self, pre_df, post_df):
+        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
+        bldg_poly_df = geopandas.read_file('/Users/lb/Downloads/joplin.geojson')
+        intersect = utils.dataframe.get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=bldg_poly_df)
+        assert intersect.bounds == pytest.approx((366682, 4103282, 367871, 4104257), abs=2)
 
     def test_int_no_aoi_no_bldgs(self, pre_df, bldg_poly_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
         intersect = utils.dataframe.get_intersect(pre_df, post_df, args)
-        assert intersect == pytest.approx((366682.809231145, 4103282.4, 367871.4, 4104256.849245705), abs=1)
+        assert intersect.bounds == pytest.approx((366682, 4103282, 367871, 4104256), abs=2)
 
 class TestGetMaxRes:
 

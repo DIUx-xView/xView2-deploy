@@ -154,6 +154,7 @@ def get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=None):
     :return: tuple of calculated intersection
     """
     geom_bounds = []
+
     pre_env = pre_df.to_crs(args.destination_crs).unary_union
     geom_bounds.append(pre_env)
     logger.debug(f'Pre bounds: {pre_env.bounds}')
@@ -179,7 +180,7 @@ def get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=None):
         intersect = intersect.intersection(in_poly_env)
         assert intersect.area > 0, logger.critical('Building polygons do not intersect imagery/AOI')
 
-    return intersect.bounds
+    return intersect
 
 
 def get_max_res(pre_df, post_df):
