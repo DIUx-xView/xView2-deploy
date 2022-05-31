@@ -71,7 +71,7 @@ def create_centroids(features):
     return cent_df
 
 
-def weight_dmg(features):
+def weight_dmg(features, destination_crs):
 
     poly = features.geometry.unary_union
 
@@ -80,6 +80,7 @@ def weight_dmg(features):
         ((features.geometry.area * features.dmg) / poly.area), ndigits=1
     )
 
+    features = features.set_crs(destination_crs)
     features = features.dissolve(by="index_right", aggfunc=sum).reset_index(drop=True)
 
     return features

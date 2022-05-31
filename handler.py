@@ -791,9 +791,10 @@ def main():
         ]  # attaches bldg index to dmg for dissolving
         polygons = (
             polygons.groupby("index_right", as_index=False)
-            .apply(features.weight_dmg)
+            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
             .reset_index()
         )
+        polygons.set_crs(args.destination_crs)
 
     polygons.geometry = polygons.geometry.simplify(1)
     aoi = features.create_aoi_poly(polygons)
