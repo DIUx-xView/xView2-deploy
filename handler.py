@@ -789,15 +789,13 @@ def main():
     else:
         polygons = features.create_polys(dmg_files)
         
+    polygons = polygons.reset_index()
 
     if args.bldg_polys:
         polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
-        polygons = polygons.sjoin(in_poly_df, how="left")[
-            ["dmg", "filename", "index_right", "geometry"]
-        ]  # attaches bldg index to dmg for dissolving
         polygons = (
-            polygons.groupby("index_right", as_index=False)
-            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
+            polygons.groupby("osmid", as_index=False)
+            .apply(lambda x: features.weight_dmg(x))
             .reset_index()
         )
         polygons.set_crs(args.destination_crs)
