@@ -792,11 +792,10 @@ def main():
     polygons = polygons.reset_index()
 
     if args.bldg_polys:
-        polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
+        polygons = in_poly_df.reset_index().overlay(polygons, how="identity").clip(extent)
         polygons = (
-            polygons.groupby("osmid", as_index=False) # BUG: This will break if not using OSM data
+            polygons.groupby("index", as_index=False)
             .apply(lambda x: features.weight_dmg(x, args.destination_crs))
-            .reset_index()
         )
         polygons.set_crs(args.destination_crs)
 
@@ -820,7 +819,7 @@ def main():
 
     # Create geojson
     json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
-    polygons.to_file(json_out, driver="GeoJSON")
+    polygons.to_file(json_out, driver="GeoJSON", index=False)
 
     # Create damage and overlay mosaics
     # Probably stop generating damage mosaic and create overlay from pre and vectors. Stop making overlay from chips

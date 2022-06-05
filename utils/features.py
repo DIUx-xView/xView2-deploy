@@ -15,23 +15,16 @@ def create_polys(in_files, threshold=30):
     for idx, f in enumerate(in_files):
         src = rasterio.open(f)
         crs = src.crs
-        transform = src.transform
-
-        bnd = src.read(1)
         polygons += list(dataset_features(src, 1, geographic=False))
 
-    # Create geo dataframe
     df = geopandas.GeoDataFrame.from_features(polygons, crs=crs)
     df.rename(columns={"val": "dmg"}, inplace=True)
 
     # Fix geometry if not valid
-    df.loc[~df.geometry.is_valid, "geometry"] = df[
-        ~df.geometry.is_valid
-    ].geometry.apply(lambda x: x.buffer(0))
+    df.loc[~df.geometry.is_valid, "geometry"] = df.geometry.apply(lambda x: x.buffer(0))
 
-    # Drop damage of 0 (no building), dissolve by each damage level, and explode them back to single polygons
-    df = df.dissolve(by="dmg").reset_index().drop(index=0)
-    df = df.explode().reset_index(drop=True)
+    # Drop damage of 0 (no building)
+    df = df.drop(df[df.dmg == 0].index)
 
     # Apply our threshold
     df["area"] = df.geometry.area
@@ -81,6 +74,6 @@ def weight_dmg(features, destination_crs):
     )
 
     features = features.set_crs(destination_crs)
-    features = features.dissolve(by="osmid", aggfunc=sum).reset_index(drop=True) # BUG: This will break if not using OSM data
+    features = features.dissolve(by="index", aggfunc=sum).reset_index(drop=True)
 
     return features
