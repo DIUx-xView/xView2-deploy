@@ -794,7 +794,7 @@ def main():
     if args.bldg_polys:
         polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
         polygons = (
-            polygons.groupby("osmid", as_index=False)
+            polygons.groupby("osmid", as_index=False) # BUG: This will break if not using OSM data
             .apply(lambda x: features.weight_dmg(x))
             .reset_index()
         )
