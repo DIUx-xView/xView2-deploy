@@ -789,7 +789,7 @@ def main():
     else:
         polygons = features.create_polys(dmg_files)
         
-    polygons = polygons.reset_index()
+    polygons = polygons
 
     if args.bldg_polys:
         polygons = in_poly_df.reset_index().overlay(polygons, how="identity").clip(extent)
