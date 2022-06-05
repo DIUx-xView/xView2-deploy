@@ -800,7 +800,7 @@ def main():
 
     polygons.geometry = polygons.geometry.simplify(1)
 
-    # Create geojson
+    # Create geojson -- do this before additional vector creation lest they fail out
     json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
     polygons.to_file(json_out, driver="GeoJSON", index=False)
 
