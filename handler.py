@@ -795,7 +795,7 @@ def main():
         polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
         polygons = (
             polygons.groupby("osmid", as_index=False) # BUG: This will break if not using OSM data
-            .apply(lambda x: features.weight_dmg(x))
+            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
             .reset_index()
         )
         polygons.set_crs(args.destination_crs)
