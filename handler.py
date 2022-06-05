@@ -784,10 +784,11 @@ def main():
     dmg_files = get_files(Path(args.output_directory) / "dmg")
 
     # if not using input polys use threshold to filter out small polygons (likely false positives)
-    if not args.bldg_polys:
-        polygons = features.create_polys(dmg_files)
-    else:
+    if args.bldg_polys:
         polygons = features.create_polys(dmg_files, threshold=0)
+    else:
+        polygons = features.create_polys(dmg_files)
+        
 
     if args.bldg_polys:
         polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
