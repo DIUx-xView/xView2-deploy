@@ -782,7 +782,12 @@ def main():
     # Get files for creating vector file
     logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / "dmg")
-    polygons = features.create_polys(dmg_files)
+
+    # if not using input polys use threshold to filter out small polygons (likely false positives)
+    if not args.bldg_polys:
+        polygons = features.create_polys(dmg_files)
+    else:
+        polygons = features.create_polys(dmg_files, threshold=0)
 
     if args.bldg_polys:
         polygons = in_poly_df.overlay(polygons, how="identity").clip(extent)
