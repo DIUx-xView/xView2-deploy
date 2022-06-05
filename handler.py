@@ -800,6 +800,11 @@ def main():
         polygons.set_crs(args.destination_crs)
 
     polygons.geometry = polygons.geometry.simplify(1)
+
+    # Create geojson
+    json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
+    polygons.to_file(json_out, driver="GeoJSON", index=False)
+
     aoi = features.create_aoi_poly(polygons)
     centroids = features.create_centroids(polygons)
 
@@ -816,10 +821,6 @@ def main():
     )  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
     features.write_output(aoi, vector_out, "aoi")
     features.write_output(centroids, vector_out, "centroids")
-
-    # Create geojson
-    json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
-    polygons.to_file(json_out, driver="GeoJSON", index=False)
 
     # Create damage and overlay mosaics
     # Probably stop generating damage mosaic and create overlay from pre and vectors. Stop making overlay from chips
