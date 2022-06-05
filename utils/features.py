@@ -81,6 +81,6 @@ def weight_dmg(features, destination_crs):
     )
 
     features = features.set_crs(destination_crs)
-    features = features.dissolve(by="index_right", aggfunc=sum).reset_index(drop=True)
+    features = features.dissolve(by="osmid", aggfunc=sum).reset_index(drop=True) # BUG: This will break if not using OSM data
 
     return features
