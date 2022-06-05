@@ -74,6 +74,6 @@ def weight_dmg(features, destination_crs):
     )
 
     features = features.set_crs(destination_crs)
-    features = features.dissolve(by="index", aggfunc=sum).reset_index(drop=True)
+    features = features.dissolve(by="index", aggfunc=sum)
 
     return features

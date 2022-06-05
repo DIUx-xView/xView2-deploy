@@ -779,7 +779,7 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
-    # Get files for creating vector file
+    # Get files for creating vector data
     logger.info("Generating vector data")
     dmg_files = get_files(Path(args.output_directory) / "dmg")
 
@@ -788,14 +788,13 @@ def main():
         polygons = features.create_polys(dmg_files, threshold=0)
     else:
         polygons = features.create_polys(dmg_files)
-        
-    polygons = polygons
 
     if args.bldg_polys:
-        polygons = in_poly_df.reset_index().overlay(polygons, how="identity").clip(extent)
+        polygons = in_poly_df.reset_index().overlay(polygons, how="identity").clip(extent, keep_geom_type=True) # reset_index preserves a column independent id for joining later
         polygons = (
             polygons.groupby("index", as_index=False)
             .apply(lambda x: features.weight_dmg(x, args.destination_crs))
+            .reset_index(drop=True) # resets multi-index created during grouping/dissolve process
         )
         polygons.set_crs(args.destination_crs)
 
