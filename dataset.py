@@ -1,4 +1,5 @@
 from PIL import Image
+import rasterio as rio
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -30,8 +31,8 @@ class XViewDataset(Dataset):
 
     def __getitem__(self, idx, return_img=False):
         fl = self.pairs[idx]
-        pre_image = np.array(Image.open(str(fl.opts.in_pre_path)).convert("RGB"))
-        post_image = np.array(Image.open(str(fl.opts.in_post_path)).convert("RGB"))
+        pre_image = rio.open(fl.opts.in_pre_path).read([1,2,3])
+        post_image = rio.open(fl.opts.in_post_path).read([1,2,3])
         if self.mode == "cls":
             img = np.concatenate([pre_image, post_image], axis=2)
         elif self.mode == "loc":
