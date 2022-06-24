@@ -1,9 +1,7 @@
-from PIL import Image
 import rasterio as rio
 import torch
 from torch.utils.data import Dataset
 import numpy as np
-from PIL import Image
 
 
 def preprocess_inputs(x):
@@ -31,8 +29,13 @@ class XViewDataset(Dataset):
 
     def __getitem__(self, idx, return_img=False):
         fl = self.pairs[idx]
-        pre_image = rio.open(fl.opts.in_pre_path).read([1,2,3])
-        post_image = rio.open(fl.opts.in_post_path).read([1,2,3])
+        # Only read in first three bands to remove alpha
+        pre_image = rio.open(fl.opts.in_pre_path).read([1, 2, 3])
+        pre_image = pre_image.transpose((1, 2, 0))
+
+        post_image = rio.open(fl.opts.in_post_path).read([1, 2, 3])
+        post_image = post_image.transpose((1, 2, 0))
+
         if self.mode == "cls":
             img = np.concatenate([pre_image, post_image], axis=2)
         elif self.mode == "loc":
