@@ -790,11 +790,17 @@ def main():
         polygons = features.create_polys(dmg_files)
 
     if args.bldg_polys:
-        polygons = in_poly_df.reset_index().overlay(polygons, how="identity").clip(extent, keep_geom_type=True) # reset_index preserves a column independent id for joining later
+        polygons = (
+            in_poly_df.reset_index()
+            .overlay(polygons, how="identity")
+            .clip(extent, keep_geom_type=True)
+        )  # reset_index preserves a column independent id for joining later
         polygons = (
             polygons.groupby("index", as_index=False)
             .apply(lambda x: features.weight_dmg(x, args.destination_crs))
-            .reset_index(drop=True) # resets multi-index created during grouping/dissolve process
+            .reset_index(
+                drop=True
+            )  # resets multi-index created during grouping/dissolve process
         )
         polygons.set_crs(args.destination_crs)
 
