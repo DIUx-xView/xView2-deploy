@@ -22,6 +22,13 @@ class TestMakeFootprintDF:
         df = utils.dataframe.make_footprint_df(files)
         assert df.crs == rasterio.crs.CRS.from_epsg(26915)
 
+    # Todo: finish test for no crs...not sure if this is working
+    def test_footprint_df_no_crs(self):
+        assert False
+
+    def test_footprint_df_no_crs_no_arg(self):
+        assert False
+
 
 class TestMakeAOIDF:
     @pytest.mark.parametrize(
