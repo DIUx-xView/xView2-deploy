@@ -763,8 +763,6 @@ def main():
 
             results_dict.update({k: v for k, v in return_dict.items()})
 
-        raise ValueError(logger.critical("Must use either 2, 4, or 8 GPUs."))
-
     # Quick check to make sure the samples in cls and loc are in the same order
     # assert(results_dict['34loc'][4]['in_pre_path'] == results_dict['34cls'][4]['in_pre_path'])
 
