@@ -1,33 +1,60 @@
-# Damage assessment using pre and post orthoimagery
+# System setup
 
-This package is uses pre and post incident imagery to infer building locations and infer damage on those locations.
-The underlying model is based on fifth-place model from the DIU xView2 competition
+xView2 inference requires a tremendous amount of computing power. Currently, CPU inference is wildly
+impractical. To that end, unless you have a dedicated workstation with ample GPU power such as an Nvidia DGX station,
+we recommend a cloud based solution such as AWS or Google Cloud Compute utilizing a GPU optimized instance. Prices vary
+on instance type and area to be inferred. Example instances:
 
----
-To run the inference
-`python handler.py --pre_directory <path to pre input> --post_directory <path to post input> --output_directory <path to output> --staging_directory <path to staging> --destination_crs EPSG:4326 --post_crs EPSG:26915 --model_weight_path weights/weight.pth --model_config_path configs/model.yaml --n_procs 10 --is_use_gpu --create_overlay_mosaic`--create_shapefile
+1. AWS EC2
+   1. P4d.24xlarge
+   2. P3.16xlarge
+2. G Cloud
+   1. Todo!
 
-# Arguments:
-- --pre_directory: Directory housing pre-disaster imagery. This will be parsed recursively.
-- --post_directory: Directory housing pre-disaster imagery. This will be parsed recursively.
-- --staging_directory: Directory to create intermediate data.
-- --output_directory: Directory to place output data.
-- --model_weight_path: Path to model weights.
-- --model_config_path: Path to model config.
-- --is_use_gpu: Flag to use GPU (must be supported by CUDA ie. NVIDIA cards).
-- --n_procs: Number of processors to use for parallel processing.
-- --batch_size: Number of photos to include in each inference batch.
-- --num_workers: Number of workers.
-- --pre_crs: CRS of pre-incident imagery. Setting will only be honored if image has no CRS set in metadata.
-- --post_crs: CRS of post-incident imagery. Setting will only be honored if image has no CRS set in metadata.
-- --destination_crs: CRS for destination exports.
-- --create_overlay_mosaic: Flag for creating overlay mosaic.
-- --create_shapefile: Flag for creating shapefile from damage inference.
+# Installation
 
-# Dependencies
+## Install from source
 
-Requires python 3.7 and GDAL, which can be installed with [anaconda](https://anaconda.org/conda-forge/gdal).
+**Note**: Only tested on Linux systems.
 
-# FAQ
-1. Why the fifth place model?
-    While it's not the most accurate of the models submitted, the fifth-place model in far less compute intensive than the other models.
+1. Close repository: `git clone https://github.com/fdny-imt/xView2_FDNY.git`.
+2. Create Conda environment: `conda create --name xv2 --file spec-file.txt`.
+3. Activate conda environment: `conda activate xv2`.
+
+## Docker
+
+Todo.
+
+# Usage
+
+| Argument             | Required | Default   | Help                                                                                                                                                                            |
+| -------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --pre_directory      | Yes      | None      | Directory containing pre-disaster imagery. This is searched recursively.                                                                                                        |
+| --post_directory     | Yes      | None      | Directory containing post-disaster imagery. This is searched recursively.                                                                                                       |
+| --output_directory   | Yes      | None      | Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.                                                                  |
+| --n_procs            | Yes      | 8         | Number of processors for multiprocessing                                                                                                                                        |
+| --batch_size         | Yes      | 2         | Number of chips to run inference on at once                                                                                                                                     |
+| --num_workers        | Yes      | 4         | Number of workers loading data into RAM. Recommend 4 \* num_gpu                                                                                                                 |
+| --pre_crs            | No       | None      | The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.                                                         |
+| --post_crs           | No       | None      | The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.                                                        |
+| --destination_crs    | No       | EPSG:4326 | The Coordinate Reference System (CRS) for the output overlays.                                                                                                                  |
+| --output_resolution  | No       | None      | Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS. |
+| --dp_mode            | No       | False     | Run models serially, but using DataParallel                                                                                                                                     |
+| --save_intermediates | No       | False     | Store intermediate runfiles                                                                                                                                                     |
+| --aoi_file           | No       | None      | Shapefile or GeoJSON file of AOI polygons                                                                                                                                       |
+
+# Example invocation for damage assessment
+
+On 2 GPUs:
+`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --aoi_file <aoi file (GeoJSON or shapefile)> --n_procs <n_proc> --batch_size 2 --num_workers 6`
+
+# Notes:
+
+- CRS between input types (pre/post/building footprints/AOI) need not match. However CRS _within_ input types must match.
+
+# Sources
+
+**xView2 1st place solution**
+
+- Model weights from 1st place solution for "xView2: Assess Building Damage" challenge. https://github.com/DIUx-xView/xView2_first_place
+- More information from original submission see commit: 3fe4a7327f1a19b8c516e0b0930c38c29ac3662b

@@ -1,78 +1,141 @@
-import unittest
-import os
 import rasterio
+import rasterio.crs
+import pytest
 from pathlib import Path
-
-import raster_processing
+from .conftest import Args
+from utils import raster_processing
 import handler
+import numpy as np
 
 
-class TestReproject(unittest.TestCase):
-
-    def test_reproject(self):
-        self.in_file = Path('data/input/pre/tile_337-10160.tif')
-        self.dest_file = Path('data/output/resample.tif')
-        self.result = raster_processing.reproject(self.in_file, self.dest_file, None)
-        self.test = rasterio.open(self.result).crs
-        self.assertEqual('EPSG:4326', self.test)
+def crs(epsg):
+    return rasterio.crs.CRS.from_epsg(epsg)
 
 
-class TestCreateMosaic(unittest.TestCase):
+class TestCheckDims:
+    def test_check_dims_full_size(self):
+        with rasterio.open(Path("tests/data/output/chips/post/0_post.tif")) as src:
+            arr = src.read()
+        result = raster_processing.check_dims(arr, 1024, 1024)
+        assert result.shape[1] == 1024
+        assert result.shape[1] == 1024
 
-    def setUp(self):
-        self.files = handler.get_files(Path('data/input/pre'))
-        self.out_file = Path('data/output/test_mosaic.tif')
-        try:
-            os.remove(self.out_file)
-        except:
-            pass
-
-        self.result = raster_processing.create_mosaic(self.files, out_file=self.out_file)
-
-    def test_output_exists(self):
-        self.assertTrue(os.path.isfile(self.result))
-
-    def test_correct_resolution(self):
-        self.src = rasterio.open(self.result)
-        self.assertEqual((0.6, 0.6), self.src.res)
-
-    def test_correct_extent(self):
-        self.src = rasterio.open(self.result)
-        self.assertEqual((366642.60000000003, 4104511.1999999997), self.src.transform * (0, 0))
+    def test_check_dims_with_pad(self):
+        with rasterio.open(Path("tests/data/output/chips/post/0_post.tif")) as src:
+            arr = src.read()
+        result = raster_processing.check_dims(arr, 1500, 1500)
+        assert result.shape[1] == 1500
+        assert result.shape[1] == 1500
 
 
-class TestGetIntersect(unittest.TestCase):
-
-    def test_intersect_extent(self):
-        self.test = raster_processing.get_intersect(
-            Path('data/input/pre/tile_337-10160.tif'),
-            Path('data/input/post/tile_31500-6161.tif')
+class TestCreateMosaic:
+    @pytest.mark.parametrize(
+        "src_crs,dst_crs,extent,res,aoi,expected",
+        [
+            pytest.param(
+                crs(26915),
+                crs(32615),
+                (366642.6, 4103282.4, 367871.4, 4104511.2),
+                (0.6, 0.6),
+                None,
+                20737,
+                id="param_no_mask",
+            ),
+            pytest.param(None, None, None, None, None, 20737, id="no_param_no_mask"),
+            pytest.param(
+                crs(26915),
+                crs(32615),
+                (366642.6, 4103282.4, 367871.4, 4104511.2),
+                (0.6, 0.6),
+                True,
+                35412,
+                id="param_mask",
+            ),
+            pytest.param(None, None, None, None, True, 23738, id="no_param_mask"),
+        ],
+    )
+    def test_create_mosaic(
+        self, src_crs, dst_crs, extent, res, aoi, expected, pre_df, tmp_path, aoi_df
+    ):
+        out_path = tmp_path / "out.tif"
+        files_str = [str(file) for file in pre_df.filename]
+        if aoi:
+            aoi = aoi_df
+        test = raster_processing.create_mosaic(
+            files_str, out_path, src_crs, dst_crs, extent, res, aoi
         )
-        self.assertEqual((364950.125, 4102656.6, 366951.60000000003, 4105049.875),
-                         self.test)
+        with rasterio.open(test) as src:
+            assert src.checksum(1) == expected
+
+    @pytest.mark.parametrize(
+        "in_data",
+        [
+            pytest.param(
+                ["tests/data/misc/input_raster_w_alpha.tif"], id="single_file_alpha"
+            ),
+            pytest.param(
+                [
+                    "tests/data/misc/input_raster_w_alpha.tif",
+                    "tests/data/input/pre/tile_337-10160.tif",
+                ],
+                id="one_alpha_one_no_alpha",
+            ),
+        ],
+    )
+    def test_remove_alpha(self, tmp_path, in_data):
+        out_path = tmp_path / "out.tif"
+        test = raster_processing.create_mosaic(in_data, out_path)
+        with rasterio.open(test) as src:
+            assert src.count == 3
 
 
-# class TestCreateChips(unittest.TestCase):
-#
-#     def setUp(self):
-#         self.out_dir = Path('data/output/chips/test_chips')
-#         self.mosaic = TestCreateMosaic()
-#         self.in_mosaic = self.mosaic.result
-#
-#     def test_chip_exist(self):
-#         self.assertEqual(0, len())
-#
-#     def test_get_intersect_win(self):
-#         self.intersect = (-94.62862733666518, 36.997318285256874, -94.55892307170559, 37.06518001454033)
-#         self.mosaic = Path('/Users/lb/Documents/PycharmProjects/xView2_FDNY/tests/data/output/test_mosaic.tif')
-#         self.test = 'Window(col_off=211, row_off=10114, width=10853, height=11148)'
-#         self.result = raster_processing.get_intersect_win(self.mosaic, self.intersect)
-#         self.assertEqual(self.test, self.result)
+class TestCreatChips:
+    def test_create_chips(self, tmp_path):
 
-class TestCreateShapefile(unittest.TestCase):
+        print(tmp_path)
+        out_dir = tmp_path / "chips"
+        out_dir.mkdir()
+        in_mosaic = Path("tests/data/output/mosaics/pre.tif")
+        intersect = (
+            366676.6736748844,
+            4103281.8940772624,
+            367871.4000008028,
+            4104256.849355083,
+        )
+        chips = raster_processing.create_chips(in_mosaic, out_dir, intersect)
 
-    pass
+        assert len(list(out_dir.iterdir())) == 4
+        with rasterio.open(list(out_dir.iterdir())[0]) as src:
+            assert src.height == 1024
+            assert src.width == 1024
 
-class TestCheckDims(unittest.TestCase):
 
-    pass
+class TestCreateComposite:
+    def test_create_composite(self, tmp_path):
+        in_file = "tests/data/output/chips/pre/0_pre.tif"
+        with rasterio.open(in_file) as src:
+            transforms = src.profile
+        out_file = tmp_path / "composite.tif"
+        dmg_arr = np.load(open("tests/data/misc/damage_arr/cls_0.npy", "rb"))
+        assert (
+            raster_processing.create_composite(in_file, dmg_arr, out_file, transforms)
+            == out_file
+        )
+
+
+class TestCreateVRT:
+    def test_vrt(self, tmp_path):
+        in_dir = "tests/data/input/pre"
+        files = handler.get_files(in_dir)
+        out_path = tmp_path / "vrt.vrt"
+        test = raster_processing.create_vrt(files, out_path)
+        assert out_path.is_file()
+
+
+class TestGetRes:
+    def test_get_image_res(self):
+        assert raster_processing.get_res("tests/data/input/pre/tile_337-9136.tif") == (
+            0.6,
+            0.6,
+        )
+

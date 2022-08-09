@@ -1,10 +1,12 @@
+# Added by Pound 2022-03-05
+scratch*
+
 __pycache__/
 .vscode/
 weights/
 .idea/
 x_post.ph
-tests/data/input/staging/
-tests/data/output/
+scratch.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -144,4 +146,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-

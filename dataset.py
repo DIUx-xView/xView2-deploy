@@ -1,42 +1,70 @@
-import os
-from skimage.io import imread
-import tifffile
+import rasterio as rio
+import torch
 from torch.utils.data import Dataset
+import numpy as np
+
+
+def preprocess_inputs(x):
+    x = np.asarray(x, dtype="float32")
+    x /= 127
+    x -= 1
+    return x
+
 
 class XViewDataset(Dataset):
     "Dataset for xView"
 
-    def __init__(self, pairs, config, transform=None, return_geo=False):
+    def __init__(self, pairs, mode, return_geo=False):
         """
         :param pre_chips: List of pre-damage chip filenames
         :param post_chips: List of post_damage chip filenames
         :param transform: PyTorch transforms to be used on each example
         """
         self.pairs = pairs
-        self.transform=transform
-        self.config=config
-        self.return_geo=return_geo
-
+        self.return_geo = return_geo
+        self.mode = mode
 
     def __len__(self):
-        return(len(self.pairs))
+        return len(self.pairs)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, return_img=False):
         fl = self.pairs[idx]
-        if self.config.DATASET.IS_TIFF:
-            pre_image = tifffile.imread(fl.opts.in_pre_path)
-            post_image = tifffile.imread(fl.opts.in_post_path)
+        # Only read in first three bands to remove alpha
+        pre_image = rio.open(fl.opts.in_pre_path).read([1, 2, 3])
+        pre_image = pre_image.transpose((1, 2, 0))
+
+        post_image = rio.open(fl.opts.in_post_path).read([1, 2, 3])
+        post_image = post_image.transpose((1, 2, 0))
+
+        if self.mode == "cls":
+            img = np.concatenate([pre_image, post_image], axis=2)
+        elif self.mode == "loc":
+            img = pre_image
         else:
-            pre_image = imread(fl.opts.in_pre_path)
-            post_image = imread(fl.opts.in_post_path)
+            raise ValueError("Incorrect mode!  Must be cls or loc")
+
+        img = preprocess_inputs(img)
+
+        inp = []
+        inp.append(img)
+        inp.append(img[::-1, ...])
+        inp.append(img[:, ::-1, ...])
+        inp.append(img[::-1, ::-1, ...])
+        inp = np.asarray(inp, dtype="float")
+        inp = torch.from_numpy(inp.transpose((0, 3, 1, 2))).float()
 
         out_dict = {}
-        out_dict['pre_image']=self.transform(pre_image)
-        out_dict['post_image']=self.transform(post_image)
-        out_dict['idx']=idx
-        out_dict['out_cls_path'] = str(fl.opts.out_cls_path)
-        out_dict['out_loc_path'] = str(fl.opts.out_loc_path)
-        out_dict['out_overlay_path'] = str(fl.opts.out_overlay_path)
-        out_dict['is_vis'] = fl.opts.is_vis
+        out_dict["in_pre_path"] = str(fl.opts.in_pre_path)
+        out_dict["in_post_path"] = str(fl.opts.in_post_path)
+        out_dict["poly_chip"] = str(fl.opts.poly_chip)
+        if return_img:
+            out_dict["pre_image"] = pre_image
+            out_dict["post_image"] = post_image
+        out_dict["img"] = inp
+        out_dict["idx"] = idx
+        out_dict["out_cls_path"] = str(fl.opts.out_cls_path)
+        out_dict["out_loc_path"] = str(fl.opts.out_loc_path)
+        out_dict["out_overlay_path"] = str(fl.opts.out_overlay_path)
+        out_dict["is_vis"] = fl.opts.is_vis
 
         return out_dict
