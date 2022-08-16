@@ -42,9 +42,9 @@ def write_output(features, out_file, layer="features"):
 def create_aoi_poly(features):
 
     """
-    Create convex hull polygon encompassing damage polygons.
-    :param features: Polygons to create hull around.
-    :return: ARCGIS polygon.
+    Create convex hull polygon encompassing damage polygons
+    :param features: Polygons to create hull around
+    :return: GDF
     """
     hull = features.dissolve().convex_hull
     df = geopandas.GeoDataFrame.from_features(hull, crs=features.crs)
@@ -54,9 +54,9 @@ def create_aoi_poly(features):
 def create_centroids(features):
 
     """
-    Create centroids from polygon features.
-    :param features: Polygon features to create centroids from.
-    :return: List of ARCGIS point features.
+    Create centroids from polygon features
+    :param features: Polygon features to create centroids from
+    :return: GDF
     """
 
     cent_df = geopandas.GeoDataFrame.from_features(features.centroid, crs=features.crs)
