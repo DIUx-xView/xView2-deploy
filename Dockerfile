@@ -36,6 +36,8 @@ RUN wget https://xv2-weights.s3.amazonaws.com/backbone_weights.tar.gz && \
 COPY spec-file.txt /work/locks/
 RUN conda create --name xv --file locks/spec-file.txt
 
+RUN conda clean --all --yes
+
 # copy entire directory where docker file is into docker container at /work
 # uses . with .dockerignore to ensure folder structure stays correct
 COPY zoo/* /work/zoo/

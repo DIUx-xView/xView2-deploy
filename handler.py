@@ -338,7 +338,12 @@ def check_data(images):
         src = rasterio.open(image)
         layer = src.read(1)
         src.close()
+        # Todo: Test me!!!
+        # test for all black pixels
         if layer.sum() == 0:
+            return False
+        # test for all white pixels
+        if layer.sum() == 255 * layer.shape[0] * layer.shape[1]:
             return False
 
     return True
