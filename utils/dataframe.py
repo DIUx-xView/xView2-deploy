@@ -84,8 +84,8 @@ def process_df(df, dest_crs):
     df["trans_res"] = df.apply(
         lambda x: get_trans_res(x.crs, x.width, x.height, x.bounds, dest_crs), axis=1
     )
-    # Remove rasters with resolution that wildly varies from the others
-    # Remove rasters with CRS that is not the same as most?
+    # Todo: Remove rasters with resolution that wildly varies from the others
+    # Todo: Remove rasters with CRS that is not the same as most?
 
     # Todo: handle our rasters with no geographic data
     # Remove rasters without transform resolution
