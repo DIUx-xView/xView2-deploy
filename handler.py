@@ -120,7 +120,7 @@ def make_output_structure(output_path):
     return True
 
 
-def get_files(dirname, extensions=[".png", ".tif", ".jpg"]):
+def get_files(dirname, extensions=[".png", ".jpg", ".tif", ".tiff"]):
     """
     Gathers list of files for processing from path recursively.
     :param dirname: path to parse
