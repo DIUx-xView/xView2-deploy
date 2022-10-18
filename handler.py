@@ -104,7 +104,7 @@ def make_output_structure(output_path):
     """
     Creates directory structure for outputs.
     :param output_path: Output path
-    :return: True if succussful
+    :return: True if successful
     """
 
     Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
