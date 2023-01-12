@@ -1,20 +1,35 @@
-FROM --platform=linux/amd64 nvidia/cuda:11.0.3-base-ubuntu18.04
+FROM --platform=linux/amd64 continuumio/miniconda3 AS build
+
+# create environment
+COPY spec-file.txt /work/locks/
+RUN conda create --name xv --file /work/locks/spec-file.txt
+
+RUN conda install -c conda-forge conda-pack
+
+# Use conda-pack to create a standalone enviornment in /venv:
+RUN conda-pack -n xv -o env.tar
+RUN mkdir /venv
+RUN tar -xf env.tar -C /venv
+RUN rm env.tar
+
+# We've put venv in same path it'll be in final image,
+# so now fix up paths:
+RUN /venv/bin/conda-unpack
+
+
+FROM --platform=linux/amd64 nvidia/cuda:11.0.3-base-ubuntu18.04 as runtime
 
 RUN apt-get update --fix-missing && \
     apt-get install -y wget bzip2 ca-certificates curl git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.9.2-Linux-x86_64.sh -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-    rm ~/miniconda.sh && \
-    /opt/conda/bin/conda clean -tipsy && \
-    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc
+# Copy /venv from the previous stage:
+COPY --from=build /venv /venv
 
-ENV PATH /opt/conda/bin:$PATH
-ENV LD_LIBRARY_PATH /usr/local/cuda/lib64:$LD_LIBRARY_PATH
+# 'hactivate' our venv
+ENV VIRTUAL_ENV=/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 SHELL ["/bin/bash", "-c"]
 
@@ -32,12 +47,6 @@ RUN wget https://xv2-weights.s3.amazonaws.com/backbone_weights.tar.gz && \
     tar -xzvf backbone_weights.tar.gz -C /root/.cache/torch/hub/checkpoints/ && \
     rm backbone_weights.tar.gz
 
-# create environment
-COPY spec-file.txt /work/locks/
-RUN conda create --name xv --file locks/spec-file.txt
-
-RUN conda clean --all --yes
-
 # copy entire directory where docker file is into docker container at /work
 # uses . with .dockerignore to ensure folder structure stays correct
 COPY zoo/* /work/zoo/
@@ -51,4 +60,4 @@ COPY handler.py dataset.py models.py spec-file.txt /work/
 
 VOLUME ["/input/pre", "/input/post", "/input/polys", "/output"]
 
-ENTRYPOINT [ "conda", "run", "-n", "xv", "python", "handler.py","--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output"]
+ENTRYPOINT [ "python", "handler.py","--pre_directory", "/input/pre", "--post_directory", "/input/post", "--output_directory", "/output"]
