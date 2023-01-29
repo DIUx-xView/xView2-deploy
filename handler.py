@@ -349,6 +349,58 @@ def check_data(images):
     return True
 
 
+def create_vector(args, dmg_path, extent=None, in_poly_df=None):
+    # Get files for creating vector data
+    logger.info("Generating vector data")
+    dmg_files = get_files(dmg_path)
+
+    # if not using input polys use threshold to filter out small polygons (likely false positives)
+    if args.bldg_polys:
+        polygons = features.create_polys(dmg_files, threshold=0)
+    else:
+        polygons = features.create_polys(dmg_files)
+
+    if args.bldg_polys:
+        polygons = (
+            in_poly_df.reset_index()
+            .overlay(polygons, how="identity")
+            .clip(extent, keep_geom_type=True)
+        )  # reset_index preserves a column independent id for joining later
+        polygons = (
+            polygons.groupby("index", as_index=False)
+            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
+            .reset_index(
+                drop=True
+            )  # resets multi-index created during grouping/dissolve process
+        )
+        polygons.set_crs(args.destination_crs)
+    # BUG: create aoi before simplify as some versions/combos of shapely/geos create invalid geometries with overlapping features
+    # see: https://github.com/geopandas/geopandas/issues/915
+    aoi = features.create_aoi_poly(polygons)
+    polygons.geometry = polygons.geometry.simplify(1)
+
+    # Create geojson -- do this before additional vector creation lest they fail out
+    json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
+    polygons.to_file(json_out, driver="GeoJSON", index=False)
+
+    aoi = features.create_aoi_poly(polygons)
+    centroids = features.create_centroids(polygons)
+
+    logger.info(f"Polygons created: {len(polygons)}")
+    logger.info(
+        f"Inferred hull area: {aoi.area}"
+    )  # Todo: Calculate area for pre/post/poly/aoi/intersect (the one that matters)
+
+    # Create geopackage
+    logger.info("Writing output file")
+    vector_out = Path(args.output_directory).joinpath("vector") / "damage.gpkg"
+    features.write_output(
+        polygons, vector_out, layer="damage"
+    )  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
+    features.write_output(aoi, vector_out, "aoi")
+    features.write_output(centroids, vector_out, "centroids")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Create arguments for xView 2 handler."
@@ -782,53 +834,7 @@ def main():
     f_p = postprocess_and_write
     p.map(f_p, results_list)
 
-    # Get files for creating vector data
-    logger.info("Generating vector data")
-    dmg_files = get_files(Path(args.output_directory) / "dmg")
-
-    # if not using input polys use threshold to filter out small polygons (likely false positives)
-    if args.bldg_polys:
-        polygons = features.create_polys(dmg_files, threshold=0)
-    else:
-        polygons = features.create_polys(dmg_files)
-
-    if args.bldg_polys:
-        polygons = (
-            in_poly_df.reset_index()
-            .overlay(polygons, how="identity")
-            .clip(extent, keep_geom_type=True)
-        )  # reset_index preserves a column independent id for joining later
-        polygons = (
-            polygons.groupby("index", as_index=False)
-            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
-            .reset_index(
-                drop=True
-            )  # resets multi-index created during grouping/dissolve process
-        )
-        polygons.set_crs(args.destination_crs)
-
-    polygons.geometry = polygons.geometry.simplify(1)
-
-    # Create geojson -- do this before additional vector creation lest they fail out
-    json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
-    polygons.to_file(json_out, driver="GeoJSON", index=False)
-
-    aoi = features.create_aoi_poly(polygons)
-    centroids = features.create_centroids(polygons)
-
-    logger.info(f"Polygons created: {len(polygons)}")
-    logger.info(
-        f"Inferred hull area: {aoi.area}"
-    )  # Todo: Calculate area for pre/post/poly/aoi/intersect (the one that matters)
-
-    # Create geopackage
-    logger.info("Writing output file")
-    vector_out = Path(args.output_directory).joinpath("vector") / "damage.gpkg"
-    features.write_output(
-        polygons, vector_out, layer="damage"
-    )  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
-    features.write_output(aoi, vector_out, "aoi")
-    features.write_output(centroids, vector_out, "centroids")
+    create_vector(args, Path(args.output_directory) / "dmg", extent, in_poly_df)
 
     # Create damage and overlay mosaics
     # Probably stop generating damage mosaic and create overlay from pre and vectors. Stop making overlay from chips
