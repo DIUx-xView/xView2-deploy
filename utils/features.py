@@ -39,15 +39,15 @@ def write_output(features, out_file, layer="features"):
     return out_file
 
 
-def create_aoi_poly(features):
+def create_aoi_poly(polygons):
 
     """
     Create convex hull polygon encompassing damage polygons
     :param features: Polygons to create hull around
     :return: GDF
     """
-    hull = features.dissolve().convex_hull
-    df = geopandas.GeoDataFrame.from_features(hull, crs=features.crs)
+    hull = polygons.unary_union.convex_hull
+    df = geopandas.GeoDataFrame({'geometry': [hull]}, crs=polygons.crs)
     return df
 
 
