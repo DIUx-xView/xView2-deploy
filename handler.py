@@ -374,6 +374,7 @@ def create_vector(args, dmg_path, extent=None, in_poly_df=None):
             )  # resets multi-index created during grouping/dissolve process
         )
         polygons.set_crs(args.destination_crs)
+
     # BUG: create aoi before simplify as some versions/combos of shapely/geos create invalid geometries with overlapping features
     # see: https://github.com/geopandas/geopandas/issues/915
     aoi = features.create_aoi_poly(polygons)
@@ -383,7 +384,6 @@ def create_vector(args, dmg_path, extent=None, in_poly_df=None):
     json_out = Path(args.output_directory).joinpath("vector") / "damage.geojson"
     polygons.to_file(json_out, driver="GeoJSON", index=False)
 
-    aoi = features.create_aoi_poly(polygons)
     centroids = features.create_centroids(polygons)
 
     logger.info(f"Polygons created: {len(polygons)}")
