@@ -428,21 +428,9 @@ def parse_args():
         help="Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.",
     )
     parser.add_argument(
-        "--n_procs",
-        default=8,
-        help="Number of processors for multiprocessing",
-        type=int,
-    )
-    parser.add_argument(
         "--batch_size",
         default=2,
         help="Number of chips to run inference on at once",
-        type=int,
-    )
-    parser.add_argument(
-        "--num_workers",
-        default=4,
-        help="Number of workers loading data into RAM. Recommend 4 * num_gpu",
         type=int,
     )
     parser.add_argument(
@@ -829,7 +817,7 @@ def main():
     ]
 
     # Running postprocessing
-    p = mp.Pool(args.n_procs)
+    p = mp.Pool(mp.cpu_count())
     # postprocess_and_write(results_list[0])
     f_p = postprocess_and_write
     p.map(f_p, results_list)
@@ -871,6 +859,7 @@ def init():
     # Todo: Fix this global at some point
     global args
     args = parse_args()
+    args.num_workers = torch.cuda.device_count() * 4
 
     # Configure our logger and push our inputs
     # Todo: Capture sys info (gpu, procs, etc)

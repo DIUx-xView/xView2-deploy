@@ -23,18 +23,19 @@ on instance type and area to be inferred. Example instances:
 
 ## Docker
 
-Todo.
+Build docker image with:
+`docker build -f "Dockerfile" -t xview2infer:latest "."`
+and run with
+`docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output xview2infer:latest`
 
 # Usage
 
 | Argument             | Required | Default   | Help                                                                                                                                                                            |
-| -------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|----------------------|----------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | --pre_directory      | Yes      | None      | Directory containing pre-disaster imagery. This is searched recursively.                                                                                                        |
 | --post_directory     | Yes      | None      | Directory containing post-disaster imagery. This is searched recursively.                                                                                                       |
 | --output_directory   | Yes      | None      | Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.                                                                  |
-| --n_procs            | Yes      | 8         | Number of processors for multiprocessing                                                                                                                                        |
 | --batch_size         | Yes      | 2         | Number of chips to run inference on at once                                                                                                                                     |
-| --num_workers        | Yes      | 4         | Number of workers loading data into RAM. Recommend 4 \* num_gpu                                                                                                                 |
 | --pre_crs            | No       | None      | The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data.                                                         |
 | --post_crs           | No       | None      | The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data.                                                        |
 | --destination_crs    | No       | EPSG:4326 | The Coordinate Reference System (CRS) for the output overlays.                                                                                                                  |
@@ -46,7 +47,7 @@ Todo.
 # Example invocation for damage assessment
 
 On 2 GPUs:
-`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --aoi_file <aoi file (GeoJSON or shapefile)> --n_procs <n_proc> --batch_size 2 --num_workers 6`
+`CUDA_VISIBLE_DEVICES=0,1 python handler.py --pre_directory <pre dir> --post_directory <post dir> --output_directory <output dir> --aoi_file <aoi file (GeoJSON or shapefile)>`
 
 # Notes:
 
