@@ -64,7 +64,8 @@ train_len = len(all_files)
 
 
 class TrainData(Dataset):
-    def __init__(self, train_idxs):
+    def __init__(self, train_idxs, **kwargs):
+        self.res34 = kwargs.pop('res34')
         super().__init__()
         self.train_idxs = train_idxs
         self.elastic = iaa.ElasticTransformation(alpha=(0.25, 1.2), sigma=0.2)
@@ -230,7 +231,7 @@ class TrainData(Dataset):
         msk = np.concatenate([msk0, msk1, msk2, msk3, msk4], axis=2)
         msk = (msk > 127)
 
-        msk[..., 0] = True
+        msk[..., 0] = (not self.res34)
         msk[..., 1] = dilation(msk[..., 1], square(5))
         msk[..., 2] = dilation(msk[..., 2], square(5))
         msk[..., 3] = dilation(msk[..., 3], square(5))
@@ -239,7 +240,7 @@ class TrainData(Dataset):
         msk[..., 3][msk[..., 2]] = False
         msk[..., 4][msk[..., 2]] = False
         msk[..., 4][msk[..., 3]] = False
-        msk[..., 0][msk[..., 1:].max(axis=2)] = False
+        msk[..., 0][msk[..., 1:].max(axis=2)] = self.res34
         msk = msk * 1
 
         lbl_msk = msk.argmax(axis=2)
@@ -252,197 +253,6 @@ class TrainData(Dataset):
 
         sample = {'img': img, 'msk': msk, 'lbl_msk': lbl_msk, 'fn': fn}
         return sample
-
-class TrainData_34(Dataset):
-    def __init__(self, train_idxs):
-        super().__init__()
-        self.train_idxs = train_idxs
-        self.elastic = iaa.ElasticTransformation(alpha=(0.25, 1.2), sigma=0.2)
-
-    def __len__(self):
-        return len(self.train_idxs)
-
-    def __getitem__(self, idx):
-        _idx = self.train_idxs[idx]
-
-        fn = all_files[_idx]
-
-        img = cv2.imread(fn, cv2.IMREAD_COLOR)
-        img2 = cv2.imread(fn.replace('_pre_', '_post_'), cv2.IMREAD_COLOR)
-
-        msk0 = cv2.imread(fn.replace('/shared/ritwik/data/xview2/train/images/', 'masks/'), cv2.IMREAD_UNCHANGED)
-        lbl_msk1 = cv2.imread(fn.replace('/shared/ritwik/data/xview2/train/images/', 'masks/').replace('_pre_disaster', '_post_disaster'), cv2.IMREAD_UNCHANGED)
-
-        msk1 = np.zeros_like(lbl_msk1)
-        msk2 = np.zeros_like(lbl_msk1)
-        msk3 = np.zeros_like(lbl_msk1)
-        msk4 = np.zeros_like(lbl_msk1)
-        msk2[lbl_msk1 == 2] = 255
-        msk3[lbl_msk1 == 3] = 255
-        msk4[lbl_msk1 == 4] = 255
-        msk1[lbl_msk1 == 1] = 255
-
-        if random.random() > 0.7:
-            img = img[::-1, ...]
-            img2 = img2[::-1, ...]
-            msk0 = msk0[::-1, ...]
-            msk1 = msk1[::-1, ...]
-            msk2 = msk2[::-1, ...]
-            msk3 = msk3[::-1, ...]
-            msk4 = msk4[::-1, ...]
-
-        if random.random() > 0.3:
-            rot = random.randrange(4)
-            if rot > 0:
-                img = np.rot90(img, k=rot)
-                img2 = np.rot90(img2, k=rot)
-                msk0 = np.rot90(msk0, k=rot)
-                msk1 = np.rot90(msk1, k=rot)
-                msk2 = np.rot90(msk2, k=rot)
-                msk3 = np.rot90(msk3, k=rot)
-                msk4 = np.rot90(msk4, k=rot)
-                    
-        if random.random() > 0.99:
-            shift_pnt = (random.randint(-320, 320), random.randint(-320, 320))
-            img = shift_image(img, shift_pnt)
-            img2 = shift_image(img2, shift_pnt)
-            msk0 = shift_image(msk0, shift_pnt)
-            msk1 = shift_image(msk1, shift_pnt)
-            msk2 = shift_image(msk2, shift_pnt)
-            msk3 = shift_image(msk3, shift_pnt)
-            msk4 = shift_image(msk4, shift_pnt)
-            
-        if random.random() > 0.5:
-            rot_pnt =  (img.shape[0] // 2 + random.randint(-320, 320), img.shape[1] // 2 + random.randint(-320, 320))
-            scale = 0.9 + random.random() * 0.2
-            angle = random.randint(0, 20) - 10
-            if (angle != 0) or (scale != 1):
-                img = rotate_image(img, angle, scale, rot_pnt)
-                img2 = rotate_image(img2, angle, scale, rot_pnt)
-                msk0 = rotate_image(msk0, angle, scale, rot_pnt)
-                msk1 = rotate_image(msk1, angle, scale, rot_pnt)
-                msk2 = rotate_image(msk2, angle, scale, rot_pnt)
-                msk3 = rotate_image(msk3, angle, scale, rot_pnt)
-                msk4 = rotate_image(msk4, angle, scale, rot_pnt)
-
-        input_shape = (608, 608)
-        crop_size = input_shape[0]
-        if random.random() > 0.5:
-            crop_size = random.randint(int(input_shape[0] / 1.1), int(input_shape[0] / 0.9))
-
-        bst_x0 = random.randint(0, img.shape[1] - crop_size)
-        bst_y0 = random.randint(0, img.shape[0] - crop_size)
-        bst_sc = -1
-        try_cnt = random.randint(1, 10)
-        for i in range(try_cnt):
-            x0 = random.randint(0, img.shape[1] - crop_size)
-            y0 = random.randint(0, img.shape[0] - crop_size)
-            _sc = msk2[y0:y0+crop_size, x0:x0+crop_size].sum() * 5 + msk3[y0:y0+crop_size, x0:x0+crop_size].sum() * 5 + msk4[y0:y0+crop_size, x0:x0+crop_size].sum() * 2 + msk1[y0:y0+crop_size, x0:x0+crop_size].sum()
-            if _sc > bst_sc:
-                bst_sc = _sc
-                bst_x0 = x0
-                bst_y0 = y0
-        x0 = bst_x0
-        y0 = bst_y0
-        img = img[y0:y0+crop_size, x0:x0+crop_size, :]
-        img2 = img2[y0:y0+crop_size, x0:x0+crop_size, :]
-        msk0 = msk0[y0:y0+crop_size, x0:x0+crop_size]
-        msk1 = msk1[y0:y0+crop_size, x0:x0+crop_size]
-        msk2 = msk2[y0:y0+crop_size, x0:x0+crop_size]
-        msk3 = msk3[y0:y0+crop_size, x0:x0+crop_size]
-        msk4 = msk4[y0:y0+crop_size, x0:x0+crop_size]
-        
-        if crop_size != input_shape[0]:
-            img = cv2.resize(img, input_shape, interpolation=cv2.INTER_LINEAR)
-            img2 = cv2.resize(img2, input_shape, interpolation=cv2.INTER_LINEAR)
-            msk0 = cv2.resize(msk0, input_shape, interpolation=cv2.INTER_LINEAR)
-            msk1 = cv2.resize(msk1, input_shape, interpolation=cv2.INTER_LINEAR)
-            msk2 = cv2.resize(msk2, input_shape, interpolation=cv2.INTER_LINEAR)
-            msk3 = cv2.resize(msk3, input_shape, interpolation=cv2.INTER_LINEAR)
-            msk4 = cv2.resize(msk4, input_shape, interpolation=cv2.INTER_LINEAR)
-            
-
-        if random.random() > 0.99:
-            img = shift_channels(img, random.randint(-5, 5), random.randint(-5, 5), random.randint(-5, 5))
-        elif random.random() > 0.99:
-            img2 = shift_channels(img2, random.randint(-5, 5), random.randint(-5, 5), random.randint(-5, 5))
-
-        if random.random() > 0.99:
-            img = change_hsv(img, random.randint(-5, 5), random.randint(-5, 5), random.randint(-5, 5))
-        elif random.random() > 0.99:
-            img2 = change_hsv(img2, random.randint(-5, 5), random.randint(-5, 5), random.randint(-5, 5))
-
-        if random.random() > 0.99:
-            if random.random() > 0.99:
-                img = clahe(img)
-            elif random.random() > 0.99:
-                img = gauss_noise(img)
-            elif random.random() > 0.99:
-                img = cv2.blur(img, (3, 3))
-        elif random.random() > 0.99:
-            if random.random() > 0.99:
-                img = saturation(img, 0.9 + random.random() * 0.2)
-            elif random.random() > 0.99:
-                img = brightness(img, 0.9 + random.random() * 0.2)
-            elif random.random() > 0.99:
-                img = contrast(img, 0.9 + random.random() * 0.2)
-
-        if random.random() > 0.99:
-            if random.random() > 0.99:
-                img2 = clahe(img2)
-            elif random.random() > 0.99:
-                img2 = gauss_noise(img2)
-            elif random.random() > 0.99:
-                img2 = cv2.blur(img2, (3, 3))
-        elif random.random() > 0.99:
-            if random.random() > 0.99:
-                img2 = saturation(img2, 0.9 + random.random() * 0.2)
-            elif random.random() > 0.99:
-                img2 = brightness(img2, 0.9 + random.random() * 0.2)
-            elif random.random() > 0.99:
-                img2 = contrast(img2, 0.9 + random.random() * 0.2)
-
-                
-        if random.random() > 0.99:
-            el_det = self.elastic.to_deterministic()
-            img = el_det.augment_image(img)
-
-        if random.random() > 0.99:
-            el_det = self.elastic.to_deterministic()
-            img2 = el_det.augment_image(img2)
-
-        msk0 = msk0[..., np.newaxis]
-        msk1 = msk1[..., np.newaxis]
-        msk2 = msk2[..., np.newaxis]
-        msk3 = msk3[..., np.newaxis]
-        msk4 = msk4[..., np.newaxis]
-
-        msk = np.concatenate([msk0, msk1, msk2, msk3, msk4], axis=2)
-        msk = (msk > 127)
-
-        msk[..., 0] = False
-        msk[..., 1] = dilation(msk[..., 1], square(5))
-        msk[..., 2] = dilation(msk[..., 2], square(5))
-        msk[..., 3] = dilation(msk[..., 3], square(5))
-        msk[..., 4] = dilation(msk[..., 4], square(5))
-        msk[..., 1][msk[..., 2:].max(axis=2)] = False
-        msk[..., 3][msk[..., 2]] = False
-        msk[..., 4][msk[..., 2]] = False
-        msk[..., 4][msk[..., 3]] = False
-        msk[..., 0][msk[..., 1:].max(axis=2)] = True
-        msk = msk * 1
-
-        lbl_msk = msk.argmax(axis=2)
-
-        img = np.concatenate([img, img2], axis=2)
-        img = preprocess_inputs(img)
-
-        img = torch.from_numpy(img.transpose((2, 0, 1))).float()
-        msk = torch.from_numpy(msk.transpose((2, 0, 1))).long()
-
-        sample = {'img': img, 'msk': msk, 'lbl_msk': lbl_msk, 'fn': fn}
-        return sample
-
 
 class ValData(Dataset):
     def __init__(self, image_idxs):
@@ -662,10 +472,7 @@ def finetune(train_idxs, val_idxs, model_name, seed, snapshot_name, snap_to_load
 
     print('finetuning', model_name, 'steps_per_epoch', steps_per_epoch, 'validation_steps', validation_steps)
 
-    if model_name == 'res34':
-        data_train = TrainData_34(train_idxs)
-    else:
-        data_train = TrainData(train_idxs)
+    data_train = TrainData(train_idxs, res34=(model_name=='res34'))
     val_train = ValData(val_idxs)
 
     train_data_loader = DataLoader(data_train, batch_size=batch_size, num_workers=6, shuffle=True, pin_memory=False, drop_last=True)
