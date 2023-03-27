@@ -28,7 +28,7 @@ Build docker image with:
 and run with:
 `docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output xview2infer:latest`
 if utilizing input polygons, pass them as arguments, ie:
-`docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output -v /path/to/polygons:/input/polys xview2infer:latest ----bldg_polys /input/polys`
+`docker run --rm --gpus=all -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output -v /path/to/polygons:/input/polys xview2infer:latest ----bldg_polys /input/polys`
 
 # Usage
 
