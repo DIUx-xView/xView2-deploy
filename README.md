@@ -25,8 +25,10 @@ on instance type and area to be inferred. Example instances:
 
 Build docker image with:
 `docker build -f "Dockerfile" -t xview2infer:latest "."`
-and run with
+and run with:
 `docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output xview2infer:latest`
+if utilizing input polygons, pass them as arguments, ie:
+`docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output -v /path/to/polygons:/input/polys xview2infer:latest ----bldg_polys /input/polys`
 
 # Usage
 
@@ -43,6 +45,7 @@ and run with
 | --dp_mode            | No       | False     | Run models serially, but using DataParallel                                                                                                                                     |
 | --save_intermediates | No       | False     | Store intermediate runfiles                                                                                                                                                     |
 | --aoi_file           | No       | None      | Shapefile or GeoJSON file of AOI polygons                                                                                                                                       |
+| --bldg_polys         | No       | None      | Shapefile or GeoJSON file of input building footprints                                                                                                                          |
 
 # Example invocation for damage assessment
 
