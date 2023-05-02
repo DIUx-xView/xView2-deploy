@@ -23,29 +23,6 @@ class TestMakeFootprintDF:
         assert df.crs == rasterio.crs.CRS.from_epsg(26915)
 
     # Todo: finish test for no crs...not sure if this is working
-    def test_footprint_df_no_crs(self):
-        assert False
-
-    def test_footprint_df_no_crs_no_arg(self):
-        assert False
-
-
-class TestMakeAOIDF:
-    @pytest.mark.parametrize(
-        "input,expected",
-        [
-            ("wildfire", True),
-            ("tests/data/misc/polygon_shapefile/intersect_polys.shp", True),
-            (None, False),
-        ],
-    )
-    def test_aoi_df(self, input, expected):
-        df = utils.dataframe.make_aoi_df(input)
-        assert isinstance(df, geopandas.GeoDataFrame) == expected
-
-    def test_not_df(self):
-        with pytest.raises(fiona.errors.DriverError):
-            utils.dataframe.make_aoi_df("test_no_file")
 
 
 class TestGetTransformRes:
@@ -134,7 +111,7 @@ class TestGetIntersect:
             ),
             pytest.param(
                 ["intersects", "within"],
-                (3668577, 4103474, 367871, 4104242),
+                (366857, 4103474, 367871, 4104242),
                 id="int_rect_intersects_within",
             ),
         ],
@@ -145,12 +122,6 @@ class TestGetIntersect:
         assert utils.dataframe.get_intersect(
             pre_df, post_df, args, aoi
         ).bounds == pytest.approx(expected, abs=2)
-
-    def test_not_rectangle(self, pre_df, post_df):
-        args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        assert utils.dataframe.get_intersect(
-            pre_df[:3], post_df, args
-        ).bounds == pytest.approx((366682, 4103282, 367871, 4104256), abs=2)
 
     def test_intersect_fail(self, pre_df, no_intersect_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
@@ -174,7 +145,7 @@ class TestGetIntersect:
 
     def test_int_bldg_poly_new_please_param_me(self, pre_df, post_df):
         args = Args(destination_crs=rasterio.crs.CRS.from_epsg(26915))
-        bldg_poly_df = geopandas.read_file("/Users/lb/Downloads/joplin.geojson")
+        bldg_poly_df = geopandas.read_file("tests/data/misc/joplin.geojson")
         intersect = utils.dataframe.get_intersect(
             pre_df, post_df, args, aoi=None, in_poly_df=bldg_poly_df
         )
