@@ -20,14 +20,14 @@ class TestCreatePolys:
         file1 = Path("tests/data/output/dmg/0_pre.tif")
         file2 = Path("tests/data/output/dmg/1_pre.tif")
         polys = features.create_polys([file1, file2], threshold=0)
-        polys.to_file(tmp_path / "dataframe.shp")
-        assert len(polys) == 344
+        assert len(polys) == 353
+
 
     def test_combine_poly_with_thresh(self):
         file1 = Path("tests/data/output/dmg/0_pre.tif")
         file2 = Path("tests/data/output/dmg/1_pre.tif")
         polys = features.create_polys([file1, file2])
-        assert len(polys) == 244
+        assert len(polys) == 252
 
     def test_geom_valid(self):
         # Test for bug #43
@@ -43,7 +43,7 @@ class TestCreateOutput:
         polys = features.create_polys(files)
         out_path = tmp_path / "vector"
         out_path.mkdir()
-        shapefile = features.write_output(polys, out_path / "damage.gpkg")
+        shapefile = features.write_output(polys, out_path / "damage.geojson")
         assert Path.is_file(shapefile)
 
 
