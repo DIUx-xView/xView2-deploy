@@ -17,7 +17,7 @@ on instance type and area to be inferred. Example instances:
 
 **Note**: Only tested on Linux systems.
 
-1. Close repository: `git clone https://github.com/fdny-imt/xView2_FDNY.git`.
+1. Close repository: `https://github.com/DIUx-xView/xView2-deploy`.
 2. Create Conda environment: `conda create --name xv2 --file spec-file.txt`.
 3. Activate conda environment: `conda activate xv2`.
 
@@ -25,10 +25,12 @@ on instance type and area to be inferred. Example instances:
 
 Build docker image with:
 `docker build -f "Dockerfile" -t xview2infer:latest "."`
+**Note:** set --shm-size to something appropriate for your machine.
 and run with:
-`docker run --rm -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output xview2infer:latest`
-if utilizing input polygons, pass them as arguments, ie:
-`docker run --rm --gpus=all -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output -v /path/to/polygons:/input/polys xview2infer:latest ----bldg_polys /input/polys`
+`docker run --rm --gpus=all --shm-size="128g" -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output xview2infer:latest`
+if utilizing input polygons, mount volume containing polygons and pass file as argument. ie:
+`docker run --rm --gpus=all --shm-size="128g" -v /path/to/pre:/input/pre -v /path/to/post:/input/post -v /path/to/output:/output -v /path/to/polygons:/input/polys xview2infer:latest --bldg_polys /input/polys/polys.geojson`
+**Note:** full filename must be passed to --bldg_polys argument
 
 # Usage
 

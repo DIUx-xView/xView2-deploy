@@ -30,6 +30,8 @@ COPY --from=build /venv /venv
 # 'hactivate' our venv
 ENV VIRTUAL_ENV=/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# to fix proj path issue
+ENV PROJ_LIB=/venv/share/proj/
 
 SHELL ["/bin/bash", "-c"]
 
