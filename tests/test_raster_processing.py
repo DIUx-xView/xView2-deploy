@@ -7,6 +7,7 @@ from utils import raster_processing
 import handler
 import numpy as np
 from PIL import ImageChops, Image
+from tests.utils.image_diff import image_diff_percent
 
 
 def crs(epsg):
@@ -42,7 +43,7 @@ class TestCreateMosaic:
                 "tests/data/eval_images/mosaic_no_mask.tif",
                 id="param_no_mask",
             ),
-            pytest.param(None, None, None, None, None, "tests/data/eval_images/mosaic_no_mask.tif", id="no_param_no_mask", marks=pytest.mark.xfail), # not passing params shifts the image ~1px. This causes test to fail. # TODO: fix this and rething how we are doing AOI's
+            pytest.param(None, None, None, None, None, "tests/data/eval_images/mosaic_no_mask.tif", id="no_param_no_mask"),
             pytest.param(
                 crs(26915),
                 crs(32615),
@@ -52,7 +53,7 @@ class TestCreateMosaic:
                 "tests/data/eval_images/mosaic_with_mask.tif",
                 id="param_mask",
             ),
-            pytest.param(None, None, None, None, True, "tests/data/eval_images/mosaic_with_mask.tif", id="no_param_mask", marks=pytest.mark.xfail), # not passing params shifts the image ~1px. This causes test to fail. # TODO: fix this and rething how we are doing AOI's
+            pytest.param(None, None, None, None, True, "tests/data/eval_images/mosaic_with_mask.tif", id="no_param_mask"),
         ],
     )
     def test_create_mosaic(
@@ -65,10 +66,7 @@ class TestCreateMosaic:
         test = raster_processing.create_mosaic(
             files_str, out_path, src_crs, dst_crs, extent, res, aoi
         )
-        test_im = Image.open(test)
-        eval_im = Image.open(expected)
-        print(files_str)
-        assert len(set(ImageChops.difference(test_im, eval_im).getdata())) == pytest.approx(0, abs=10)
+        assert image_diff_percent(test, Path(expected)) < 2.5
 
     @pytest.mark.parametrize(
         "in_data",

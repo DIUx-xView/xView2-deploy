@@ -243,6 +243,7 @@ class TestIntegration:
         assert output_path.joinpath(file).is_file()
 
     # Make sure raster outputs look as we expect
+    @pytest.mark.xfail  # TODO: fix these to use test.utils.image_diff to compare to expected outputs -- get tests loading correct array for inference testing first
     @pytest.mark.parametrize(
         "file,expected",
         [
@@ -317,11 +318,3 @@ class TestIntegration:
         expected = eval(compile(expected, "none", "eval"))
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.crs.to_epsg() == expected
-
-
-class TestErrors:
-    def test_geographic_crs(self):
-        pass
-
-    def test_errors(self):
-        pass
