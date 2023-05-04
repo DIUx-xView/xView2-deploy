@@ -1,6 +1,6 @@
+import geopandas
 import rasterio
 from rasterio.features import dataset_features
-import geopandas
 
 
 def create_polys(in_files, threshold=30):

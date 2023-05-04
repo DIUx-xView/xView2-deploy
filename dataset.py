@@ -1,7 +1,7 @@
+import numpy as np
 import rasterio as rio
 import torch
 from torch.utils.data import Dataset
-import numpy as np
 
 
 def preprocess_inputs(x):

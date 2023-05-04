@@ -1,12 +1,11 @@
 import numpy as np
-
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torchvision.models
+from torch import nn
 
-from .senet import se_resnext50_32x4d, senet154
 from .dpn import dpn92
+from .senet import se_resnext50_32x4d, senet154
 
 
 class ConvReluBN(nn.Module):

@@ -20,9 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from PIL import Image
-from PIL import ImageChops
 from pathlib import Path
+
+from PIL import Image, ImageChops
 
 """
   === imagecompare ===

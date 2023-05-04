@@ -1,9 +1,9 @@
 import geopandas
 import rasterio
-import rasterio.warp
 import rasterio.crs
-from shapely.geometry import Polygon
+import rasterio.warp
 from loguru import logger
+from shapely.geometry import Polygon
 
 
 def make_footprint_df(files):

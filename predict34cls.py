@@ -1,7 +1,7 @@
 import os
-
-from os import path, makedirs, listdir
 import sys
+from os import listdir, makedirs, path
+
 import numpy as np
 
 np.random.seed(1)
@@ -9,22 +9,19 @@ import random
 
 random.seed(1)
 
-import torch
-from torch import nn
-from torch.backends import cudnn
-
-from torch.autograd import Variable
-
-import pandas as pd
-from tqdm import tqdm
 import timeit
+
 import cv2
-
-from zoo.models import Res34_Unet_Double
-
+import pandas as pd
+import torch
 from raster_processing import create_chips
+from torch import nn
+from torch.autograd import Variable
+from torch.backends import cudnn
+from tqdm import tqdm
 
 from utils import *
+from zoo.models import Res34_Unet_Double
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)

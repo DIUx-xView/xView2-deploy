@@ -1,12 +1,14 @@
-from tests.conftest import Args
-from pathlib import Path
-import pytest
-import handler
-import torch
-import fiona
-import rasterio.crs
-from pytest import MonkeyPatch
 from collections import namedtuple
+from pathlib import Path
+
+import fiona
+import pytest
+import rasterio.crs
+import torch
+from pytest import MonkeyPatch
+
+import handler
+from tests.conftest import Args
 
 # Todo: Return appropriate tensor for each image
 # Todo: Class out our monkeypatches

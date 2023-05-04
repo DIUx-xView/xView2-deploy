@@ -1,17 +1,18 @@
+import io
+from itertools import product
+from pathlib import Path
+
 import numpy as np
 import rasterio
-import rasterio.merge
-import rasterio.warp
-import rasterio.plot
 import rasterio.crs
-from osgeo import gdal, ogr
-from rasterio import windows
-from itertools import product
-from tqdm import tqdm
-from pathlib import Path
+import rasterio.merge
+import rasterio.plot
+import rasterio.warp
 from loguru import logger
+from osgeo import gdal, ogr
 from PIL import Image
-import io
+from rasterio import windows
+from tqdm import tqdm
 
 
 def get_res(image):

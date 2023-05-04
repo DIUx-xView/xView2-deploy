@@ -1,11 +1,13 @@
-import pytest
-import handler
-import geopandas
-import rasterio.crs
-import utils.dataframe
-from shapely.geometry import Polygon
 from pathlib import Path
+
+import geopandas
+import pytest
+import rasterio.crs
 from pytest import MonkeyPatch
+from shapely.geometry import Polygon
+
+import handler
+import utils.dataframe
 
 
 # Todo: would like this to create a different output path for each parametrized test run

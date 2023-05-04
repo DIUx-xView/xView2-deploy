@@ -1,10 +1,10 @@
 import os
-
-from os import path, makedirs, listdir
 import sys
+from os import listdir, makedirs, path
 
 sys.setrecursionlimit(10000)
 from multiprocessing import Pool
+
 import numpy as np
 
 np.random.seed(1)
@@ -12,17 +12,14 @@ import random
 
 random.seed(1)
 
-import pandas as pd
-from tqdm import tqdm
 import timeit
+
 import cv2
-
-from skimage.morphology import remove_small_objects
-
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-
-from skimage.morphology import square, dilation
+from skimage.morphology import dilation, remove_small_objects, square
+from tqdm import tqdm
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)

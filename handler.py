@@ -1,31 +1,34 @@
-import platform
-import timeit
 import argparse
-import os
-import sys
 import multiprocessing as mp
+import os
+import platform
+import sys
+import timeit
+from typing import Union
 
 mp.set_start_method("spawn", force=True)
-import utils.dataframe
-import numpy as np
-from utils import raster_processing, features, dataframe
-import rasterio.warp
-import rasterio.crs
-import torch
 from collections import defaultdict
 from os import makedirs, path
 from pathlib import Path
-from torch.utils.data import DataLoader
-from skimage.morphology import square, dilation
-from tqdm import tqdm
-from dataset import XViewDataset
-from models import XViewFirstPlaceLocModel, XViewFirstPlaceClsModel
+
+import numpy as np
+import rasterio.crs
+import rasterio.warp
+import shapely
+import torch
 from loguru import logger
 from osgeo import gdal
-import shapely
+from skimage.morphology import dilation, square
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import utils.dataframe
+from dataset import XViewDataset
+from models import XViewFirstPlaceClsModel, XViewFirstPlaceLocModel
+from utils import dataframe, features, raster_processing
 
 
-class Options(object):
+class Options:
     def __init__(
         self,
         pre_path="input/pre",
@@ -53,7 +56,7 @@ class Options(object):
         self.is_vis = vis
 
 
-class Files(object):
+class Files:
     def __init__(
         self,
         ident,
@@ -100,32 +103,118 @@ class Files(object):
             return src.profile
 
 
-def make_output_structure(output_path):
-    """
-    Creates directory structure for outputs.
-    :param output_path: Output path
-    :return: True if successful
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Create arguments for xView 2 handler."
+    )
+
+    parser.add_argument(
+        "--pre_directory",
+        metavar="/path/to/pre/files/",
+        type=Path,
+        required=True,
+        help="Directory containing pre-disaster imagery. This is searched recursively.",
+    )
+    parser.add_argument(
+        "--post_directory",
+        metavar="/path/to/post/files/",
+        type=Path,
+        required=True,
+        help="Directory containing post-disaster imagery. This is searched recursively.",
+    )
+    parser.add_argument(
+        "--output_directory",
+        metavar="/path/to/output/",
+        type=Path,
+        required=True,
+        help="Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.",
+    )
+    parser.add_argument(
+        "--batch_size",
+        default=2,
+        help="Number of chips to run inference on at once",
+        type=int,
+    )
+    parser.add_argument(
+        "--pre_crs",
+        help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.',
+    )
+    parser.add_argument(
+        "--post_crs",
+        help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.',
+    )
+    parser.add_argument(
+        "--destination_crs",
+        default=None,
+        help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.',
+    )  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
+    parser.add_argument(
+        "--dp_mode",
+        default=False,
+        action="store_true",
+        help="Run models serially, but using DataParallel",
+    )
+    parser.add_argument(
+        "--output_resolution",
+        default=None,
+        help="Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.",
+    )
+    parser.add_argument(
+        "--save_intermediates",
+        default=False,
+        action="store_true",
+        help="Store intermediate runfiles",
+    )
+    parser.add_argument(
+        "--aoi_file", default=None, help="Shapefile or GeoJSON file of AOI polygons"
+    )
+    parser.add_argument(
+        "--bldg_polys",
+        default=None,
+        help="Shapefile or GeoJSON file of input building footprints",
+    )
+
+    return parser.parse_args()
+
+
+def make_output_structure(output_path: Path) -> bool:
+    """create output file structure
+
+    Args:
+        output_path (Path): path object of base output path
+
+    Returns:
+        bool: True if successful
     """
 
-    Path(f"{output_path}/mosaics").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/chips/pre").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/chips/post").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/chips/in_polys").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/loc").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/dmg").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/over").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/vector").mkdir(parents=True, exist_ok=True)
-    Path(f"{output_path}/vrt").mkdir(parents=True, exist_ok=True)
+    paths = [
+        "mosaics",
+        "chips/pre",
+        "chips/post",
+        "chips/in_polys",
+        "loc",
+        "dmg",
+        "over",
+        "vector",
+    ]
+
+    for path in paths:
+        (output_path / path).mkdir(parents=True, exist_ok=True)
 
     return True
 
 
-def get_files(dirname, extensions=[".png", ".jpg", ".tif", ".tiff"]):
-    """
-    Gathers list of files for processing from path recursively.
-    :param dirname: path to parse
-    :param extensions: extensions to match
-    :return: list of files matching extensions
+def get_files(
+    dirname: Union[str, Path], extensions: list = [".png", ".jpg", ".tif", ".tiff"]
+) -> list[Path]:
+    """gather files recursively that match file extensions
+
+    Args:
+        dirname (Union[str, Path]): directory to search
+        extensions (list, optional): list of extensions to match. Defaults to [".png", ".jpg", ".tif", ".tiff"].
+
+    Returns:
+        list[Path]: list of Path objects for files matched
     """
     dir_path = Path(dirname).resolve()
 
@@ -141,28 +230,11 @@ def get_files(dirname, extensions=[".png", ".jpg", ".tif", ".tiff"]):
     return match
 
 
-def reproject_helper(args, raster_tuple, procnum, return_dict, resolution):
-    """
-    Helper function for reprojection
-    """
-    (pre_post, src_crs, raster_file) = raster_tuple
-    basename = raster_file.stem
-    dest_file = args.staging_directory.joinpath("pre").joinpath(f"{basename}.tif")
-    try:
-        return_dict[procnum] = (
-            pre_post,
-            raster_processing.reproject(
-                raster_file, dest_file, src_crs, args.destination_crs, resolution
-            ),
-        )
-    except ValueError:
-        return None
+def postprocess_and_write(result_dict: dict) -> None:
+    """Postprocess results from inference and write results to file
 
-
-def postprocess_and_write(result_dict):
-    """
-    Postprocess results from inference and write results to file
-    :param result_dict: dictionary containing all required opts for each example
+    Args:
+        result_dict (dict): dictionary containing all required opts for each example
     """
     _thr = [0.38, 0.13, 0.14]
     pred_coefs = [1.0] * 4  # not 12, b/c already took mean over 3 in each subset
@@ -350,6 +422,14 @@ def check_data(images):
 
 
 def create_vector(args, dmg_path, extent=None, in_poly_df=None):
+    """helper function to create vector features
+
+    Args:
+        args (cls): arguments class
+        dmg_path (str): path to damage files
+        extent (tuple, optional): extent to create features for. Defaults to None.
+        in_poly_df (dataframe, optional): dataframe of building footprint polygons. Defaults to None.
+    """
     # Get files for creating vector data
     logger.info("Generating vector data")
     dmg_files = get_files(dmg_path)
@@ -399,80 +479,6 @@ def create_vector(args, dmg_path, extent=None, in_poly_df=None):
     )  # Todo: move this up to right after the polys are simplified to capture some vector data if script crashes
     features.write_output(aoi, vector_out, "aoi")
     features.write_output(centroids, vector_out, "centroids")
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Create arguments for xView 2 handler."
-    )
-
-    parser.add_argument(
-        "--pre_directory",
-        metavar="/path/to/pre/files/",
-        type=Path,
-        required=True,
-        help="Directory containing pre-disaster imagery. This is searched recursively.",
-    )
-    parser.add_argument(
-        "--post_directory",
-        metavar="/path/to/post/files/",
-        type=Path,
-        required=True,
-        help="Directory containing post-disaster imagery. This is searched recursively.",
-    )
-    parser.add_argument(
-        "--output_directory",
-        metavar="/path/to/output/",
-        type=Path,
-        required=True,
-        help="Directory to store output files. This will be created if it does not exist. Existing files may be overwritten.",
-    )
-    parser.add_argument(
-        "--batch_size",
-        default=2,
-        help="Number of chips to run inference on at once",
-        type=int,
-    )
-    parser.add_argument(
-        "--pre_crs",
-        help='The Coordinate Reference System (CRS) for the pre-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.',
-    )
-    parser.add_argument(
-        "--post_crs",
-        help='The Coordinate Reference System (CRS) for the post-disaster imagery. This will only be utilized if images lack CRS data. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string.',
-    )
-    parser.add_argument(
-        "--destination_crs",
-        default=None,
-        help='The Coordinate Reference System (CRS) for the output overlays. May be WKT, EPSG (ex. "EPSG:4326"), or PROJ string. Leave blank to calculate the approriate UTM zone.',
-    )  # Todo: Create warning/force change when not using a CRS that utilizes meters for base units
-    parser.add_argument(
-        "--dp_mode",
-        default=False,
-        action="store_true",
-        help="Run models serially, but using DataParallel",
-    )
-    parser.add_argument(
-        "--output_resolution",
-        default=None,
-        help="Override minimum resolution calculator. This should be a lower resolution (higher number) than source imagery for decreased inference time. Must be in units of destinationCRS.",
-    )
-    parser.add_argument(
-        "--save_intermediates",
-        default=False,
-        action="store_true",
-        help="Store intermediate runfiles",
-    )
-    parser.add_argument(
-        "--aoi_file", default=None, help="Shapefile or GeoJSON file of AOI polygons"
-    )
-    parser.add_argument(
-        "--bldg_polys",
-        default=None,
-        help="Shapefile or GeoJSON file of input building footprints",
-    )
-
-    return parser.parse_args()
 
 
 def pre_post_handler(args, pre_post):

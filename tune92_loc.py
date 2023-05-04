@@ -4,8 +4,9 @@ os.environ["MKL_NUM_THREADS"] = "2"
 os.environ["NUMEXPR_NUM_THREADS"] = "2"
 os.environ["OMP_NUM_THREADS"] = "2"
 
-from os import path, makedirs, listdir
 import sys
+from os import listdir, makedirs, path
+
 import numpy as np
 
 np.random.seed(1)
@@ -13,36 +14,27 @@ import random
 
 random.seed(1)
 
+import gc
+import timeit
+
+import cv2
+import pandas as pd
 import torch
+import torch.optim.lr_scheduler as lr_scheduler
+from apex import amp
+from imgaug import augmenters as iaa
+from skimage.morphology import dilation, square
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.backends import cudnn
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-import torch.optim.lr_scheduler as lr_scheduler
-
-from apex import amp
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 from adamw import AdamW
-from losses import dice_round, ComboLoss
-
-import pandas as pd
-from tqdm import tqdm
-import timeit
-import cv2
-
-from zoo.models import Dpn92_Unet_Loc
-
-from imgaug import augmenters as iaa
-
+from losses import ComboLoss, dice_round
 from utils import *
-
-from skimage.morphology import square, dilation
-
-from sklearn.model_selection import train_test_split
-
-from sklearn.metrics import accuracy_score
-
-import gc
+from zoo.models import Dpn92_Unet_Loc
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
