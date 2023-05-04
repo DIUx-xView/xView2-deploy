@@ -195,10 +195,11 @@ def setup(output_path, request, monkeysession):
     )
 
     # Mock CUDA devices
-    monkeysession.setattr("torch.cuda.device_count", lambda: 2)
-    monkeysession.setattr(
-        "torch.cuda.get_device_properties", lambda x: f"Mocked CUDA Device{x}"
-    )
+    monkeysession.setattr("torch.cuda.device_count", lambda: 1)
+    if not torch.cuda.is_available():
+        monkeysession.setattr(
+            "torch.cuda.get_device_properties", lambda x: f"Mocked CUDA Device{x}"
+        )
 
     # Mock classes to mock inference
     monkeysession.setattr("handler.XViewFirstPlaceLocModel", MockLocModel)
@@ -225,7 +226,6 @@ class TestInput:
 
 @pytest.mark.usefixtures("setup")
 class TestIntegration:
-
     # Make sure files exist that we expect to exist
     @pytest.mark.parametrize(
         "file",
