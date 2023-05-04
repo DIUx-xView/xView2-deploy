@@ -14,22 +14,6 @@ from PIL import Image
 import io
 
 
-def create_vrt(in_files, out_path, resolution="lowest"):
-    """
-    Create VRT from an iterable of filenames.
-    :param in_files: iterable of filenames
-    :param out_path: output path
-    :param resolution: string of method to determine resolution {highest|lowest|average|user}
-    :return: pathname of output file
-    """
-    # Note: gdal does not accept path objects
-
-    files = [str(file) for file in in_files]
-    out_file = str(out_path)
-    vrt = gdal.BuildVRT(out_file, files, resolution=resolution)
-    return out_path
-
-
 def get_res(image):
     """
     Gets resolution of raster.

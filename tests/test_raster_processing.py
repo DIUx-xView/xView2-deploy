@@ -139,15 +139,6 @@ class TestCreateComposite:
         )
 
 
-class TestCreateVRT:
-    def test_vrt(self, tmp_path):
-        in_dir = "tests/data/input/pre"
-        files = handler.get_files(in_dir)
-        out_path = tmp_path / "vrt.vrt"
-        test = raster_processing.create_vrt(files, out_path)
-        assert out_path.is_file()
-
-
 class TestGetRes:
     def test_get_image_res(self):
         assert raster_processing.get_res("tests/data/input/pre/tile_337-9136.tif") == (
