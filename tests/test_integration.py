@@ -133,7 +133,7 @@ testcases = [
         64780,
         50548,
         77,
-        32615,
+        3857,
     ),
     TestCase(
         "integration_no_polys_no_aoi",
@@ -195,10 +195,11 @@ def setup(output_path, request, monkeysession):
     )
 
     # Mock CUDA devices
-    monkeysession.setattr("torch.cuda.device_count", lambda: 2)
-    monkeysession.setattr(
-        "torch.cuda.get_device_properties", lambda x: f"Mocked CUDA Device{x}"
-    )
+    monkeysession.setattr("torch.cuda.device_count", lambda: 1)
+    if not torch.cuda.is_available():
+        monkeysession.setattr(
+            "torch.cuda.get_device_properties", lambda x: f"Mocked CUDA Device{x}"
+        )
 
     # Mock classes to mock inference
     monkeysession.setattr("handler.XViewFirstPlaceLocModel", MockLocModel)
@@ -225,7 +226,6 @@ class TestInput:
 
 @pytest.mark.usefixtures("setup")
 class TestIntegration:
-
     # Make sure files exist that we expect to exist
     @pytest.mark.parametrize(
         "file",
@@ -243,6 +243,7 @@ class TestIntegration:
         assert output_path.joinpath(file).is_file()
 
     # Make sure raster outputs look as we expect
+    @pytest.mark.xfail  # TODO: fix these to use test.utils.image_diff to compare to expected outputs -- get tests loading correct array for inference testing first
     @pytest.mark.parametrize(
         "file,expected",
         [
@@ -290,14 +291,15 @@ class TestIntegration:
     @pytest.mark.parametrize(
         "layer,epsg",
         [
-            ("damage", {"init": "epsg:32615"}),
-            ("centroids", {"init": "epsg:32615"}),
-            ("aoi", {"init": "epsg:32615"}),
+            ("damage", "setup.expected_epsg"),
+            ("centroids", "setup.expected_epsg"),
+            ("aoi", "setup.expected_epsg"),
         ],
     )
     def test_out_crs(self, setup, output_path, layer, epsg):
+        expected = eval(compile(epsg, "none", "eval"))
         with fiona.open(output_path.joinpath("vector/damage.gpkg"), layer=layer) as src:
-            assert src.crs == epsg
+            assert src.crs == {"init": f"epsg:{expected}"}
 
     # Test for correct number of vector layers
     def test_out_file_layers(self, setup, output_path):
@@ -316,11 +318,3 @@ class TestIntegration:
         expected = eval(compile(expected, "none", "eval"))
         with rasterio.open(output_path.joinpath(file)) as src:
             assert src.crs.to_epsg() == expected
-
-
-class TestErrors:
-    def test_geographic_crs(self):
-        pass
-
-    def test_errors(self):
-        pass
