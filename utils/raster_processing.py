@@ -131,7 +131,6 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
     """
 
     def get_intersect_win(rio_obj):
-
         """
         Calculate rasterio window from intersect
         :param rio_obj: rasterio dataset
@@ -148,7 +147,6 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
         return int_window
 
     def get_tiles(ds, width, height):
-
         """
         Create chip tiles generator
         :param ds: rasterio dataset
@@ -180,7 +178,6 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
     chips = []
 
     with rasterio.open(in_raster) as inds:
-
         meta = inds.meta.copy()
 
         for idx, (window, transform) in enumerate(

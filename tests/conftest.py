@@ -33,7 +33,6 @@ class Args:
         aoi_file="",
         bldg_polys=None,
     ):
-
         self.pre_directory = Path(pre_directory)
         self.post_directory = Path(post_directory)
         self.output_directory = output_directory

@@ -22,7 +22,6 @@ class TestCreatePolys:
         polys = features.create_polys([file1, file2], threshold=0)
         assert len(polys) == 353
 
-
     def test_combine_poly_with_thresh(self):
         file1 = Path("tests/data/output/dmg/0_pre.tif")
         file2 = Path("tests/data/output/dmg/1_pre.tif")

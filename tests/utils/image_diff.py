@@ -62,6 +62,7 @@ class ImageCompareException(Exception):
     """
     Custom Exception class for imagecompare's exceptions.
     """
+
     pass
 
 
@@ -76,16 +77,22 @@ def pixel_diff(image_a, image_b):
 
     if image_a.size != image_b.size:
         raise ImageCompareException(
-            "different image sizes, can only compare same size images: A=" + str(image_a.size) + " B=" + str(
-                image_b.size))
+            "different image sizes, can only compare same size images: A="
+            + str(image_a.size)
+            + " B="
+            + str(image_b.size)
+        )
 
     if image_a.mode != image_b.mode:
         raise ImageCompareException(
-            "different image mode, can only compare same mode images: A=" + str(image_a.mode) + " B=" + str(
-                image_b.mode))
+            "different image mode, can only compare same mode images: A="
+            + str(image_a.mode)
+            + " B="
+            + str(image_b.mode)
+        )
 
     diff = ImageChops.difference(image_a, image_b)
-    diff = diff.convert('L')
+    diff = diff.convert("L")
 
     return diff
 
@@ -149,11 +156,13 @@ def image_diff_percent(image_a, image_b):
     if isinstance(image_b, Path):
         image_b = Image.open(image_b)
         close_b = True
-    
-    #crop both images to smallest bounding box of non zero pixels
+
+    # crop both images to smallest bounding box of non zero pixels
     height = min(image_a.height, image_b.height)
     width = min(image_a.width, image_b.width)
-    image_a, image_b = image_a.crop((0, 0, width, height)), image_b.crop((0, 0, width, height))
+    image_a, image_b = image_a.crop((0, 0, width, height)), image_b.crop(
+        (0, 0, width, height)
+    )
 
     try:
         # first determine difference of input images
@@ -162,12 +171,14 @@ def image_diff_percent(image_a, image_b):
         # to get the worst possible difference use a black and a white image
         # of the same size and diff them
 
-        black_reference_image = Image.new('RGB', image_a.size, (0, 0, 0))
-        white_reference_image = Image.new('RGB', image_a.size, (255, 255, 255))
+        black_reference_image = Image.new("RGB", image_a.size, (0, 0, 0))
+        white_reference_image = Image.new("RGB", image_a.size, (255, 255, 255))
 
         worst_bw_diff = image_diff(black_reference_image, white_reference_image)
 
-        percentage_histogram_diff = (input_images_histogram_diff / float(worst_bw_diff)) * 100
+        percentage_histogram_diff = (
+            input_images_histogram_diff / float(worst_bw_diff)
+        ) * 100
     finally:
         if close_a:
             image_a.close()

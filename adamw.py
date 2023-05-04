@@ -22,10 +22,8 @@ class AdamW(torch.optim.Optimizer):
     https://arxiv.org/abs/1711.05101
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0):
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay)
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
         super(AdamW, self).__init__(params, defaults)
 
     def step(self, closure=None):
@@ -40,27 +38,29 @@ class AdamW(torch.optim.Optimizer):
             loss = closure()
 
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
                 grad = p.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError('AdamW does not support sparse gradients, please consider SparseAdam instead')
+                    raise RuntimeError(
+                        "AdamW does not support sparse gradients, please consider SparseAdam instead"
+                    )
 
                 state = self.state[p]
 
                 # State initialization
                 if len(state) == 0:
-                    state['step'] = 0
+                    state["step"] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
+                    state["exp_avg"] = torch.zeros_like(p.data)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)
+                    state["exp_avg_sq"] = torch.zeros_like(p.data)
 
-                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                beta1, beta2 = group['betas']
+                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+                beta1, beta2 = group["betas"]
 
-                state['step'] += 1
+                state["step"] += 1
 
                 # according to the paper, this penalty should come after the bias correction
                 # if group['weight_decay'] != 0:
@@ -70,15 +70,15 @@ class AdamW(torch.optim.Optimizer):
                 exp_avg.mul_(beta1).add_(1 - beta1, grad)
                 exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
 
-                denom = exp_avg_sq.sqrt().add_(group['eps'])
+                denom = exp_avg_sq.sqrt().add_(group["eps"])
 
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
-                step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
+                bias_correction1 = 1 - beta1 ** state["step"]
+                bias_correction2 = 1 - beta2 ** state["step"]
+                step_size = group["lr"] * math.sqrt(bias_correction2) / bias_correction1
 
                 # w = w - wd * lr * w
-                if group['weight_decay'] != 0:
-                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+                if group["weight_decay"] != 0:
+                    p.data.add_(-group["weight_decay"] * group["lr"], p.data)
 
                 # w = w - lr * w.grad
                 p.data.addcdiv_(-step_size, exp_avg, denom)

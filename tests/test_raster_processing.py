@@ -43,7 +43,15 @@ class TestCreateMosaic:
                 "tests/data/eval_images/mosaic_no_mask.tif",
                 id="param_no_mask",
             ),
-            pytest.param(None, None, None, None, None, "tests/data/eval_images/mosaic_no_mask.tif", id="no_param_no_mask"),
+            pytest.param(
+                None,
+                None,
+                None,
+                None,
+                None,
+                "tests/data/eval_images/mosaic_no_mask.tif",
+                id="no_param_no_mask",
+            ),
             pytest.param(
                 crs(26915),
                 crs(32615),
@@ -53,7 +61,15 @@ class TestCreateMosaic:
                 "tests/data/eval_images/mosaic_with_mask.tif",
                 id="param_mask",
             ),
-            pytest.param(None, None, None, None, True, "tests/data/eval_images/mosaic_with_mask.tif", id="no_param_mask"),
+            pytest.param(
+                None,
+                None,
+                None,
+                None,
+                True,
+                "tests/data/eval_images/mosaic_with_mask.tif",
+                id="no_param_mask",
+            ),
         ],
     )
     def test_create_mosaic(
@@ -92,7 +108,6 @@ class TestCreateMosaic:
 
 class TestCreatChips:
     def test_create_chips(self, tmp_path):
-
         print(tmp_path)
         out_dir = tmp_path / "chips"
         out_dir.mkdir()
@@ -139,4 +154,3 @@ class TestGetRes:
             0.6,
             0.6,
         )
-

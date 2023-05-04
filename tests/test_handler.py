@@ -15,16 +15,12 @@ class TestGetFiles:
 
 
 def test_reprojection_helper():
-
     pass
 
 
 def test_post_process_and_write():
-
     pass
 
 
 def test_files_class():
-
     pass
-

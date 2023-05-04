@@ -4,7 +4,6 @@ import geopandas
 
 
 def create_polys(in_files, threshold=30):
-
     """
     Create palygons to use for feature creation.
     :param in_files: List of DMG files to create polygons from.
@@ -40,19 +39,17 @@ def write_output(features, out_file, layer="features"):
 
 
 def create_aoi_poly(polygons):
-
     """
     Create convex hull polygon encompassing damage polygons
     :param features: Polygons to create hull around
     :return: GDF
     """
     hull = polygons.unary_union.convex_hull
-    df = geopandas.GeoDataFrame({'geometry': [hull]}, crs=polygons.crs)
+    df = geopandas.GeoDataFrame({"geometry": [hull]}, crs=polygons.crs)
     return df
 
 
 def create_centroids(features):
-
     """
     Create centroids from polygon features
     :param features: Polygon features to create centroids from
@@ -65,7 +62,6 @@ def create_centroids(features):
 
 
 def weight_dmg(features, destination_crs):
-
     poly = features.geometry.unary_union
 
     features.loc[features.dmg.isnull(), "dmg"] = 1

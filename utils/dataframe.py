@@ -25,7 +25,6 @@ def make_footprint_df(files):
     # Get values from source rasters
     for f in files:
         with rasterio.open(f) as src:
-
             # Create footprint polygon
             vert = [
                 (src.bounds.left, src.bounds.top),
@@ -61,7 +60,6 @@ def make_footprint_df(files):
 
 
 def make_aoi_df(aoi_file):
-
     if aoi_file is None:
         return None
 
@@ -199,20 +197,23 @@ def get_max_res(pre_df, post_df):
 
 
 def bldg_poly_handler(poly_file):
-
     df = geopandas.read_file(poly_file)
 
     return df
 
 
 def bldg_poly_process(
-    df, intersect, dest_crs, out_file, out_shape, transform,
+    df,
+    intersect,
+    dest_crs,
+    out_file,
+    out_shape,
+    transform,
 ):
     def _clip_polys(input, mask):
         return geopandas.clip(input, mask)
 
     def _rasterize(in_feats, out_file, out_shape, transform, dst_crs):
-
         image = rasterio.features.rasterize(
             in_feats.geometry,
             out_shape=out_shape,
@@ -254,4 +255,3 @@ def bldg_poly_process(
     mosaic = _rasterize(df, out_file, out_shape, transform, dest_crs)
 
     return mosaic
-
