@@ -133,7 +133,7 @@ testcases = [
         64780,
         50548,
         77,
-        32615,
+        3857,
     ),
     TestCase(
         "integration_no_polys_no_aoi",
@@ -290,14 +290,15 @@ class TestIntegration:
     @pytest.mark.parametrize(
         "layer,epsg",
         [
-            ("damage", {"init": "epsg:32615"}),
-            ("centroids", {"init": "epsg:32615"}),
-            ("aoi", {"init": "epsg:32615"}),
+            ("damage", "setup.expected_epsg"),
+            ("centroids", "setup.expected_epsg"),
+            ("aoi", "setup.expected_epsg"),
         ],
     )
     def test_out_crs(self, setup, output_path, layer, epsg):
+        expected = eval(compile(epsg, "none", "eval"))
         with fiona.open(output_path.joinpath("vector/damage.gpkg"), layer=layer) as src:
-            assert src.crs == epsg
+            assert src.crs == {"init": f"epsg:{expected}"}
 
     # Test for correct number of vector layers
     def test_out_file_layers(self, setup, output_path):
