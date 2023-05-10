@@ -1,7 +1,8 @@
 from pathlib import Path
+
+import handler
 import utils.features
 from utils import features
-import handler
 
 
 class TestCreatePolys:

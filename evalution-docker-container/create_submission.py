@@ -3,8 +3,8 @@ import os
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
-from os import path, makedirs, listdir
 import sys
+from os import listdir, makedirs, path
 
 import numpy as np
 
@@ -14,9 +14,9 @@ import random
 random.seed(1)
 
 import timeit
-import cv2
 
-from skimage.morphology import square, dilation
+import cv2
+from skimage.morphology import dilation, square
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)

@@ -1,13 +1,16 @@
+from pathlib import Path
+
+import numpy as np
+import pytest
 import rasterio
 import rasterio.crs
-import pytest
-from pathlib import Path
-from .conftest import Args
-from utils import raster_processing
+from PIL import Image, ImageChops
+
 import handler
-import numpy as np
-from PIL import ImageChops, Image
 from tests.utils.image_diff import image_diff_percent
+from utils import raster_processing
+
+from .conftest import Args
 
 
 def crs(epsg):

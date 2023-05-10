@@ -1,12 +1,12 @@
-import torch
-import torch.nn as nn
-from torch.backends import cudnn
-from torch.autograd import Variable
-
-from os import path, makedirs, listdir
-from zoo.models import *
+from os import listdir, makedirs, path
 
 import numpy as np
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+from torch.backends import cudnn
+
+from zoo.models import *
 
 np.random.seed(1)
 import random

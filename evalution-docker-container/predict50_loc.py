@@ -3,8 +3,9 @@ import os
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
-from os import path, makedirs
 import sys
+from os import makedirs, path
+
 import numpy as np
 
 np.random.seed(1)
@@ -14,16 +15,16 @@ random.seed(1)
 import torch
 
 torch.set_num_threads(1)
+import timeit
+
+import cv2
 from torch import nn
 from torch.autograd import Variable
-import timeit
-import cv2
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-from zoo.models import SeResNext50_Unet_Loc
-
 from utils import preprocess_inputs
+from zoo.models import SeResNext50_Unet_Loc
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)

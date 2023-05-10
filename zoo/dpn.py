@@ -8,11 +8,12 @@ This implementation is compatible with the pretrained weights
 from cypw's MXNet implementation.
 """
 import os
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
-from collections import OrderedDict
 
 __all__ = ["DPN", "dpn68", "dpn68b", "dpn92", "dpn98", "dpn131", "dpn107"]
 

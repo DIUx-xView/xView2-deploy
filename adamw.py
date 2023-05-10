@@ -1,6 +1,7 @@
 # Based on https://github.com/pytorch/pytorch/pull/3740
-import torch
 import math
+
+import torch
 
 
 class AdamW(torch.optim.Optimizer):

@@ -10,24 +10,25 @@ np.random.seed(1)
 import random
 
 random.seed(1)
-import pandas as pd
-import cv2
-import timeit
-from os import path, makedirs, listdir
 import sys
+import timeit
+from os import listdir, makedirs, path
+
+import cv2
+import pandas as pd
 
 sys.setrecursionlimit(10000)
+import json
 from multiprocessing import Pool
-from skimage.morphology import square, dilation, watershed, erosion
-from skimage import io
 
+from shapely.geometry import Polygon, mapping
 from shapely.wkt import loads
-from shapely.geometry import mapping, Polygon
+from skimage import io
+from skimage.morphology import dilation, erosion, square, watershed
 
 # import matplotlib.pyplot as plt
 # import seaborn as sns
 
-import json
 
 masks_dir = "masks"
 

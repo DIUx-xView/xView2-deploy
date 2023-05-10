@@ -1,7 +1,7 @@
 import os
-
-from os import path, makedirs, listdir
 import sys
+from os import listdir, makedirs, path
+
 import numpy as np
 
 np.random.seed(1)
@@ -9,27 +9,20 @@ import random
 
 random.seed(1)
 
-import torch
-from torch import nn
-from torch.backends import cudnn
-
-from torch.autograd import Variable
-
-import pandas as pd
-from tqdm import tqdm
 import timeit
-import cv2
 
-from zoo.models import (
-    SeResNext50_Unet_Loc,
-    Dpn92_Unet_Loc,
-    Res34_Unet_Loc,
-    SeNet154_Unet_Loc,
-)
+import cv2
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from torch import nn
+from torch.autograd import Variable
+from torch.backends import cudnn
+from tqdm import tqdm
 
 from utils import *
-
-from sklearn.model_selection import train_test_split
+from zoo.models import (Dpn92_Unet_Loc, Res34_Unet_Loc, SeNet154_Unet_Loc,
+                        SeResNext50_Unet_Loc)
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
