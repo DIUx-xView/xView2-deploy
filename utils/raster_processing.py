@@ -1,6 +1,7 @@
 import io
 from itertools import product
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import rasterio
@@ -8,37 +9,52 @@ import rasterio.crs
 import rasterio.merge
 import rasterio.plot
 import rasterio.warp
+from affine import Affine
 from loguru import logger
+from numpy import array
 from osgeo import gdal, ogr
 from PIL import Image
 from rasterio import windows
 from tqdm import tqdm
 
 
-def get_res(image):
-    """
-    Gets resolution of raster.
-    :param image: filename of raster
-    :return: tuple of raster resolution (x, y)
+def get_res(image: Union[Path, str]) -> tuple[float]:
+    """Get x,y resolution from raster
+
+    Args:
+        image (Union[Path, str]): Filename of raster.
+
+    Returns:
+        tuple[float]: Resolution of rastor (x, y)
     """
     with rasterio.open(image) as src:
         return src.res
 
 
 def create_mosaic(
-    in_data, out_file, src_crs=None, dst_crs=None, extent=None, dst_res=None, aoi=None
-):
+    in_data: list[Union[Path, str]],
+    out_file: Union[Path, str],
+    src_crs: rasterio.crs.CRS = None,
+    dst_crs: rasterio.crs.CRS = None,
+    extent: tuple[float] = None,
+    dst_res: tuple[float] = None,
+    aoi=None,
+) -> Union[Path, str]:
+    """Create mosaic from input files
+
+    Args:
+        in_data (Union[Path, str]): List of input rasters.
+        out_file (Union[Path, str]): Filename to save mosaic
+        src_crs (rasterio.crs.CRS, optional): Source CRS of rasters. Only used if CRS is not set on input rasters. Defaults to None.
+        dst_crs (rasterio.crs.CRS, optional): Destination CRS of mosaic. Defaults to None.
+        extent (tuple[float], optional): tuple of extent to clip mosaic to. Defaults to None.
+        dst_res (tuple[float], optional): Destination mosaic resolution. Defaults to None.
+        aoi (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        Union[Path, str]: _description_
     """
-    Creates mosaic from input files
-    :param in_data: iterable of input rasters
-    :param out_file: output file path
-    :param src_crs: source CRS of input rasters
-    :param dst_crs: destination CRS
-    :param extent: tuple of resolution in destination CRS (left, bottom, right, top)
-    :param dst_res: destination resolution in destination CRS units (x, y)
-    :param aoi: geodataframe of AOI(s)
-    :return: output file path
-    """
+
     # Note: gdal will not accept Path objects. They must be passed as strings
     if dst_res:
         xRes = (dst_res[0],)
@@ -48,7 +64,7 @@ def create_mosaic(
         yRes = None
 
     if aoi is not None:
-        if src_crs is not None:
+        if src_crs is not None:  # TODO: clean this up!
             aoi = aoi.to_crs(src_crs)
         else:
             raster = rasterio.open(in_data[0])
@@ -85,13 +101,16 @@ def create_mosaic(
     return out_file
 
 
-def check_dims(arr, w, h):
-    """
-    Check dimensions of output tiles and pad
-    :param arr: numpy array
-    :param w: tile width
-    :param h: tile height
-    :return: tile of dimensions specified
+def check_dims(arr: array, w: int, h: int) -> array:
+    """Check dimensions of output tiles and pad to create equal dimensions.
+
+    Args:
+        arr (array): Input numpy array.
+        w (int): Width to pad to.
+        h (int): Height to pad to.
+
+    Returns:
+        array: Input array padded to w, h values.
     """
 
     dims = arr.shape
@@ -104,15 +123,21 @@ def check_dims(arr, w, h):
     return result
 
 
-def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=1024):
-    """
-    Creates chips from mosaic that fall inside the intersect
-    :param in_raster: mosaic to create chips from
-    :param out_dir: path to write chips
-    :param intersect: bounds of chips to create
-    :param tile_width: width of tiles to chip
-    :param tile_height: height of tiles to chip
-    :return: list of path to chips
+def create_chips(
+    in_raster: Union[Path, str],
+    out_dir: Path,
+    intersect: tuple[float],
+    tile_width: int = 1024,
+    tile_height: int = 1024,
+):
+    """Create chips from raster that fall inside 'intersect'.
+
+    Args:
+        in_raster (Union[Path, str]): Input raster to create chips from.
+        out_dir (Path): Output directory to save chips.
+        intersect (tuple[float]): Intersect to constrain chips.
+        tile_width (int, optional): Tile width. Defaults to 1024.
+        tile_height (int, optional): Tile height. Defaults to 1024.
     """
 
     def get_intersect_win(rio_obj):
@@ -190,15 +215,24 @@ def create_chips(in_raster, out_dir, intersect, tile_width=1024, tile_height=102
     return chips
 
 
-def create_composite(base, overlay, out_file, transforms, alpha=0.6):
-    """
-    Creates alpha composite on an image from a numpy array.
-    :param base: Base image file
-    :param overlay: Numpy array to overlay
-    :param out_file: Destination file
-    :param transforms: Geo profile
-    :param alpha: Desired alpha
-    :return: Path object to overlay
+def create_composite(
+    base: Union[Path, str],
+    overlay: array,
+    out_file: Union[Path, str],
+    transforms: Affine,
+    alpha: float = 0.6,
+) -> Union[Path, str]:
+    """Composites 'overlay' on top of 'base' with 'alpha'.
+
+    Args:
+        base (Union[Path, str]): Base image path.
+        overlay (array): Numpy array to overlay on 'base'.
+        out_file (Union[Path, str]): Path to save overlay.
+        transforms (Affine): Affine transform to apply to saved overlay.
+        alpha (float, optional): Desired alpha to apply to 'overlay'. Defaults to 0.6.
+
+    Returns:
+        Union[Path, str]: Overlay file path.
     """
 
     mask_map_img = np.zeros((overlay.shape[0], overlay.shape[1], 4), dtype=np.uint8)

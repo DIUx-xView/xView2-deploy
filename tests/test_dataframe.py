@@ -5,6 +5,7 @@ import geopandas
 import pytest
 import rasterio
 import rasterio.crs
+from affine import Affine
 
 import handler
 import utils.dataframe

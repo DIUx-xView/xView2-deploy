@@ -6,6 +6,8 @@ import sys
 import timeit
 from typing import Union
 
+from pandas import DataFrame
+
 mp.set_start_method("spawn", force=True)
 from collections import defaultdict
 from os import makedirs, path
@@ -177,7 +179,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def make_output_structure(output_path: Path) -> bool:
+def make_output_structure(output_path: Path) -> True:
     """create output file structure
 
     Args:
@@ -205,7 +207,7 @@ def make_output_structure(output_path: Path) -> bool:
 
 
 def get_files(
-    dirname: Union[str, Path], extensions: list = [".png", ".jpg", ".tif", ".tiff"]
+    dirname: Union[str, Path], extensions: list[str] = [".png", ".jpg", ".tif", ".tiff"]
 ) -> list[Path]:
     """gather files recursively that match file extensions
 
@@ -400,11 +402,14 @@ def run_inference(
 
 
 # Todo: Move this to raster_processing
-def check_data(images):
-    """
-    Check that our image pairs contain useful data. Note: This only check the first band of each file.
-    :param images: Images to check for data
-    :return: True if both images contain useful data. False if either contains no useful date.
+def check_data(images: Union[str, Path]) -> bool:
+    """Check that our image pairs contain useful data. Note: This only check the first band of each file.
+
+    Args:
+        images (Union[str, Path]): Images to check for data
+
+    Returns:
+        bool: True if both images contain useful data. False if either contains no useful date.
     """
     for image in images:
         src = rasterio.open(image)
@@ -421,14 +426,19 @@ def check_data(images):
     return True
 
 
-def create_vector(args, dmg_path, extent=None, in_poly_df=None):
+def create_vector(
+    args: object,
+    dmg_path: Union[str, Path],
+    extent: tuple[float] = None,
+    in_poly_df: DataFrame = None,
+) -> None:
     """helper function to create vector features
 
     Args:
-        args (cls): arguments class
-        dmg_path (str): path to damage files
+        args (object): arguments class
+        dmg_path (Union[str, Path]): path to damage files
         extent (tuple, optional): extent to create features for. Defaults to None.
-        in_poly_df (dataframe, optional): dataframe of building footprint polygons. Defaults to None.
+        in_poly_df (DataFrame, optional): dataframe of building footprint polygons. Defaults to None.
     """
     # Get files for creating vector data
     logger.info("Generating vector data")
@@ -440,6 +450,7 @@ def create_vector(args, dmg_path, extent=None, in_poly_df=None):
     else:
         polygons = features.create_polys(dmg_files)
 
+    # if using bldg_polys: clip damage polygons to bldg_polys and weight damage
     if args.bldg_polys:
         polygons = (
             in_poly_df.reset_index()
@@ -481,7 +492,20 @@ def create_vector(args, dmg_path, extent=None, in_poly_df=None):
     features.write_output(centroids, vector_out, "centroids")
 
 
-def pre_post_handler(args, pre_post):
+def pre_post_handler(args: object, pre_post: str) -> tuple[DataFrame, str]:
+    """helper to gather files and create image footprint dataframe
+
+    Args:
+        args (object): arguments class
+        pre_post (str): pre or post identifier
+
+    Raises:
+        ValueError: if pre_post is not either "pre" or "post"
+
+    Returns:
+        tuple[DataFrame, str]: dataframe and crs of input files
+    """
+
     if pre_post == "pre":
         crs_arg = args.pre_crs
         directory = args.pre_directory
@@ -531,7 +555,7 @@ def main():
     post_df = utils.dataframe.process_df(post_df, args.destination_crs)
 
     if args.bldg_polys:
-        in_poly_df = dataframe.bldg_poly_handler(args.bldg_polys).to_crs(
+        in_poly_df = dataframe.df_from_file(args.bldg_polys).to_crs(
             args.destination_crs
         )
     else:
@@ -539,7 +563,7 @@ def main():
 
     # Get AOI files and calculate intersect
     if args.aoi_file:
-        aoi_df = dataframe.make_aoi_df(args.aoi_file).to_crs(args.destination_crs)
+        aoi_df = dataframe.df_from_file(args.aoi_file).to_crs(args.destination_crs)
     else:
         aoi_df = None
 

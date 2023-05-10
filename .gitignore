@@ -1,5 +1,6 @@
-# Added by Pound 2022-03-05
+# Added by Pound
 scratch*
+*.code-workspace
 
 __pycache__/
 .vscode/

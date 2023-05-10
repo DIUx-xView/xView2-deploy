@@ -1,16 +1,23 @@
+from pathlib import Path
+from typing import Union
+
 import geopandas
 import rasterio
 import rasterio.crs
 import rasterio.warp
+from affine import Affine
 from loguru import logger
 from shapely.geometry import Polygon
 
 
-def make_footprint_df(files):
-    """
-    Creates a dataframe of raster footprints and metadata
-    :param files: iterable of roster filenames
-    :return: geodataframe of raster footprints and metadata
+def make_footprint_df(files: list[Path]) -> geopandas.GeoDataFrame:
+    """create footprint/metadata geodataframe from list of image files
+
+    Args:
+        files (list[Path]): list of path objects for input imagery
+
+    Returns:
+        geopandas.GeoDataFrame: geadataframe of footprints and select metadata
     """
     # Todo: this requires much more error handling and tests
 
@@ -59,19 +66,30 @@ def make_footprint_df(files):
     return df
 
 
-def make_aoi_df(aoi_file):
-    if aoi_file is None:
-        return None
+def df_from_file(in_file: str) -> geopandas.GeoDataFrame:
+    """create GeoDataFrame from input file
 
-    return geopandas.GeoDataFrame.from_file(aoi_file)
+    Args:
+        in_file (str): Input file. Must be readable by GeoPandas (Fiona).
 
-
-def process_df(df, dest_crs):
+    Returns:
+        geopandas.GeoDataFrame: GeoDataFrame from file
     """
-    Process geadataframe of raster footprints and adds tranform resolution
-    :param df: geodataframe
-    :param dest_crs: destination CRS to get transform resolution
-    :return: geodataframe
+
+    return geopandas.GeoDataFrame.from_file(in_file)
+
+
+def process_df(
+    df: geopandas.GeoDataFrame, dest_crs: rasterio.crs.CRS
+) -> geopandas.GeoDataFrame:
+    """Adds "trans_res" column to GeoDataframe containing transformations from imagery
+
+    Args:
+        df (geopandas.GeoDataFrame): GeoDataframe of imagery items.
+        dest_crs (rasterio.crs.CRS): Destination CRS as RasterIO object.
+
+    Returns:
+        geopandas.GeoDataFrame: GeoDataFrame
     """
     df["trans_res"] = df.apply(
         lambda x: get_trans_res(x.crs, x.width, x.height, x.bounds, dest_crs), axis=1
@@ -89,17 +107,18 @@ def process_df(df, dest_crs):
     return df
 
 
-def get_utm(df):
-    """
-    Calculate UTM EPSG code for coordinate pair
-        The EPSG is:
+def get_utm(df: geopandas.GeoDataFrame) -> str:
+    """Get UTM code for GeoDataframe. Dissolves all features and gets UTM at the centroid.
+
+    The EPSG is calculates as:
         32600+zone for positive latitudes
         32700+zone for negatives latitudes
-    :param df: geodataframe
-    :return: EPSG code
-    """
-    """Return UTM EPSG code of respective lon/lat.
 
+    Args:
+        df (geopandas.GeoDataFrame): GeoDataframe
+
+    Returns:
+        rasterio.crs.CRS: RasterIO CRS object of UTM
     """
 
     cent = df.dissolve().geometry.to_crs(4326).centroid
@@ -114,15 +133,34 @@ def get_utm(df):
     # return df.estimate_utm_crs()
 
 
-def get_trans_res(src_crs, width, height, bounds, dst_crs):
-    """
-    Calculates default transform resolution.
+def get_trans_res(
+    src_crs: Union[rasterio.crs.CRS, dict],
+    width: int,
+    height: int,
+    bounds: tuple[float],
+    dst_crs: rasterio.crs.CRS,
+) -> tuple[float]:
+    """Calculates default transform resolution.
     :param src_crs: source CRS
     :param width: source width
     :param height: source height
     :param bounds: tuple of source bounds
     :param dst_crs: destination CRS
     :return: tuple of destination CRS resolution (x, y)
+    Source coordinate reference system, in rasterio dict format.
+    Example: CRS({'init': 'EPSG:4326'})
+
+
+    Args:
+        src_crs (Union[rasterio.crs.CRS, dict]): Source coordinate reference system, in rasterio dict format.
+    Example: CRS({'init': 'EPSG:4326'})
+        width (int): Image width
+        height (int): Image height
+        bounds (tuple[float]): Image bounds
+        dst_crs (Union[rasterio.crs.CRS, dict]): Destination CRS
+
+    Returns:
+        tuple[float]: Transform resolution
     """
     # Get our transform
     transform = rasterio.warp.calculate_default_transform(
@@ -141,15 +179,26 @@ def get_trans_res(src_crs, width, height, bounds, dst_crs):
     return (transform[0][0], -transform[0][4])
 
 
-def get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=None):
+def get_intersect(
+    pre_df: geopandas.GeoDataFrame,
+    post_df: geopandas.GeoDataFrame,
+    args: object,
+    aoi: geopandas.GeoDataFrame = None,
+    in_poly_df: geopandas.GeoDataFrame = None,
+) -> Polygon:
+    """Computes intersection of two GeoDataFrames and reduces extent by an optional defined area of interest (AOI) and building footprint polygons.
+
+    Args:
+        pre_df (geopandas.GeoDataFrame): GeoDataFrame.
+        post_df (geopandas.GeoDataFrame): GeoDataFrame.
+        args (object): Arguments object.
+        aoi (geopandas.GeoDataFrame, optional): AOI GeoDataframe. Defaults to None.
+        in_poly_df (geopandas.GeoDataFrame, optional): Building footprint GeoDataFrame. Defaults to None.
+
+    Returns:
+        Polygon: Shapely polygon of intersection among all layers.
     """
-    Computes intersection of two dataframes and reduces extent by an optional defined AOI.
-    :param pre_df: dataframe of raster footprints
-    :param post_df: dataframe of raster footprints
-    :param args: arguments object
-    :param aoi: AOI dataframe
-    :return: tuple of calculated intersection
-    """
+
     geom_bounds = []
 
     pre_env = pre_df.to_crs(args.destination_crs).unary_union
@@ -182,34 +231,46 @@ def get_intersect(pre_df, post_df, args, aoi=None, in_poly_df=None):
     return intersect
 
 
-def get_max_res(pre_df, post_df):
+def get_max_res(
+    pre_df: geopandas.GeoDataFrame, post_df: geopandas.GeoDataFrame
+) -> tuple[float]:
+    """Calculates maximum resolution from two GeoDataFrames of imagery footprints. This provides the maximum resolution that all imagery products can be reprojected to without upscaling.
+
+    Args:
+        pre_df (geopandas.GeoDataFrame): GeoDataframe of imagery footprints
+        post_df (geopandas.GeoDataFrame): GeoDataframe of imagery footprints
+
+    Returns:
+        tuple[float]: Tuple of (x, y) resolutions.
     """
-    Calculates minimum resolution from two dataframes of raster footprints. Calculated on destination CRS units.
-        Never mind the function name...I don't want to hear it.
-    :param pre_df: geodataframe of raster footprints
-    :param post_df: geodataframe of raster footprints
-    :return: tuple of minimum resolution in (x, y)
-    """
+
     res_list = list(pre_df.trans_res) + list(post_df.trans_res)
     x = max(x[0] for x in res_list)
     y = max(x[1] for x in res_list)
     return (x, y)
 
 
-def bldg_poly_handler(poly_file):
-    df = geopandas.read_file(poly_file)
-
-    return df
-
-
 def bldg_poly_process(
-    df,
-    intersect,
-    dest_crs,
-    out_file,
-    out_shape,
-    transform,
-):
+    df: geopandas.GeoDataFrame,
+    intersect: tuple[float],
+    dest_crs: Union[rasterio.crs.CRS, dict],
+    out_file: Union[Path, str],
+    out_shape: tuple[int],
+    transform: Affine,
+) -> Path:
+    """Process input polygon GeoDataFrame. Clips dataframe to 'intersect', reprojects to 'dest_crs', and rasterizes features.
+
+    Args:
+        df (geopandas.GeoDataFrame): Dataframe of input features
+        intersect (tuple[float]): Tuple of calculated intersect
+        dest_crs (Union[rasterio.crs.CRS, dict]): Destination CRS
+        out_file (Union[Path, str]): Path or string of filepath for generated tiff
+        out_shape (tuple[int]): Tuple of ('height', 'width')
+        transform (Affine): Transform
+
+    Returns:
+        Path: _description_
+    """
     def _clip_polys(input, mask):
         return geopandas.clip(input, mask)
 
@@ -239,6 +300,8 @@ def bldg_poly_process(
             dst.write(image, indexes=1)
 
         return out_file
+
+    out_file = Path(out_file)
 
     poly_cords = [
         (intersect[0], intersect[1]),
