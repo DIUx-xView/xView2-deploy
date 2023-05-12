@@ -88,14 +88,11 @@ def create_centroids(features):
     return cent_df
 
 
-def weight_dmg(
-    features: geopandas.GeoDataFrame, destination_crs
-) -> geopandas.GeoDataFrame:
+def weight_dmg(features: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     """Given a GeoDataFrame of input features, calculate the weighted damage by summing the weights of all damage.
 
     Args:
         features (geopandas.GeoDataFrame): Input features.
-        destination_crs (_type_): Destination CRS.
 
     Returns:
         geopandas.GeoDataFrame: Weighted damage score for input features.
@@ -104,12 +101,9 @@ def weight_dmg(
 
     features.loc[features.dmg.isnull(), "dmg"] = 1
     features["dmg"] = round(
-        ((features.geometry.area * features.dmg) / poly.area), ndigits=1
+        ((features.geometry.area * features.dmg) / poly.area), ndigits=2
     )
 
-    features = features.set_crs(
-        destination_crs
-    )  # TODO: this should be in same CRS as input features
     features = features.dissolve(by="index", aggfunc=sum)
 
     return features
