@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import geopandas as gpd
+from shapely.geometry import Polygon
+
 import handler
 import utils.features
 from utils import features
@@ -62,3 +65,20 @@ class TestCentroids:
         polys = features.create_polys([file], threshold=0)
         test = utils.features.create_centroids(polys)
         assert len(test) == 640
+
+
+class TestWeightDMG:
+    def test_weight_dmg(self):
+        data = {
+            "dmg": [1, 1, 2, 3],
+            "index": [1, 1, 1, 1],
+            "geometry": [
+                Polygon(((0, 0), (0, 1), (1, 1), (1, 0))),
+                Polygon(((0, 1), (0, 2), (1, 2), (1, 1))),
+                Polygon(((1, 0), (1, 1), (2, 1), (2, 0))),
+                Polygon(((1, 1), (1, 2), (2, 2), (2, 1))),
+            ],
+        }
+        df = gpd.GeoDataFrame(data)
+        test = features.weight_dmg(df)
+        assert test.dmg.values[0] == 1.75

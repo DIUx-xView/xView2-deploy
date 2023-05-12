@@ -459,7 +459,7 @@ def create_vector(
         )  # reset_index preserves a column independent id for joining later
         polygons = (
             polygons.groupby("index", as_index=False)
-            .apply(lambda x: features.weight_dmg(x, args.destination_crs))
+            .apply(lambda x: features.weight_dmg(x))
             .reset_index(
                 drop=True
             )  # resets multi-index created during grouping/dissolve process

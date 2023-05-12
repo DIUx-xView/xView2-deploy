@@ -14,8 +14,8 @@ class TestGetFiles:
     def test_no_files(self):
         with pytest.raises(AssertionError):
             handler.get_files("tests/data/empty_test_dir")
-            
-            
+
+
 def test_make_output_structure(tmp_path):
     paths = [
         "mosaics",
@@ -27,9 +27,9 @@ def test_make_output_structure(tmp_path):
         "over",
         "vector",
     ]
-    
+
     handler.make_output_structure(tmp_path)
-    assert all([(tmp_path/path).is_dir() for path in paths])
+    assert all([(tmp_path / path).is_dir() for path in paths])
 
 
 def test_reprojection_helper():
