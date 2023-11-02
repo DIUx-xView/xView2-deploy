@@ -1,0 +1,7 @@
+pre-commit
+jupyter
+black
+jupyter-black
+nbdev
+ipykernel
+fastai

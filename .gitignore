@@ -1,6 +1,7 @@
 # Added by Pound
 scratch*
 *.code-workspace
+.DS_Store
 
 __pycache__/
 .vscode/
